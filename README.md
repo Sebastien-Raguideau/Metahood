@@ -1,0 +1,2 @@
+# Metahood
+Snakemake Assembly pipeline
