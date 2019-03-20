@@ -1,0 +1,180 @@
+include: "Common.snake"
+configfile: "config.yaml"
+
+import os.path
+import numpy as np
+from collections import Counter
+from Bio.SeqIO.FastaIO import SimpleFastaParser
+
+rule all:
+   input:  expand("{group}/contigs/index.log", group=GROUPS),
+           expand("{group}/binning/clustering_merged.csv", group=GROUPS)
+
+
+
+
+# ---- Assembly ----------------------------------------------------------------
+
+# Assemble with MegaHIT
+#TODO limit memory
+rule megahit:
+    input:   left=left_reads, right=right_reads
+    output:  "{group}/assembly/final.contigs.fa"
+    params:  left=lambda w: ",".join(expand("{r}", r=left_reads(w))),
+             right=lambda w: ",".join(expand("{r}", r=right_reads(w))),
+             dir="{group}/assembly",
+             mem=MEM
+    threads: 70
+    log:     "{group}/assembly.log"
+    message: "Assembling {wildcards.group} with MegaHIT"
+    shell:   """rm -rf {params.dir}
+             megahit -1 {params.left} -2 {params.right} -t {threads} -m {params.mem} -o {params.dir} &> {log}"""
+
+rule contig_folder:
+    input: "{group}/assembly/final.contigs.fa"
+    output: "{group}/contigs/contigs.fa"
+    shell: "mv {input} {output}"
+
+
+# ---- Cut in 10K bits ----------------------------------------------------------------
+rule prodigal:
+    input:
+        "{group}/contigs/contigs.fa"
+    output:
+        faa="{group}/annotation/contigs.faa",
+        fna="{group}/annotation/contigs.fna",
+        gff="{group}/annotation/contigs.gff",
+        cut_faa=expand("{{group}}/annotation/temp_splits/Batch_{nb}.faa",nb=range(100))
+    params:
+        dir='{group}/annotation'
+    threads:
+        20
+    message:"Parallel prodigal run in {input}"
+    shell:
+        "{SCRIPTS}/Parallel_prodigal.py {threads} {input} -s 100 -o {params.dir} -T {params.dir}/temp_splits"
+
+# ---- get the bed file for the cut up contigs-------------------------------------------
+rule cut_contigs:
+    input:  fa="{group}/contigs/contigs.fa",
+            gff="{group}/annotation/contigs.gff"
+    output: contig="{group}/contigs/contigs_C10K.fa",
+            Contig_bed="{group}/contigs/contigs_C10K.bed"
+    message:"Use orfs annotation to cut contigs"
+    shell:  """{SCRIPTS}/Use_orf_to_cut.py {input.fa} {input.gff} > {output.contig}
+            mv {wildcards.group}/annotation/contigs_C10K.bed {output.Contig_bed}"""
+
+# ---- get the bed file for the cut up contigs-------------------------------------------
+
+rule bwa_index:
+    input:   "{path}/contigs.fa"
+    output:  touch("{path}/index.done")
+    log:     "{path}/index.log"
+    message: "Building bwa index for {input}"
+    shell:   "bwa index {input} &> {log}"
+
+# ---- map reads to the assembly contigs--------------------------------------------------
+rule bwa_mem_to_cram:
+    input:   index="{group}/contigs/index.done",
+             contigs="{group}/contigs/contigs.fa",
+             left=lambda w:SAMPLE_READS[w.sample][0], right=lambda w:SAMPLE_READS[w.sample][1],
+    output:  "{group}/map/{sample}_mapped_sorted.cram"
+    threads: 1000
+    log:     "{group}/map/{sample}_map.log"
+    message: "bwa mem mapping followed by samtool sorting for {input}"
+    shell:   "bwa mem -t {threads} {input.contigs} {input.left} {input.right} &>{log} |samtools view -T {input.contigs} -C -F 4 -@{threads} - | samtools sort -@{threads} - > {output} "
+
+# ---- use bedtool to compute coverage  ----------------------------------------------------
+rule bedtools:
+    input:   cram="{group}/map/{sample}_mapped_sorted.cram",
+             bed="{group}/contigs/contigs_C10K.bed"
+    output:  "{group}/map/{sample}.cov"
+    log:      "{group}/map/{sample}.log"
+    shell:   "bedtools coverage -a {input.bed} -b {input.cram} -mean > {output} 2>{log} "
+
+# ---- use a awk onliner to regroup all coverages into a unique file -----------------------
+rule coverage:
+    input:   lambda w : [w.group+"/map/"+sample.split('/')[-1]+".cov" for sample in  GROUPS[w.group]]
+    output:  "{group}/profile/coverage_contigs_C10K.tsv"
+    shell :  """
+            echo -e "contig\t""$(ls {input} | cut -f1 -d "." | rev | cut -f1 -d "/" |rev | tr "\n" "\t" | sed 's/\t$//')"> {output}
+            awk 'NR==FNR{{Matrix_coverage[1,FNR]=$4}}FNR==1{{f++}}{{Matrix_coverage[f+1,FNR]=$5}}END{{for(x=1;x<=FNR;x++){{for(y=1;y<ARGC+1;y++){{if(y<ARGC){{printf("%s\t",Matrix_coverage[y,x])}}if(y==ARGC){{printf("%s",Matrix_coverage[y,x]);print""}}}}}}}}' {input} >>{output}"""
+
+
+# ------------------------------------------ COG Annotation -------------------------------
+# ------- rpsblast on previous batchs 
+rule Batch_rpsblast:
+    input:   "{group}/{path,a.*/Batch.*}.faa"
+    output:  "{group}/{path,a.*/Batch.*}_cogs.tsv"
+    log:     "{group}/{path,a.*/Batch.*}_cog.log"
+    params:  db=COG_DB
+    threads: THREADS
+    shell:   """
+             rpsblast+ -outfmt '6 qseqid sseqid evalue pident length slen qlen' -evalue 0.00001 -num_threads {threads} -query {input} -db {params.db} -out {output} &>log
+             """
+#------- select best hit and use criterion : min 5% coverage, min 1e-10 evalue--------------
+rule parse_cogs_annotation:
+    input:   Batch=expand("{{group}}/annotation/temp_splits/Batch_{nb}_cogs.tsv",nb=range(100))
+    output:  cog="{group}/annotation/contigs_best_hits_cogs.tsv",
+             cat=temp("{group}/annotation/contigs_Cog.out")
+    shell:   """
+             cat {input} > {output.cat}   
+             {SCRIPTS}/Filter_Cogs.py {output.cat} --cdd_cog_file {SCG_DATA}/cdd_to_cog.tsv  > {output.cog}
+             """
+
+# ------- extract scg ------------------------------------------------------------------------
+checkpoint extract_SCG_sequences:
+    input:  annotation="{filename}_best_hits_cogs.tsv",
+            gff="{filename}.gff",
+            fna="{filename}.fna"
+    output: "{filename}_SCG.fna"
+    shell:  "{SCRIPTS}/Extract_SCG.py {input.fna} {input.annotation} {SCG_DATA}/scg_cogs_min0.97_max1.03_unique_genera.txt {input.gff}>{output}"
+
+# --------- Concoct ------------------------------------------------------------------------
+def get_initial_number_of_bins(wildcards):
+    SCF_faa_handle=open(checkpoints.extract_SCG_sequences.get(filename=wildcards.group+"/annotation/contigs").output[0])
+    nb_bin=int(5*np.median(list(Counter([header.split(" ")[1] for header,seq in SimpleFastaParser(SCF_faa_handle)]).values())))
+    return nb_bin
+
+rule concoct:
+    input:   cov="{group}/profile/coverage_contigs_C10K.tsv",
+             fasta="{group}/contigs/contigs_C10K.fa",
+             SCG="{group}/annotation/contigs_SCG.fna"
+    output:  "{group}/binning/clustering_gt"+str(MIN_CONTIG_SIZE)+".csv",
+             Data="{group}/binning/original_data_gt%d.csv"%MIN_CONTIG_SIZE
+    params:  min_contig_size=MIN_CONTIG_SIZE,
+             nb_bin=get_initial_number_of_bins
+    threads: 20
+    shell:   """
+             concoct --coverage_file {input.cov} --composition_file {input.fasta} -b {wildcards.group}/binning -c {params.nb_bin} -l {params.min_contig_size} -t {threads}
+             """
+# --------- Concoct refine -------------------------------------------------------------------
+
+rule refine:
+    input:  bins="{group}/{path}gt%d.csv"%MIN_CONTIG_SIZE,
+            SCG="{group}/annotation/contigs_SCG.fna",
+            Data="{group}/binning/original_data_gt%d.csv"%MIN_CONTIG_SIZE
+    output: R=temp("{group}/{path,.*/.*clustering.*}gt%dR.csv")%MIN_CONTIG_SIZE,
+            table="{group}/{path,.*/.*clustering.*}gt%d_SCG_table.csv"%MIN_CONTIG_SIZE,
+            bins_R="{group}/{path,.*/.*clustering.*}refine.csv",
+            table_R="{group}/{path,.*/.*clustering.*}gt%d_SCG_table_R.csv"%MIN_CONTIG_SIZE
+    log:    temp("{group}/{path,.*/.*clustering.*}.log")
+    threads: 1000
+    shell:  """ {SCRIPTS}/SCG_in_Bins.py {input.bins} {input.SCG} -t {output.table}
+            sed '1d' {input.bins}  > {output.R}
+            cd {wildcards.group}/binning
+            concoct_refine ../../{output.R} ../../{input.Data} ../../{output.table} -t {threads} &>../../{log}
+            cd ../../
+            {SCRIPTS}/SCG_in_Bins.py {output.bins_R} {input.SCG} -t {output.table_R}
+            """
+
+# --------- merge back contigs -------------------------------------------------------------------
+rule merge_contigs:
+    input:   "{path}refine.csv"
+    output:  "{path}merged.csv"
+    log:     "{path}consensus.log"
+    shell:   "{SCRIPTS}/Consensus.py {input} >{output} 2>{log}"
+
+
+
+
+

@@ -1,0 +1,90 @@
+configfile: "config.yaml"
+
+from itertools import chain
+from functools import partial
+import glob
+import os.path
+import tempfile
+import yaml
+from snakemake.exceptions import WorkflowError
+from scripts.common import detect_reads, fill_default_values
+
+#Config parameters
+fill_default_values(config)
+
+TMP_DIR_ROOT = "/localscratch"
+IN = config["data"]
+READ_LENGTH = config["read_length"]
+ASSEMBLER = config["assembly"]["assembler"]
+ASSEMBLER_DIR = config["assembly"]["dir"]
+BIN = config["bin"] # what is that used for ?
+MEM = config["mem"]
+SCRIPTS = config["scripts"]
+SOFT = config["soft"]
+COG_DB= config["cog_database"]
+ASSEMBLY_K = config["assembly"]["k"]
+THREADS = config["threads"]
+SCG_DATA = config["scg_data"]
+MIN_CONTIG_SIZE = config["concoct_contig_size"]
+
+# Groups : define the groups as a dictionary mapping to the path of samples folder
+GROUPS_DEF=config["assembly"]["groups"]
+GROUPS={}
+for group,list_sample in GROUPS_DEF.items() :
+    # get the samples paths corresponding to the group
+    GROUPS[group]=[path for sample in list_sample for path in glob.glob(IN+"/"+sample)]
+Empty_group=[group for group,value in GROUPS.items() if len(value)==0]
+if Empty_group :
+    raise WorkflowError("Samples specified in groups "+"/".join(Empty_group)+" haven't been found at "+IN+ ", check your config file for potential errors")
+
+# Each sample should have its own folder with fasta/fastq files in it
+SAMPLES={sample.split("/")[-1] for list_sample in GROUPS.values() for sample in list_sample}
+SAMPLE_READS = dict(map(lambda sample: (sample, detect_reads(os.path.join(IN, sample))), SAMPLES))
+Too_many_files=[sample for sample,list_file in SAMPLE_READS.items() if len(list_file)>2]
+if Too_many_files :
+    raise WorkflowError("Samples folder "+"/".join(Too_many_files)+"have more than 2 files, which ones should be used for assembly?")    
+
+# Add group samples entry to SAMPLE_READS
+GROUP_READS={group:list(zip(*[SAMPLE_READS[sample.split("/")[-1]] for sample in list_sample])) for group,list_sample in GROUPS.items()}
+SAMPLE_READS.update(GROUP_READS)
+
+# build functions based on wildcard value for group and/or sample,
+left_reads=lambda wildcards: SAMPLE_READS[wildcards["group"]][0]
+right_reads=lambda wildcards: SAMPLE_READS[wildcards["group"]][1]
+
+
+def samples_yaml():
+    libs = []
+    for s in SAMPLES:
+        info = {}
+        info["left reads"] = [SAMPLE_READS[s][0]]
+        info["right reads"] = [SAMPLE_READS[s][1]]
+        info["type"] = "paired-end"
+        info["orientation"] = "fr"
+        libs.append(info)
+    return yaml.dump(libs, default_style='"', default_flow_style=False)
+
+
+
+def is_fastq(wildcards):
+    name = getattr(wildcards, "sample", None)
+    if not name:
+        try:
+            name = GROUPS[wildcards.group][0]
+        except KeyError:
+            name = wildcards.group
+
+    for ext in {".fastq", ".fq", ".fastq.gz", "fq.gz"}:
+        if SAMPLE_READS[name][0].endswith(ext):
+            return True
+    return False
+
+def check_scratch_avail(root):
+    if os.path.isdir(root):
+        try:
+            with tempfile.TemporaryDirectory(dir=root) as temp_dir:
+                return True
+        except:
+            print("Launch with tmpdir failed")
+    return False
+
