@@ -1,5 +1,5 @@
 include: "Common.snake"
-configfile: "config.yaml"
+
 
 import os.path
 import numpy as np
@@ -47,8 +47,9 @@ rule prodigal:
         cut_faa=expand("{{group}}/annotation/temp_splits/Batch_{nb}.faa",nb=range(100))
     params:
         dir='{group}/annotation'
+    priority: 50
     threads:
-        20
+        1000
     message:"Parallel prodigal run in {input}"
     shell:
         "{SCRIPTS}/Parallel_prodigal.py {threads} {input} -s 100 -o {params.dir} -T {params.dir}/temp_splits"
@@ -81,7 +82,7 @@ rule bwa_mem_to_cram:
     threads: 1000
     log:     "{group}/map/{sample}_map.log"
     message: "bwa mem mapping followed by samtool sorting for {input}"
-    shell:   "bwa mem -t {threads} {input.contigs} {input.left} {input.right} &>{log} |samtools view -T {input.contigs} -C -F 4 -@{threads} - | samtools sort -@{threads} - > {output} "
+    shell:   "bwa mem -t {threads} {input.contigs} {input.left} {input.right} 2>{log} |samtools view -T {input.contigs} -C -F 4 -@{threads} - | samtools sort -@{threads} - > {output} "
 
 # ---- use bedtool to compute coverage  ----------------------------------------------------
 rule bedtools:
@@ -89,6 +90,8 @@ rule bedtools:
              bed="{group}/contigs/contigs_C10K.bed"
     output:  "{group}/map/{sample}.cov"
     log:      "{group}/map/{sample}.log"
+    resources:
+        mem_percent=5
     shell:   "bedtools coverage -a {input.bed} -b {input.cram} -mean > {output} 2>{log} "
 
 # ---- use a awk onliner to regroup all coverages into a unique file -----------------------
@@ -107,9 +110,8 @@ rule Batch_rpsblast:
     output:  "{group}/{path,a.*/Batch.*}_cogs.tsv"
     log:     "{group}/{path,a.*/Batch.*}_cog.log"
     params:  db=COG_DB
-    threads: THREADS
     shell:   """
-             rpsblast+ -outfmt '6 qseqid sseqid evalue pident length slen qlen' -evalue 0.00001 -num_threads {threads} -query {input} -db {params.db} -out {output} &>log
+             rpsblast+ -outfmt '6 qseqid sseqid evalue pident length slen qlen' -evalue 0.00001 -query {input} -db {params.db} -out {output} &>log
              """
 #------- select best hit and use criterion : min 5% coverage, min 1e-10 evalue--------------
 rule parse_cogs_annotation:
@@ -153,16 +155,16 @@ rule refine:
     input:  bins="{group}/{path}gt%d.csv"%MIN_CONTIG_SIZE,
             SCG="{group}/annotation/contigs_SCG.fna",
             Data="{group}/binning/original_data_gt%d.csv"%MIN_CONTIG_SIZE
-    output: R=temp("{group}/{path,.*/.*clustering.*}gt%dR.csv")%MIN_CONTIG_SIZE,
-            table="{group}/{path,.*/.*clustering.*}gt%d_SCG_table.csv"%MIN_CONTIG_SIZE,
+    output: table="{group}/{path,.*/.*clustering.*}gt%d_SCG_table.csv"%MIN_CONTIG_SIZE,
             bins_R="{group}/{path,.*/.*clustering.*}refine.csv",
             table_R="{group}/{path,.*/.*clustering.*}gt%d_SCG_table_R.csv"%MIN_CONTIG_SIZE
     log:    temp("{group}/{path,.*/.*clustering.*}.log")
     threads: 1000
     shell:  """ {SCRIPTS}/SCG_in_Bins.py {input.bins} {input.SCG} -t {output.table}
-            sed '1d' {input.bins}  > {output.R}
+            sed '1d' {input.bins}  > temp
             cd {wildcards.group}/binning
-            concoct_refine ../../{output.R} ../../{input.Data} ../../{output.table} -t {threads} &>../../{log}
+            concoct_refine ../../temp ../../{input.Data} ../../{output.table} -t {threads} &>../../{log}
+            rm ../../temp
             cd ../../
             {SCRIPTS}/SCG_in_Bins.py {output.bins_R} {input.SCG} -t {output.table_R}
             """

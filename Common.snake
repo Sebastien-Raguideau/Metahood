@@ -1,14 +1,13 @@
-configfile: "config.yaml"
-
+configfile: config["CONFIG_PATH"]
 from itertools import chain
 from functools import partial
 import glob
 import os.path
 import tempfile
 import yaml
+from subprocess import Popen, PIPE
 from snakemake.exceptions import WorkflowError
 from scripts.common import detect_reads, fill_default_values
-
 #Config parameters
 fill_default_values(config)
 
@@ -17,7 +16,6 @@ IN = config["data"]
 READ_LENGTH = config["read_length"]
 ASSEMBLER = config["assembly"]["assembler"]
 ASSEMBLER_DIR = config["assembly"]["dir"]
-BIN = config["bin"] # what is that used for ?
 MEM = config["mem"]
 SCRIPTS = config["scripts"]
 SOFT = config["soft"]
@@ -27,12 +25,28 @@ THREADS = config["threads"]
 SCG_DATA = config["scg_data"]
 MIN_CONTIG_SIZE = config["concoct_contig_size"]
 
+def extended_glob(pattern):
+    process = Popen(['bash -O extglob -c " ls -d '+pattern+' "'], stdout=PIPE, stderr=PIPE,shell=True)
+    return [element for element in process.communicate()[0].decode("utf-8").split("\n") if element]
+
+# persample : create groups of one sample
+if "per_sample" in config["assembly"] :
+    SAMPLES=config["assembly"]["per_sample"]
+    for sample_regex in SAMPLES :
+        prefix=""
+        if "|" in sample_regex :
+            prefix,sample_regex=sample_regex.split("|")
+            prefix+="/"
+        for sample in extended_glob(IN+"/"+sample_regex) :
+            sample_name=sample.split("/")[-1]
+            config["assembly"]["groups"][prefix+sample_name]=[sample_name]
+
 # Groups : define the groups as a dictionary mapping to the path of samples folder
 GROUPS_DEF=config["assembly"]["groups"]
 GROUPS={}
 for group,list_sample in GROUPS_DEF.items() :
     # get the samples paths corresponding to the group
-    GROUPS[group]=[path for sample in list_sample for path in glob.glob(IN+"/"+sample)]
+    GROUPS[group]=[path for sample in list_sample for path in extended_glob(IN+"/"+sample)]
 Empty_group=[group for group,value in GROUPS.items() if len(value)==0]
 if Empty_group :
     raise WorkflowError("Samples specified in groups "+"/".join(Empty_group)+" haven't been found at "+IN+ ", check your config file for potential errors")
@@ -51,6 +65,9 @@ SAMPLE_READS.update(GROUP_READS)
 # build functions based on wildcard value for group and/or sample,
 left_reads=lambda wildcards: SAMPLE_READS[wildcards["group"]][0]
 right_reads=lambda wildcards: SAMPLE_READS[wildcards["group"]][1]
+
+
+
 
 
 def samples_yaml():

@@ -27,7 +27,7 @@ class cd:
 parser = argparse.ArgumentParser(description="STRONG - STrain Resolution ON Graphs")
 parser.add_argument("--threads", "-t", type=int, default=1, help="Number of threads")
 parser.add_argument("dir", type=str, help="Output directory")
-parser.add_argument("--config", "-c", type=str, default="", help="config.yaml to be copied to the directory (unnecessary if config.yaml is already there)")
+parser.add_argument("--config", "-c", type=str, default="", help="config_file.yaml to use")
 parser.add_argument("--verbose", "-v", action="store_true", help="Increase verbosity level")
 parser.add_argument("--dryrun", action="store_true", help="Show tasks, do not execute them")
 parser.add_argument("--unlock", "-u", action="store_true", help="Unlock the directory")
@@ -38,7 +38,10 @@ args = parser.parse_args()
 exec_dir = os.path.dirname(os.path.realpath(sys.argv[0]))
 LOCAL_DIR = os.path.realpath(exec_dir)
 
-base_params = ["snakemake", "--directory", os.path.realpath(args.dir), "--cores", str(args.threads), "--config", "LOCAL_DIR" + "=" + LOCAL_DIR, "--latency-wait", "120"]
+CONFIG_PATH = os.path.abspath(args.config)
+
+
+base_params = ["snakemake", "--directory", os.path.realpath(args.dir), "--cores", str(args.threads), "--config", "LOCAL_DIR" + "=" + LOCAL_DIR,"CONFIG_PATH="+CONFIG_PATH, "--latency-wait", "120"]
 
 if args.verbose:
     # Output commands + give reasons + verbose (add "-n" for dry-run)
@@ -55,16 +58,6 @@ if args.s :
     base_params.extend(args.s)
 
 print("Output folder set to", args.dir)
-
-config_path = os.path.join(args.dir, "config.yaml")
-if args.config:
-    if os.path.exists(config_path):
-        if subprocess.call(["diff", config_path, args.config]):
-            print("Config path specified, but different config.yaml already exists in output folder", args.dir)
-            sys.exit(239)
-    else:
-        print("Copying config from", args.config)
-        shutil.copy(args.config, config_path)
 
 with cd(exec_dir):
     def call_snake(extra_params=[]):
@@ -88,10 +81,6 @@ with cd(exec_dir):
             print("Warning: {} destination directory already exists".format(dir_name))
             return
         os.symlink(dir_from, local_dir)
-
-    with open(config_path) as config_in:
-        config = yaml.load(config_in)
-    fill_default_values(config)
     call_snake.nb=0
     print("Step #1 - Assembly - mapping - Concoct")
     call_snake(["--snakefile", "Concoct.snake"])

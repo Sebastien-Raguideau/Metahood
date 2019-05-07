@@ -131,9 +131,10 @@ def main(Fasta_file,Gff_file,Chunk_size,Replace) :
 	# Output cuts contigs		
 	Lim=2*Chunk_size
 	for title, sequence in SimpleFastaParser(open(Fasta_file)) :
-		if (len(sequence)>Lim)&(title in Dico_Contigid_Cutlocation) :
-			for (index,(start,end)) in enumerate(Dico_Contigid_Cutlocation[title]) :
-				print (">"+title+"."+str(index)+"\n"+sequence[start:end])
+		contig=title.split()[0]
+		if (len(sequence)>Lim)&(contig in Dico_Contigid_Cutlocation) :
+			for (index,(start,end)) in enumerate(Dico_Contigid_Cutlocation[contig]) :
+				print (">"+contig+"."+str(index)+"\n"+sequence[start:end])
 		else :
 			print(">"+title+"\n"+sequence)
 	# Output cuts contigs, as feature on intial contigs, in a bed file

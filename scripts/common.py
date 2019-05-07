@@ -11,7 +11,7 @@ import os.path
 import re
 
 default_values = {
-    "concoct_contig_size":500,
+    "concoct_contig_size":1000,
     "threads":     8,
     "mem":0.45,
     "assembly":    {"assembler": "megahit", "k": 55, "groups": [] }

@@ -39,7 +39,7 @@ def main(Fasta_file,Temp_location,Number_task,Splits,output_directory) :
 				Handle.close()
 				while Cant_launch_new_task(Number_task) :
 					time.sleep(10)
-				os.system("nohup prodigal -i "+file_name+" -a "+file_name+".faa -d "+file_name+".fna -f gff -p meta -o "+file_name+".gff > "+file_name+"_prodigal.out 2>&1 &" )
+				os.system("prodigal -i "+file_name+" -a "+file_name+".faa -d "+file_name+".fna -f gff -p meta -o "+file_name+".gff > "+file_name+"_prodigal.out 2>&1 &" )
 				Batch_num+=1
 				file_name="Batch_"+str(Batch_num)
 				Handle=open("Batch_"+str(Batch_num),"w")
@@ -51,7 +51,7 @@ def main(Fasta_file,Temp_location,Number_task,Splits,output_directory) :
 	nb_prodigal_batch = int(process.communicate()[0].rstrip())
 	while nb_prodigal_batch!=0 :
 		time.sleep(60)
-		process = Popen(['ps aux|grep '+os.getlogin()+'|grep "^[p]rodigal" | grep -v Parallel_prodigal.py | wc -l'], stdout=PIPE, stderr=PIPE,shell=True)
+		process = Popen(['ps aux|grep '+os.getlogin()+'|grep "[p]rodigal" | grep -v Parallel_prodigal.py | wc -l'], stdout=PIPE, stderr=PIPE,shell=True)
 		nb_prodigal_batch = int(process.communicate()[0].rstrip())
 	Fasta_File_name=Fasta_file.split("/")[-1]
 	Handle_faa=open(CWD+"/"+output_directory+"/"+Fasta_File_name.replace(".fa",".faa"),"w")
