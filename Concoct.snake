@@ -1,42 +1,9 @@
-include: "Common.snake"
-
-
 import os.path
 import numpy as np
 from collections import Counter
 from Bio.SeqIO.FastaIO import SimpleFastaParser
 
-rule all:
-   input:  expand("{group}/contigs/index.log", group=GROUPS),
-           expand("{group}/binning/clustering_merged.csv", group=GROUPS)
-
-
-
-
-# ---- Assembly ----------------------------------------------------------------
-
-# Assemble with MegaHIT
-#TODO limit memory
-rule megahit:
-    input:   left=left_reads, right=right_reads
-    output:  "{group}/assembly/final.contigs.fa"
-    params:  left=lambda w: ",".join(expand("{r}", r=left_reads(w))),
-             right=lambda w: ",".join(expand("{r}", r=right_reads(w))),
-             dir="{group}/assembly",
-             mem=MEM
-    threads: 70
-    log:     "{group}/assembly.log"
-    message: "Assembling {wildcards.group} with MegaHIT"
-    shell:   """rm -rf {params.dir}
-             megahit -1 {params.left} -2 {params.right} -t {threads} -m {params.mem} -o {params.dir} &> {log}"""
-
-rule contig_folder:
-    input: "{group}/assembly/final.contigs.fa"
-    output: "{group}/contigs/contigs.fa"
-    shell: "mv {input} {output}"
-
-
-# ---- Cut in 10K bits ----------------------------------------------------------------
+# ---- prodigal annotation on splits ----------------------------------------------------------------
 rule prodigal:
     input:
         "{group}/contigs/contigs.fa"
@@ -47,7 +14,7 @@ rule prodigal:
         cut_faa=expand("{{group}}/annotation/temp_splits/Batch_{nb}.faa",nb=range(100))
     params:
         dir='{group}/annotation'
-    priority: 50
+    priority: 100
     threads:
         1000
     message:"Parallel prodigal run in {input}"
@@ -64,25 +31,6 @@ rule cut_contigs:
     shell:  """{SCRIPTS}/Use_orf_to_cut.py {input.fa} {input.gff} > {output.contig}
             mv {wildcards.group}/annotation/contigs_C10K.bed {output.Contig_bed}"""
 
-# ---- get the bed file for the cut up contigs-------------------------------------------
-
-rule bwa_index:
-    input:   "{path}/contigs.fa"
-    output:  touch("{path}/index.done")
-    log:     "{path}/index.log"
-    message: "Building bwa index for {input}"
-    shell:   "bwa index {input} &> {log}"
-
-# ---- map reads to the assembly contigs--------------------------------------------------
-rule bwa_mem_to_cram:
-    input:   index="{group}/contigs/index.done",
-             contigs="{group}/contigs/contigs.fa",
-             left=lambda w:SAMPLE_READS[w.sample][0], right=lambda w:SAMPLE_READS[w.sample][1],
-    output:  "{group}/map/{sample}_mapped_sorted.cram"
-    threads: 1000
-    log:     "{group}/map/{sample}_map.log"
-    message: "bwa mem mapping followed by samtool sorting for {input}"
-    shell:   "bwa mem -t {threads} {input.contigs} {input.left} {input.right} 2>{log} |samtools view -T {input.contigs} -C -F 4 -@{threads} - | samtools sort -@{threads} - > {output} "
 
 # ---- use bedtool to compute coverage  ----------------------------------------------------
 rule bedtools:
@@ -91,7 +39,7 @@ rule bedtools:
     output:  "{group}/map/{sample}.cov"
     log:      "{group}/map/{sample}.log"
     resources:
-        mem_percent=5
+        memG=200
     shell:   "bedtools coverage -a {input.bed} -b {input.cram} -mean > {output} 2>{log} "
 
 # ---- use a awk onliner to regroup all coverages into a unique file -----------------------
@@ -113,6 +61,7 @@ rule Batch_rpsblast:
     shell:   """
              rpsblast+ -outfmt '6 qseqid sseqid evalue pident length slen qlen' -evalue 0.00001 -query {input} -db {params.db} -out {output} &>log
              """
+
 #------- select best hit and use criterion : min 5% coverage, min 1e-10 evalue--------------
 rule parse_cogs_annotation:
     input:   Batch=expand("{{group}}/annotation/temp_splits/Batch_{nb}_cogs.tsv",nb=range(100))
@@ -178,5 +127,6 @@ rule merge_contigs:
 
 
 
+# --------- MAG analysis -------------------------------------------------------------------
 
 

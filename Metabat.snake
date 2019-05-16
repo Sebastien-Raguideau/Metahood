@@ -1,0 +1,27 @@
+from Bio.SeqIO.FastaIO import SimpleFastaParser as SFP
+
+rule generate_depth :
+    input:  lambda w : [w.group+"/map/"+sample.split('/')[-1]+"_mapped_sorted.cram" for sample in  GROUPS[w.group]]
+    output: "{group}/map/depth.txt"
+    shell: "jgi_summarize_bam_contig_depths --outputDepth {output} {input}"
+
+rule metabat :
+    input:  contig="{group}/contigs/contigs.fa",
+            depth="{group}/map/depth.txt"
+    output: dynamic("{{group}}/metabat2/bins/bin.{nb}.fa")
+    shell: "metabat2 -i {input.contig} --outputDepth {input.depth} -o metabat2/bins/"
+
+rule post_processing :
+    input: dynamic("{{group}}/metabat2/bins/bin.{nb}.fa")
+    output:"{group}/metabat2/clustering_metabat.csv"
+    run:
+        List_bins=input
+        Handle=open(output[0],"w")
+        Handle.write("contig_id,0\n")
+        for file in List_bins :
+            bin_name=file.split("bin.")[-1].split('.fa')[0]
+            for name,seq in SFP(open(file)) :
+                Handle.write(",".join([name,bin_name])+"\n")
+        Handle.close()  
+
+

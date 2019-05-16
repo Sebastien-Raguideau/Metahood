@@ -2,6 +2,7 @@
 import argparse
 import subprocess
 from subprocess import PIPE,Popen
+from psutil import virtual_memory
 import sys
 import os
 import os.path
@@ -38,13 +39,19 @@ args = parser.parse_args()
 exec_dir = os.path.dirname(os.path.realpath(sys.argv[0]))
 LOCAL_DIR = os.path.realpath(exec_dir)
 
-CONFIG_PATH = os.path.abspath(args.config)
+
+# ------- set max memory used, in Go ---------------
+CONFIG_FILE = os.path.abspath(args.config)
+Mem_tot=virtual_memory().total
+Percent_mem=yaml.safe_load(open(CONFIG_FILE))["Percent_memory"]
+MEMG=str(int((Percent_mem*Mem_tot)/10**9))
+
+# ------- base parameters used to call snakemake -----------
+base_params = ["snakemake", "--directory", os.path.realpath(args.dir), "--cores", str(args.threads), "--config", "LOCAL_DIR" + "=" + LOCAL_DIR,"--configfile="+CONFIG_FILE,"--resources",'memG='+MEMG, "--latency-wait", "120"]
 
 
-base_params = ["snakemake", "--directory", os.path.realpath(args.dir), "--cores", str(args.threads), "--config", "LOCAL_DIR" + "=" + LOCAL_DIR,"CONFIG_PATH="+CONFIG_PATH, "--latency-wait", "120"]
 
 if args.verbose:
-    # Output commands + give reasons + verbose (add "-n" for dry-run)
     base_params.extend(["-p", "-r", "--verbose"]) 
 if args.dryrun:
     base_params.extend(["--dryrun"])
@@ -53,7 +60,7 @@ if args.unlock:
 if not os.path.exists(args.dir):
     os.makedirs(args.dir)
 if args.dag:
-    base_params.extend(["--dag"])
+    base_params.extend(["--rulegraph"])
 if args.s :
     base_params.extend(args.s)
 
@@ -82,7 +89,6 @@ with cd(exec_dir):
             return
         os.symlink(dir_from, local_dir)
     call_snake.nb=0
-    print("Step #1 - Assembly - mapping - Concoct")
-    call_snake(["--snakefile", "Concoct.snake"])
+    call_snake(["--snakefile", "Master.snake"])
 
 

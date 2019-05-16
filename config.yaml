@@ -1,0 +1,19 @@
+data: /mnt/gpfs/seb/Project/Anaerobic_Digester/WGS/Data  # path to data folder
+cog_database: /home/sebr/seb/Database/rpsblast_cog_db/Cog
+assembly: 
+    assembler: megahit
+    dir : /mnt/gpfs/seb/bin
+    per_sample: ["AD7/PerSample|AD7*"]
+    groups: 
+        AD7/AD7_1_11: 
+          ['AD7_W@(?([0-9])|1[0-1])?(_Repeat?)']
+        AD7/AD7_12_29: 
+          ['AD7_W@(?(1[2-9])|2[0-9])?(_Repeat?)']
+        AD7/AD7_30_48: 
+          ['AD7_W[3-5][0-9]?(_Repeat?)']
+        PerAD/AD18D:
+          ['AD18D*']
+        PerAD/AD18H:
+          ['AD18H*']
+        PerAD/AD20:
+          ['AD20*']

@@ -1,0 +1,46 @@
+
+# ---- Assembly ----------------------------------------------------------------
+
+# Assemble with MegaHIT
+
+rule megahit:
+    input:   left=left_reads, right=right_reads
+    output:  "{group}/assembly/final.contigs.fa"
+    params:  left=lambda w: ",".join(expand("{r}", r=left_reads(w))),
+             right=lambda w: ",".join(expand("{r}", r=right_reads(w))),
+             dir="{group}/assembly",
+             mem=MAX_MEMG/2.1
+    resources:
+        memG=int(MAX_MEMG/2.1)
+    threads: 70
+    log:     "{group}/assembly.log"
+    message: "Assembling {wildcards.group} with MegaHIT"
+    shell:   """rm -rf {params.dir}
+             megahit -1 {params.left} -2 {params.right} -t {threads} -m {params.mem} -o {params.dir} &> {log}"""
+
+checkpoint contig_folder:
+    input: "{group}/assembly/final.contigs.fa"
+    output: "{group}/contigs/contigs.fa"
+    shell: "mv {input} {output}"
+
+# ---- bwa index file  -------------------------------------------
+
+rule bwa_index:
+    input:   "{path}/contigs.fa"
+    output:  touch("{path}/index.done")
+    log:     "{path}/index.log"
+    resources : memG=100
+    params : 100000000000
+    message: "Building bwa index for {input}"
+    shell:   "bwa index -b {params} {input} &> {log}"
+
+# ---- map reads to the assembly contigs--------------------------------------------------
+rule bwa_mem_to_cram:
+    input:   index="{group}/contigs/index.done",
+             contigs="{group}/contigs/contigs.fa",
+             left=lambda w:SAMPLE_READS[w.sample][0], right=lambda w:SAMPLE_READS[w.sample][1],
+    output:  "{group}/map/{sample}_mapped_sorted.cram"
+    threads: 1000
+    log:     "{group}/map/{sample}_map.log"
+    message: "bwa mem mapping followed by samtool sorting for {input}"
+    shell:   "bwa mem -t {threads} {input.contigs} {input.left} {input.right} 2>{log} |samtools view -T {input.contigs} -C -F 4 -@{threads} - | samtools sort -@{threads} - > {output} "
