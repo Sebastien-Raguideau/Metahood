@@ -10,12 +10,13 @@ import os
 import os.path
 import re
 
+
 default_values = {
-    "concoct_contig_size":1000,
+    "binning":{"concoct":{"contig_size" : 1000}},
     "threads":     8,
-    "mem":0.45,
-    "assembly":    {"assembler": "megahit", "k": 55, "groups": [] }
+    "assembly":    {"assembler": "megahit","groups": {} }
 }
+
 
 # Taken from http://stackoverflow.com/questions/36831998/how-to-fill-default-parameters-in-yaml-file-using-python
 def setdefault_recursively(tgt, default = default_values):
@@ -30,7 +31,6 @@ def setdefault_recursively(tgt, default = default_values):
 def fill_default_values(config):
     local_dir = config.get("LOCAL_DIR")
     if local_dir:
-        default_values["bin"] = os.path.join(local_dir, "build/bin")
         default_values["scripts"] = os.path.join(local_dir, "scripts")
         default_values["scg_data"]= os.path.join(local_dir, "scg_data")
     setdefault_recursively(config)
