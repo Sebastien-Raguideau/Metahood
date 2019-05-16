@@ -91,12 +91,12 @@ def main(m8_file,Database_file,min_Bitscore,max_Evalue,min_Pid,min_ref_pid,min_c
 						Newname=Dico_Ref_annotation[Subject][0]
 						Additional_annotation=Dico_Ref_annotation[Subject][1:]
 					except :
-						print("\t".join(map(str,[Query,Subject,Bitscore,PID,Subject_Pid,Coverage,Query_coverage])), file=sys.stderr)
+						print("\t".join([Query,Subject,Bitscore,"{:.3f}".format(PID),"{:.3f}".format(Subject_Pid),"{:.3f}".format(Coverage),"{:.3f}".format(Query_coverage)]), file=sys.stderr)
 						continue
 				else :
 					Newname=Subject
 					Additional_annotation=[]
-				Result= [Query,Newname,Bitscore,PID,Subject_Pid,Coverage,Query_coverage]+Additional_annotation
+				Result= [Query,Newname,Bitscore,"{:.3f}".format(PID),"{:.3f}".format(Subject_Pid),"{:.3f}".format(Coverage),"{:.3f}".format(Query_coverage)]+Additional_annotation
 				print("\t".join(map(str,Result)))
 				
 if __name__ == "__main__":
@@ -118,4 +118,10 @@ if __name__ == "__main__":
 	min_ref_pid=float(args.R)
 	min_coverage=float(args.C)
 	min_Query_coverage=float(args.Q)
+	try :
+		handle=open(Database_file)
+		handle.close()
+	except :
+		print("no valid database file given, it can't be opened for some reason",file=sys.stderr)
+		Database_file=""
 	main(m8_file,Database_file,min_Bitscore,max_Evalue,min_PID,min_ref_pid,min_coverage,min_Query_coverage)

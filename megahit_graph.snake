@@ -7,7 +7,7 @@ def get_kmer_length(wildcards):
 
 rule create_fastg:
 	input : "{group}/contigs/contigs.fa"
-	output: "{group}/graph/contigs.fastg"
+	output: temp("{group}/graph/contigs.fastg")
 	log : "{group}/graph/fastg.log"
 	params: lambda w:get_kmer_length(w)
 	shell : "megahit_toolkit contig2fastg {params} {input} > {output} 2>{log}"
@@ -24,19 +24,20 @@ rule rename_gfa:
 	output: "{group}/graph/contigs.gfa"
 	shell : "{SCRIPTS}/Rename_gfa.py {input.gfa} {input.fa} {output}"
 
+rule subgraph:
+	input: gfa="{group}/graph/{name}.gfa",
+		   annotation="{group}/annotation/contigs_{DB}.tsv"
+	output:"{group}/graph/{name}.{DB}.gfa"
+	shell:"{SCRIPTS}/Create_subgraph.py {input.annotation} {input.gfa} -o{output}"
 
-# nohup Rename_gfa.py Graph/Assembly.gfa Assembly/final.contigs.fa >log 2>&1 & 
-# rm Graph/Assembly.fastg
+rule gff_to_bed:
+	input: "{filepath}.gff"
+	output: "{filepath}.bed"
+	shell: "{SCRIPTS}/Gff_to_bed.py {input} {output}"
 
-# cat ../Annotation/Contigs_F500_C10K_Intl1_selected_33.tsv |awk 'BEGIN { ORS="\t";OFS = "_" }{split($1,a,"_")}{print a[1], a[2]}' >List_integron_loose.tsv
-# cat  Annotation/Contigs_F500_C10K_CARD_CPID_33.tsv |awk 'BEGIN { ORS="\t";OFS = "_" }{split($1,a,"_")}{print a[1], a[2]}' >List_AMR_loose.tsv
-
-# cat  ../Annotation/Contigs_F500_CARD_selected.tsv |awk 'BEGIN { ORS="\t";OFS = "_" }{split($1,a,"_")}{print a[1], a[2]}' >List_AMR.tsv
-# cat  ../Annotation/12_seq_annotation_Megablast.tsv | grep -v "#" |awk 'BEGIN {OFS = "_" }{split($2,a,"_")}{print a[1], a[2]}' | awk 'BEGIN {ORS="\t"}{split($1,a,"|")}{print a[2]}'>>List_AMR.tsv
-
-
-
-# nohup Create_subgraph.py List_AMR.tsv Assembly.gfa -o AMR_reduced.gfa > log 2>&1 &
-# Build_ORF_graph.py ../Annotation/Contigs_F500.bed2 AMR_reduced.gfa
-
+rule orf_graph:
+	input: gfa="{group}/graph/{name}.gfa",
+		   bed="{group}/annotation/contigs.bed"
+	output:"{group}/graph/{name}_ORF.gfa"
+	shell:"{SCRIPTS}/Build_ORF_graph.py {input.bed} {input.gfa} {output}"
 

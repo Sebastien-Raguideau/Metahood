@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: latin-1 -*-
 import os 
 import argparse
@@ -20,7 +20,7 @@ def prodigal_gff_parser(Handle) :
 		if not line :
 			break
 		if line[:16] != "# Sequence Data:" : 
-			print line
+			print(line)
 			raise ValueError("GFF Output from prodigal should start with '# Sequence Data:'") 
 		seq_data = line.rstrip() 
 		Model_data = Handle.readline().rstrip() 
@@ -40,33 +40,28 @@ def prodigal_gff_parser(Handle) :
 		return  # StopIteration
 
 
-def gff_to_bed(Gff_file) :
-	bed_file=".".join(Gff_file.split(".")[:-1])+".bed"
-	bed_file2=".".join(Gff_file.split(".")[:-1])+".bed2"	
+def gff_to_bed(Gff_file,output) :
 	List_towrite=[]
-	List_towrite2=[]
 	Handle=open(Gff_file)
 	for seq_data,Model_data,ORF_list in prodigal_gff_parser(Handle): 
 		for index_orf,ORF in enumerate(ORF_list) :
 			contig=ORF.split()[0]			
 			start=ORF.split()[3]
 			end=ORF.split()[4]
-			List_towrite.append("\t".join([contig,start,end]))
-			List_towrite2.append("\t".join([contig+"_"+ORF.split()[-1].split(";")[0].split("_")[1],contig,start,end]))
-	Handle=open(bed_file,'w')
+			List_towrite.append("\t".join([contig,start,end,contig+"_"+ORF.split()[-1].split(";")[0].split("_")[1]]))
+	Handle=open(output,'w')
 	Handle.write("\n".join(List_towrite))
-	Handle.close()
-	Handle=open(bed_file2,'w')
-	Handle.write("\n".join(List_towrite2))
 	Handle.close()
 
 
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser()
 	parser.add_argument("Gff_file", help="Gff file from, for instance prodigal output")
+	parser.add_argument("output", help="output bed file")
 	args = parser.parse_args()
 	Gff_file=args.Gff_file
-	gff_to_bed(Gff_file)
+	output=args.output
+	gff_to_bed(Gff_file,output)
 
 
 

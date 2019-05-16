@@ -29,6 +29,9 @@ COG_DB= config["cog_database"]
 SCG_DATA = config["scg_data"]
 ANNOTATION = config["annotation"]
 
+# -------- graph --------
+GRAPH_FILES=["contigs."+".".join(list_annotation)+"_ORF.gfa" for list_annotation in config["graph"].values()]
+
 # -------- misc --------
 MIN_CONTIG_SIZE = config["binning"]["concoct"]["contig_size"]
 
