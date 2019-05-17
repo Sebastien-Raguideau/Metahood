@@ -1,19 +1,39 @@
-data: /mnt/gpfs/seb/Project/Anaerobic_Digester/WGS/Data  # path to data folder
-cog_database: /home/sebr/seb/Database/rpsblast_cog_db/Cog
+# ------ Resssources ------ 
+Percent_memory: 0.5
+threads : 8 # single task nb threads
+# ------ Path to data folder ------ 
+data: /mnt/gpfs/seb/Project/Metahood/Test/Data  
+# ------ Assembly parameters ------ 
 assembly: 
-    assembler: megahit
-    dir : /mnt/gpfs/seb/bin
-    per_sample: ["AD7/PerSample|AD7*"]
-    groups: 
-        AD7/AD7_1_11: 
-          ['AD7_W@(?([0-9])|1[0-1])?(_Repeat?)']
-        AD7/AD7_12_29: 
-          ['AD7_W@(?(1[2-9])|2[0-9])?(_Repeat?)']
-        AD7/AD7_30_48: 
-          ['AD7_W[3-5][0-9]?(_Repeat?)']
-        PerAD/AD18D:
-          ['AD18D*']
-        PerAD/AD18H:
-          ['AD18H*']
-        PerAD/AD20:
-          ['AD20*']
+  assembler: megahit
+  per_sample: [sample*]
+  groups: 
+      AD1:
+        [*]
+      AD2:
+        [sample1]
+# ------ Annotation parameters ------ 
+annotation:
+  CARD:
+    db: [/mnt/gpfs/seb/Database/CARD/CARD_DB.dmnd]
+    blast: [blastp]
+    annotation: [/mnt/gpfs/seb/Database/Kihyun_Lee_Databases/CARD_Annotation_V2.tsv]
+    # min_Bitscore , max_Evalue , min_Pid , min_subject_pid , min_coverage , min_Query_coverage
+    filter: [0,1e-5,0.8,0,0.2,0.8]
+    color: "#00ff00"
+  IntI:
+    db: [/mnt/gpfs/seb/Database/Kihyun_Lee_Databases/IntI.db.dmnd]
+    blast: [blastp]
+    annotation: [none]
+    # min_Bitscore , max_Evalue , min_Pid , min_subject_pid , min_coverage , min_Query_coverage
+    filter: [0,1e-5,0.8,0,0.2,0.8]
+    color: "#ff0000" 
+cog_database: /home/sebr/seb/Database/rpsblast_cog_db/Cog
+# ------ Binning parameters------ 
+binning :
+  concoct :
+    contig_size : 1000
+# ------ orf subgraph ------ 
+graph :
+  Card_int1: [CARD,IntI]
+  Card: [CARD]
