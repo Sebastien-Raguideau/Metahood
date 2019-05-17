@@ -30,7 +30,8 @@ SCG_DATA = config["scg_data"]
 ANNOTATION = config["annotation"]
 
 # -------- graph --------
-GRAPH_FILES=["contigs."+".".join(list_annotation)+"_ORF.gfa" for list_annotation in config["graph"].values()]
+GRAPH_FILES=["contigs."+".".join(List_annotation)+"_ORF_annotation.csv" for List_annotation in config["graph"].values()]
+DB_COLORS={DB:Dict_things['color'] for DB,Dict_things in ANNOTATION.items()}
 
 # -------- misc --------
 MIN_CONTIG_SIZE = config["binning"]["concoct"]["contig_size"]

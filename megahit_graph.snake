@@ -41,3 +41,13 @@ rule orf_graph:
 	output:"{group}/graph/{name}_ORF.gfa"
 	shell:"{SCRIPTS}/Build_ORF_graph.py {input.bed} {input.gfa} {output}"
 
+rule graph_annotation:
+	input: gfa="{group}/graph/{name}.gfa"
+	output:
+		   colors="{group}/graph/{name}.colors",
+		   graph_annotation="{group}/graph/{name}_annotation.csv"
+	run:
+		Handle=open(output[0],"w")
+		Handle.write('\n'.join(["\t".join([wildcards.group+"/annotation/contigs_"+db+".tsv",color]) for db,color in DB_COLORS.items()]))
+		Handle.close()
+		shell("{SCRIPTS}/Generate_Graph_metadata.py {input.gfa} {output.colors} {output.graph_annotation}")

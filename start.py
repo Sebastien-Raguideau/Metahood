@@ -49,8 +49,6 @@ MEMG=str(int((Percent_mem*Mem_tot)/10**9))
 # ------- base parameters used to call snakemake -----------
 base_params = ["snakemake", "--directory", os.path.realpath(args.dir), "--cores", str(args.threads), "--config", "LOCAL_DIR" + "=" + LOCAL_DIR,"--configfile="+CONFIG_FILE,"--resources",'memG='+MEMG, "--latency-wait", "120"]
 
-
-
 if args.verbose:
     base_params.extend(["-p", "-r", "--verbose"]) 
 if args.dryrun:
