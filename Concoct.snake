@@ -55,7 +55,7 @@ rule coverage:
 # ------- rpsblast on previous batchs 
 rule Batch_rpsblast:
     input:   "{group}/{path,a.*/Batch.*}.faa"
-    output:  "{group}/{path,a.*/Batch.*}_cogs.tsv"
+    output:  "{group}/{path,a.*/Batch.*}.cogs.tsv"
     log:     "{group}/{path,a.*/Batch.*}_cog.log"
     params:  db=COG_DB
     shell:   """
@@ -64,8 +64,8 @@ rule Batch_rpsblast:
 
 #------- select best hit and use criterion : min 5% coverage, min 1e-10 evalue--------------
 rule parse_cogs_annotation:
-    input:   Batch=expand("{{group}}/annotation/temp_splits/Batch_{nb}_cogs.tsv",nb=range(100))
-    output:  cog="{group}/annotation/contigs_best_hits_cogs.tsv",
+    input:   Batch=expand("{{group}}/annotation/temp_splits/Batch_{nb}.cogs.tsv",nb=range(100))
+    output:  cog="{group}/annotation/contigs_best_hits.cogs.tsv",
              cat=temp("{group}/annotation/contigs_Cog.out")
     shell:   """
              cat {input} > {output.cat}   
@@ -74,7 +74,7 @@ rule parse_cogs_annotation:
 
 # ------- extract scg ------------------------------------------------------------------------
 checkpoint extract_SCG_sequences:
-    input:  annotation="{filename}_best_hits_cogs.tsv",
+    input:  annotation="{filename}_best_hits.cogs.tsv",
             gff="{filename}.gff",
             fna="{filename}.fna"
     output: "{filename}_SCG.fna"

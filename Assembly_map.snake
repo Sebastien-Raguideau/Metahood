@@ -9,14 +9,15 @@ rule megahit:
     params:  left=lambda w: ",".join(expand("{r}", r=left_reads(w))),
              right=lambda w: ",".join(expand("{r}", r=right_reads(w))),
              dir="{group}/assembly",
-             mem=MAX_MEMG/2.1
+             mem=MAX_MEMG/2.1,
+             Additional_params=ASSEMBLER_PARAMS
     resources:
         memG=int(MAX_MEMG/2.1)
     threads: 70
     log:     "{group}/assembly.log"
     message: "Assembling {wildcards.group} with MegaHIT"
     shell:   """rm -rf {params.dir}
-             megahit -1 {params.left} -2 {params.right} -t {threads} -m {params.mem} -o {params.dir} &> {log}"""
+             megahit -1 {params.left} -2 {params.right} {params.Additional_params} -t {threads} -m {params.mem} -o {params.dir} &> {log}"""
 
 checkpoint contig_folder:
     input: "{group}/assembly/final.contigs.fa"

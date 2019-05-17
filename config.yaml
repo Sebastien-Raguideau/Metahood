@@ -6,6 +6,7 @@ data: /mnt/gpfs/seb/Project/Metahood/Test/Data
 # ------ Assembly parameters ------ 
 assembly: 
   assembler: megahit
+  parameters: --k-min 29 # additional parameters to be passed to megahit 
   per_sample: [sample*]
   groups: 
       AD1:

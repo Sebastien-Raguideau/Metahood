@@ -16,6 +16,7 @@ fill_default_values(config)
 # -------- Assembly --------
 IN = config["data"]
 ASSEMBLER = config["assembly"]["assembler"]
+ASSEMBLER_PARAMS = config["assembly"]["parameters"]
 
 # -------- Ressources --------
 MAX_MEM_PERCENT = config["Percent_memory"]
