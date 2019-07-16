@@ -1,5 +1,5 @@
 # ------ Resssources ------ 
-Percent_memory: 0.5
+Percent_memory: 0.5 # maximum quantity of memory the snakemake can take
 threads : 8 # single task nb threads
 # ------ Path to data folder ------ 
 data: /mnt/gpfs/seb/Project/Metahood/Test/Data  
@@ -9,8 +9,11 @@ assembly:
   parameters: --k-min 29 # additional parameters to be passed to megahit 
   per_sample: [sample*]
   groups: 
-      AD1:
-        ["*"]
+# single task nb threads
+      PerAD/AD7/AD7_1_11: # will create 3 directories  
+        ['AD7_W@(?([0-9])|1[0-1])?(_Repeat?)'] # you can put here any regular expression that ls can support. Here, it will mach with AD7_W1 to AD7_W11 ending or not with repeat 
+      PerAD/AD1:  
+        ["*"] 
       AD2:
         ["sample1"]
 # ------ Annotation parameters ------ 
@@ -37,7 +40,7 @@ binning :
     execution : 1
   metabat2 : 1
 # ------ MAG anaysis------ 
-Mag : [checkm,native] # value need to be checkm or native
+Mag : [checkm,native] # value need to be checkm or native (NOT DONE YET, TODO)
   # ------ orf subgraph ------ 
 graph :
   Card_int1: [CARD,IntI]
