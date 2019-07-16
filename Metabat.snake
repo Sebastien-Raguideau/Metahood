@@ -1,27 +1,34 @@
 from Bio.SeqIO.FastaIO import SimpleFastaParser as SFP
 
 rule generate_depth :
-    input:  lambda w : [w.group+"/map/"+sample.split('/')[-1]+"_mapped_sorted.cram" for sample in  GROUPS[w.group]]
+    input:  lambda w : [w.group+"/map/"+sample.split('/')[-1]+"_mapped_sorted.bam" for sample in  GROUPS[w.group]]
     output: "{group}/map/depth.txt"
     shell: "jgi_summarize_bam_contig_depths --outputDepth {output} {input}"
 
-rule metabat :
+checkpoint metabat2 :
     input:  contig="{group}/contigs/contigs.fa",
             depth="{group}/map/depth.txt"
-    output: dynamic("{{group}}/metabat2/bins/bin.{nb}.fa")
-    shell: "metabat2 -i {input.contig} --outputDepth {input.depth} -o metabat2/bins/"
+    output: touch("{group}/binning/metabat2/bins/done")
+    params: out="{group}/binning/metabat2/bins/bin",
+            min_contig_size=max(1500,MIN_CONTIG_SIZE_METABAT2) # metabat2 does not bin anything smaller than 1500
+    threads : 20
+    shell: "metabat2 -i {input.contig} -a {input.depth} -t {threads} -o {params.out} -m {params.min_contig_size}"
+
+def get_list_bins(wildcards):
+    _=checkpoints.metabat2.get(group=wildcards.group)
+    list_bins=glob.glob(wildcards.group+"/binning/metabat2/bins/bin.*.fa")
+    return list_bins
 
 rule post_processing :
-    input: dynamic("{{group}}/metabat2/bins/bin.{nb}.fa")
-    output:"{group}/metabat2/clustering_metabat.csv"
+    input: get_list_bins
+    output:"{group}/binning/metabat2/clustering_metabat2.csv"
+    params: get_list_bins
     run:
-        List_bins=input
+        List_bins=params[0]
         Handle=open(output[0],"w")
         Handle.write("contig_id,0\n")
         for file in List_bins :
             bin_name=file.split("bin.")[-1].split('.fa')[0]
             for name,seq in SFP(open(file)) :
                 Handle.write(",".join([name,bin_name])+"\n")
-        Handle.close()  
-
-
+        Handle.close()

@@ -10,9 +10,9 @@ assembly:
   per_sample: [sample*]
   groups: 
       AD1:
-        [*]
+        ["*"]
       AD2:
-        [sample1]
+        ["sample1"]
 # ------ Annotation parameters ------ 
 annotation:
   CARD:
@@ -34,7 +34,11 @@ cog_database: /home/sebr/seb/Database/rpsblast_cog_db/Cog
 binning :
   concoct :
     contig_size : 1000
-# ------ orf subgraph ------ 
+    execution : 1
+  metabat2 : 1
+# ------ MAG anaysis------ 
+Mag : [checkm,native] # value need to be checkm or native
+  # ------ orf subgraph ------ 
 graph :
   Card_int1: [CARD,IntI]
   Card: [CARD]

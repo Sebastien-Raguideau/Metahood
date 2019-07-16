@@ -32,6 +32,11 @@ def Parse_GFA(Gfa_file) :
 	return Dico_contig_line,List_edges_ini
 
 def Write_gfa_ORF(output,Dico_ORF_Seq,Dico_contig_lines,Dico_Contigs_ORFs,List_edges_ini) : 
+	List_match=list({line.split('\t')[-1][:-1] for line in List_edges_ini})
+	if len(List_match) :
+		print("more than one Kmer length : "+"\t".join(List_match)) 
+	else :
+		kmer_len=int(List_match[0])
 	List_lines=[]
 	List_edges=[]
 	for Contig,Line in Dico_contig_lines.items() :
@@ -45,7 +50,7 @@ def Write_gfa_ORF(output,Dico_ORF_Seq,Dico_contig_lines,Dico_Contigs_ORFs,List_e
 			Seq=Dico_ORF_Seq[ORF]
 			ORF_Len=len(Seq)
 			LN="LN:i:"+str(ORF_Len)
-			KC="KC:i:"+ str((KC_contig/Contig_len)*ORF_Len)
+			KC="KC:i:"+ str((KC_contig/(Contig_len-kmer_len))*ORF_Len)
 			List_lines.append("\t".join(["S",ORF,str(Seq),LN,KC]))
 			if index!=0 :
 				List_edges.append("\t".join(["L",Previous_ORF,"+",ORF,"+","1M"]))

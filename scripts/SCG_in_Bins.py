@@ -4,7 +4,7 @@ from Bio.SeqIO.FastaIO import SimpleFastaParser
 from collections import Counter,defaultdict
 import os
 
-def main(Bin_file,Fasta_file,path,Table):
+def main(Bin_file,Fasta_file,path,Table,LIST):
 	# which SCG on which contig with which sequence ?
 	Dico_contig_SCGSeq=defaultdict(lambda :defaultdict(list))
 	for header,seq in SimpleFastaParser(open(Fasta_file)):
@@ -20,11 +20,12 @@ def main(Bin_file,Fasta_file,path,Table):
 		if contig in Dico_contig_SCGSeq :
 			for SCG,list_values in Dico_contig_SCGSeq[contig].items() :
 				Dico_bins_SCG[Bin][SCG]+=list_values
+				
 #--------------- SCG output for concoct refine------------------------------------------------------------
 	if Table : 
 		List_SCG=sorted({key for dict in Dico_bins_SCG.values() for key in dict.keys()})
 		Dico_bin_Array={bin_nb:[len(Dico_bins_SCG[bin_nb][SCG]) if Dico_bins_SCG[bin_nb] else 0 for SCG in List_SCG] for bin_nb in Dico_bins_nbcontigs}
-		List_bins=sorted(Dico_bins_nbcontigs.keys(),key=lambda x:int(x))
+		List_bins=sorted(Dico_bins_nbcontigs.keys())
 		SCG_table=[[Bin,Dico_bins_nbcontigs[Bin]]+Dico_bin_Array[Bin] for Bin in List_bins]
 		Handle=open(Table,"w")
 		Handle.write(",".join(["Cluster","Num_contigs"]+List_SCG)+"\n")
@@ -34,7 +35,7 @@ def main(Bin_file,Fasta_file,path,Table):
 #-------------- create a folder by Mag with a folder by COG and their sequences inside -------------------
 	if path :
 		# which are 75% complete
-		List_Mags=[Bin for Bin,List_contigs in Dico_bins_SCG.items() if sum(map(lambda x:x==1,Counter([SCG for SCG,list_fasta in List_contigs.items() for header,seq in list_fasta]).values()))>0.75*36]
+		List_Mags=[Bin for Bin,List_contigs in Dico_bins_SCG.items() if sum(map(lambda x:x==1,Counter([SCG for SCG,list_fasta in List_contigs.items() for header,seq in list_fasta]).values()))>=0.75*36]
 		# create a folder by Mag with a folder by COG and their sequences inside
 		for Mag in List_Mags :
 			List_contigs_SCG=[]
@@ -44,19 +45,33 @@ def main(Bin_file,Fasta_file,path,Table):
 			Handle.write("".join(map(lambda x:">"+x[0]+"\n"+x[1]+"\n",[Fasta for List_fasta in Dico_bins_SCG[Mag].values() for Fasta in List_fasta])))
 			Handle.close()
 
+#-------------- create a list of all Mags ----------------------------------------------------------------
+	if LIST :
+		# which are 75% complete
+		List_Mags=[Bin for Bin,List_contigs in Dico_bins_SCG.items() if sum(map(lambda x:x==1,Counter([SCG for SCG,list_fasta in List_contigs.items() for header,seq in list_fasta]).values()))>=0.75*36]
+		# create a folder by Mag with a folder by COG and their sequences inside
+		Handle=open(LIST,"w")
+		Handle.write("\n".join(List_Mags))
+		Handle.close()
+
+
 if __name__ == "__main__":
   parser = argparse.ArgumentParser()
   parser.add_argument("Bin_file",help="Binning result file, csv, first column is the contig, second column is the bin")
   parser.add_argument("SCG_Fasta",help="fasta file of Orfs annotated as SCG")
   parser.add_argument("-f",help="path to where you want to store the bins folders")
   parser.add_argument("-t",help="name of a the SCG table")
+  parser.add_argument("-l",help="just output the list of MAG in this file")
   args = parser.parse_args()
   Bin_file=args.Bin_file
   Fasta_file=args.SCG_Fasta
   path=""
   Table=""
+  List=""
   if args.f :
   	path=args.f
   if args.t:
   	Table=args.t
-  main(Bin_file,Fasta_file,path,Table)
+  if args.l:
+  	List=args.l
+  main(Bin_file,Fasta_file,path,Table,List)

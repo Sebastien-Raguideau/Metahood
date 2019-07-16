@@ -9,7 +9,7 @@ rule megahit:
     params:  left=lambda w: ",".join(expand("{r}", r=left_reads(w))),
              right=lambda w: ",".join(expand("{r}", r=right_reads(w))),
              dir="{group}/assembly",
-             mem=MAX_MEMG/2.1,
+             mem=MAX_MEM_PERCENT/2.1,
              Additional_params=ASSEMBLER_PARAMS
     resources:
         memG=int(MAX_MEMG/2.1)
@@ -36,12 +36,23 @@ rule bwa_index:
     shell:   "bwa index -b {params} {input} &> {log}"
 
 # ---- map reads to the assembly contigs--------------------------------------------------
-rule bwa_mem_to_cram:
+rule bwa_mem_to_bam:
     input:   index="{group}/contigs/index.done",
              contigs="{group}/contigs/contigs.fa",
-             left=lambda w:SAMPLE_READS[w.sample][0], right=lambda w:SAMPLE_READS[w.sample][1],
-    output:  "{group}/map/{sample}_mapped_sorted.cram"
+             left=lambda w:SAMPLE_READS[w.sample][0], right=lambda w:SAMPLE_READS[w.sample][1]
+    output:  "{group}/map/{sample}_mapped_sorted.bam"
     threads: 1000
     log:     "{group}/map/{sample}_map.log"
     message: "bwa mem mapping followed by samtool sorting for {input}"
-    shell:   "bwa mem -t {threads} {input.contigs} {input.left} {input.right} 2>{log} |samtools view -T {input.contigs} -C -F 4 -@{threads} - | samtools sort -@{threads} - > {output} "
+    shell:   "bwa mem -t {threads} {input.contigs} {input.left} {input.right} 2>{log} | samtools view  -b -F 4 -@{threads} - | samtools sort -@{threads} - > {output}"
+
+
+# # ---- map reads to the assembly contigs--------------------------------------------------
+# rule bam_to_cram:
+#     input:   bam="{group}/map/{sample}_mapped_sorted.bam",
+#              contigs="{group}/contigs/contigs.fa",
+#     output:  "{group}/map/{sample}_mapped_sorted.cram"
+#     threads: 1000
+#     log:     "{group}/map/{sample}_map.log"
+#     message: "convert bam to cram for {input.bam}"
+#     shell:   "samtools view -C -T {input.contigs} -@{threads} - > {output}"

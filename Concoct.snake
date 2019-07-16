@@ -34,17 +34,17 @@ rule cut_contigs:
 
 # ---- use bedtool to compute coverage  ----------------------------------------------------
 rule bedtools:
-    input:   cram="{group}/map/{sample}_mapped_sorted.cram",
+    input:   bam="{group}/map/{sample}_mapped_sorted.bam",
              bed="{group}/contigs/contigs_C10K.bed"
-    output:  "{group}/map/{sample}.cov"
-    log:      "{group}/map/{sample}.log"
+    output:  "{group}/map/{sample}_C10K.cov"
+    log:      "{group}/map/{sample}_C10K.log"
     resources:
         memG=200
-    shell:   "bedtools coverage -a {input.bed} -b {input.cram} -mean > {output} 2>{log} "
+    shell:   "bedtools coverage -a {input.bed} -b {input.bam} -mean > {output} 2>{log} "
 
 # ---- use a awk onliner to regroup all coverages into a unique file -----------------------
 rule coverage:
-    input:   lambda w : [w.group+"/map/"+sample.split('/')[-1]+".cov" for sample in  GROUPS[w.group]]
+    input:   lambda w : [w.group+"/map/"+sample.split('/')[-1]+"_C10K.cov" for sample in  GROUPS[w.group]]
     output:  "{group}/profile/coverage_contigs_C10K.tsv"
     shell :  """
             echo -e "contig\t""$(ls {input} | cut -f1 -d "." | rev | cut -f1 -d "/" |rev | tr "\n" "\t" | sed 's/\t$//')"> {output}
@@ -84,49 +84,75 @@ checkpoint extract_SCG_sequences:
 def get_initial_number_of_bins(wildcards):
     SCF_faa_handle=open(checkpoints.extract_SCG_sequences.get(filename=wildcards.group+"/annotation/contigs").output[0])
     nb_bin=int(5*np.median(list(Counter([header.split(" ")[1] for header,seq in SimpleFastaParser(SCF_faa_handle)]).values())))
-    return nb_bin
+    return min(nb_bin,MAX_BIN_NB)
 
 rule concoct:
     input:   cov="{group}/profile/coverage_contigs_C10K.tsv",
              fasta="{group}/contigs/contigs_C10K.fa",
              SCG="{group}/annotation/contigs_SCG.fna"
-    output:  "{group}/binning/clustering_gt"+str(MIN_CONTIG_SIZE)+".csv",
-             Data="{group}/binning/original_data_gt%d.csv"%MIN_CONTIG_SIZE
+    output:  "{group}/binning/concoct/clustering_gt"+str(MIN_CONTIG_SIZE)+".csv",
+             Data="{group}/binning/concoct/original_data_gt%d.csv"%MIN_CONTIG_SIZE
     params:  min_contig_size=MIN_CONTIG_SIZE,
              nb_bin=get_initial_number_of_bins
     threads: 20
     shell:   """
-             concoct --coverage_file {input.cov} --composition_file {input.fasta} -b {wildcards.group}/binning -c {params.nb_bin} -l {params.min_contig_size} -t {threads}
+             concoct --coverage_file {input.cov} --composition_file {input.fasta} -b {wildcards.group}/binning/concoct -c {params.nb_bin} -l {params.min_contig_size} -t {threads}
              """
+
+# --------- Get SCG table out of clustering --------------------------------------------------
+rule SCG_table:
+    input  : bins="{group}/binning/{binner}/clustering_{name}.csv",
+             SCG="{group}/annotation/contigs_SCG.fna"
+    output : "{group}/binning/{binner}/{name}_SCG_table.csv"
+    shell  : "{SCRIPTS}/SCG_in_Bins.py {input.bins} {input.SCG} -t {output}"
+
+
 # --------- Concoct refine -------------------------------------------------------------------
 
 rule refine:
-    input:  bins="{group}/{path}gt%d.csv"%MIN_CONTIG_SIZE,
+    input:  bins="{group}/{path}clustering_gt%d.csv"%MIN_CONTIG_SIZE,
+            table="{group}/{path}gt%d_SCG_table.csv"%MIN_CONTIG_SIZE,
             SCG="{group}/annotation/contigs_SCG.fna",
-            Data="{group}/binning/original_data_gt%d.csv"%MIN_CONTIG_SIZE
-    output: table="{group}/{path,.*/.*clustering.*}gt%d_SCG_table.csv"%MIN_CONTIG_SIZE,
-            bins_R="{group}/{path,.*/.*clustering.*}refine.csv",
-            table_R="{group}/{path,.*/.*clustering.*}gt%d_SCG_table_R.csv"%MIN_CONTIG_SIZE
-    log:    temp("{group}/{path,.*/.*clustering.*}.log")
+            Data="{group}/binning/concoct/original_data_gt%d.csv"%MIN_CONTIG_SIZE
+    output: bins="{group}/{path,.*/.*/}clustering_refine.csv",
+    params: temp="{group}/{path}refine.temp" 
+    log:    temp("{group}/{path,.*/.*/}clustering.log")
     threads: 1000
-    shell:  """ {SCRIPTS}/SCG_in_Bins.py {input.bins} {input.SCG} -t {output.table}
-            sed '1d' {input.bins}  > temp
-            cd {wildcards.group}/binning
-            concoct_refine ../../temp ../../{input.Data} ../../{output.table} -t {threads} &>../../{log}
-            rm ../../temp
-            cd ../../
-            {SCRIPTS}/SCG_in_Bins.py {output.bins_R} {input.SCG} -t {output.table_R}
+    shell:  """
+            ROOTDIR=$(pwd)
+            sed '1d' {input.bins}  > {params}
+            cd {wildcards.group}/binning/concoct/
+            concoct_refine $ROOTDIR/{params} $ROOTDIR/{input.Data} $ROOTDIR/{input.table} -t {threads} &>$ROOTDIR/{log}
+            rm $ROOTDIR/{params}
+            cd $ROOTDIR
             """
 
 # --------- merge back contigs -------------------------------------------------------------------
 rule merge_contigs:
-    input:   "{path}refine.csv"
-    output:  "{path}merged.csv"
-    log:     "{path}consensus.log"
-    shell:   "{SCRIPTS}/Consensus.py {input} >{output} 2>{log}"
+    input:   refine="{path}clustering_refine.csv",
+             table ="{path}refine_SCG_table.csv" 
+    output:  "{path}clustering_concoct.csv"
+    log:     "{path}clustering_consensus.log"
+    shell:   "{SCRIPTS}/Consensus.py {input.refine} >{output} 2>{log}"
 
+# --------- estimate the number of mag ------------------------------------------------------------
 
+rule output_number_of_mag:
+    input:   "{path}/{binner}_SCG_table.csv"
+    output:  "{path}/{binner}_MAG_nb.txt"
+    run:
+        Handle=open(output[0],"w")
+        Handle.write(str(sum([sum([element=="1" for element in line.rstrip().split(',')[2:]])>=(0.75*36) for index,line in enumerate(open(input[0])) if index>1])))
+        Handle.close()
 
-# --------- MAG analysis -------------------------------------------------------------------
+# --------- produce a contig file for each bins be they good or not (metabat2 style) ---------------
+rule output_bins:
+    input:   contigs="{group}/contigs/contigs.fa",
+             clustering="{group}/binning/concoct/clustering_concoct.csv"
+    output:  touch("{group}/binning/concoct/bins/done")
+    params:  "{group}/binning/concoct/bins/"
+    shell :"""
+    {SCRIPTS}/Split_fasta_by_bin.py {input.contigs} {input.clustering} {params}"""
+
 
 

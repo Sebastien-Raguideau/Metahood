@@ -62,7 +62,7 @@ def main(Fasta_file,Temp_location,Number_task,Splits,output_directory) :
 		Handle_faa.write(open("Batch_"+str(nb_batch)+".faa").read())
 		Handle_fna.write(open("Batch_"+str(nb_batch)+".fna").read())
 		tmp=open("Batch_"+str(nb_batch)+".gff")
-		trash=tmp.readline()
+		_=tmp.readline()
 		Handle_gff.write(tmp.read())
 	Handle_faa.close()
 	Handle_fna.close()

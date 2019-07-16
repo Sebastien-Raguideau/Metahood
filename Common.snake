@@ -1,5 +1,9 @@
+import sys
+print(sys.path)
+from psutil import virtual_memory
 from itertools import chain
 from functools import partial
+from collections import defaultdict
 import glob
 import os.path
 import tempfile
@@ -7,7 +11,6 @@ import yaml
 from subprocess import Popen, PIPE
 from snakemake.exceptions import WorkflowError
 from scripts.common import detect_reads, fill_default_values
-from psutil import virtual_memory
 
 #--------------------------- Config parameters ---------------------------
 
@@ -25,6 +28,19 @@ SCRIPTS = config["scripts"]
 Mem_tot=virtual_memory().total
 MAX_MEMG=int((MAX_MEM_PERCENT*Mem_tot)/10**9)
 
+# -------- Binning -----------
+CONCOCT_EXECUTION = config["binning"]["concoct"]["execution"]
+BINNING_TASKS=lambda wildcards: [wildcards.group+""]
+MAX_BIN_NB=config["binning"]["concoct"]["max_bin_nb"]
+MIN_CONTIG_SIZE = config["binning"]["concoct"]["contig_size"]
+METABAT2_EXECUTION = config["binning"]["metabat2"]["execution"]
+MIN_CONTIG_SIZE_METABAT2=config["binning"]["metabat2"]["contig_size"]
+BINNER=CONCOCT_EXECUTION*["concoct"]+METABAT2_EXECUTION*["metabat2"]
+
+# -------- MAG analysis ------
+MAG_ANALYSIS=config["mag"]
+
+
 # -------- Annotation --------
 COG_DB= config["cog_database"]
 SCG_DATA = config["scg_data"]
@@ -34,15 +50,13 @@ ANNOTATION = config["annotation"]
 GRAPH_FILES=["contigs."+".".join(List_annotation)+"_ORF_annotation.csv" for List_annotation in config["graph"].values()]
 DB_COLORS={DB:Dict_things['color'] for DB,Dict_things in ANNOTATION.items()}
 
-# -------- misc --------
-MIN_CONTIG_SIZE = config["binning"]["concoct"]["contig_size"]
 
 #--------------------------- Read group and sample composition ---------------------------
 
 # ---- neat regex matching of files --------
 def extended_glob(pattern):
-    process = Popen(['bash -O extglob -c " ls -d '+pattern+' "'], stdout=PIPE, stderr=PIPE,shell=True)
-    return [element for element in process.communicate()[0].decode("utf-8").split("\n") if element]
+    process = Popen(['bash -O extglob -c " ls -d '+pattern+'/ "'], stdout=PIPE, stderr=PIPE,shell=True)
+    return [element[:-1] for element in process.communicate()[0].decode("utf-8").split("\n") if element]
 
 # -------- persample : create groups of one sample --------
 if "per_sample" in config["assembly"] :
@@ -59,7 +73,7 @@ if "per_sample" in config["assembly"] :
 # -------- Groups --------
 # define the groups as a dictionary mapping to the path of samples folder
 GROUPS_DEF=config["assembly"]["groups"]
-GROUPS={}
+GROUPS=defaultdict(list)
 for group,list_sample in GROUPS_DEF.items() :
     # get the samples paths corresponding to the group
     GROUPS[group]=[path for sample in list_sample for path in extended_glob(IN+"/"+sample)]
