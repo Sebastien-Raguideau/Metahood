@@ -9,7 +9,6 @@ assembly:
   parameters: --k-min 29 # additional parameters to be passed to megahit 
   per_sample: [sample*]
   groups: 
-# single task nb threads
       PerAD/AD7/AD7_1_11: # will create 3 directories  
         ['AD7_W@(?([0-9])|1[0-1])?(_Repeat?)'] # you can put here any regular expression that ls can support. Here, it will mach with AD7_W1 to AD7_W11 ending or not with repeat 
       PerAD/AD1:  
