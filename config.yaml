@@ -38,7 +38,9 @@ binning :
   concoct :
     contig_size : 1000
     execution : 1
-  metabat2 : 1
+  metabat2 :
+    contig_size : 1500
+    execution : 1
 # ------ MAG anaysis------ 
 Mag : [checkm,native] # value need to be checkm or native (NOT DONE YET, TODO)
   # ------ orf subgraph ------ 
