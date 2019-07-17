@@ -117,7 +117,7 @@ rule refine:
     output: bins="{group}/{path,.*/.*/}clustering_refine.csv",
     params: temp="{group}/{path}refine.temp" 
     log:    temp("{group}/{path,.*/.*/}clustering.log")
-    threads: 1000
+    threads: 20
     shell:  """
             ROOTDIR=$(pwd)
             sed '1d' {input.bins}  > {params}
@@ -142,7 +142,7 @@ rule output_number_of_mag:
     output:  "{path}/{binner}_MAG_nb.txt"
     run:
         Handle=open(output[0],"w")
-        Handle.write(str(sum([sum([element=="1" for element in line.rstrip().split(',')[2:]])>=(0.75*36) for index,line in enumerate(open(input[0])) if index>1])))
+        Handle.write(str(sum([sum([element=="1" for element in line.rstrip().split(',')[1:]])>=(0.75*36) for index,line in enumerate(open(input[0])) if index>1])))
         Handle.close()
 
 # --------- produce a contig file for each bins be they good or not (metabat2 style) ---------------
