@@ -67,8 +67,7 @@ def Write_gfa_ORF(output,Dico_ORF_Seq,Dico_contig_lines,Dico_Contigs_ORFs,List_e
 			ORF2=Dico_Contigs_ORFs[Contig2][-1]
 		List_edges.append("\t".join(["L",ORF1,sgn1,ORF2,sgn2,M]))
 	Handle=open(output,"w")
-	Handle.write("\n".join(List_lines))
-	Handle.write("\n".join(List_edges))
+	Handle.write("\n".join(List_lines+List_edges))
 	Handle.close()
 
 def main(bed_file,Gfa_file,output) :

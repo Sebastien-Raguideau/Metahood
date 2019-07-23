@@ -28,7 +28,7 @@ rule subgraph:
 	input: gfa="{group}/graph/{name}.gfa",
 		   annotation="{group}/annotation/contigs_{DB}.tsv"
 	output:"{group}/graph/{name}.{DB}.gfa"
-	shell:"{SCRIPTS}/Create_subgraph.py {input.annotation} {input.gfa} -o{output}"
+	shell:"{SCRIPTS}/Contiguous_graph_selection.py {input.annotation} {input.gfa} -o{output}"
 
 rule gff_to_bed:
 	input: "{filepath}.gff"
@@ -47,7 +47,7 @@ rule graph_annotation:
 		   colors="{group}/graph/{name}.colors",
 		   graph_annotation="{group}/graph/{name}_annotation.csv"
 	run:
-		Handle=open(output[0],"w")
+		Handle=open(output["colors"],"w")
 		Handle.write('\n'.join(["\t".join([wildcards.group+"/annotation/contigs_"+db+".tsv",color]) for db,color in DB_COLORS.items()]))
 		Handle.close()
 		shell("{SCRIPTS}/Generate_Graph_metadata.py {input.gfa} {output.colors} {output.graph_annotation}")
