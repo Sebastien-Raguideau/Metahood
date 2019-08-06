@@ -17,7 +17,7 @@ default_values = {
     "threads":8,
     "assembly":    {"assembler": "megahit","groups": {},"parameters":"" },
     "annotation":{},
-    "graph":{}
+    "graph":{"List_graph":{}}
 }
 
 

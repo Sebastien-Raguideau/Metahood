@@ -46,8 +46,13 @@ SCG_DATA = config["scg_data"]
 ANNOTATION = config["annotation"]
 
 # -------- graph --------
-GRAPH_FILES=["contigs."+".".join(List_annotation)+"_ORF_annotation.csv" for List_annotation in config["graph"].values()]
-DB_COLORS={DB:Dict_things['color'] for DB,Dict_things in ANNOTATION.items()}
+
+if config["graph"]["List_graph"] :
+    GRAPH_TASKS=["contigs."+".".join(List_annotation)+"_contiguous_ORF_annotation.csv" for List_annotation in config["graph"]["List_graph"].values()]
+    CAT_DB=config["graph"]["CAT_database"]
+    DB_COLORS={DB:Dict_things['color'] for DB,Dict_things in ANNOTATION.items()}
+else :
+    GRAPH_TASKS=["NO_GRAPH_IN_CONFIGS"]
 
 
 #--------------------------- Read group and sample composition ---------------------------

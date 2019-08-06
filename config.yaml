@@ -18,7 +18,7 @@ assembly:
 # ------ Annotation parameters ------ 
 annotation:
   CARD:
-    db: [/mnt/gpfs/seb/Database/CARD/CARD_DB.dmnd]
+    db: [/mnt/gpfs/seb/Database/CARD/CARD_DB_0.9.24.dmnd]
     blast: [blastp]
     annotation: [/mnt/gpfs/seb/Database/Kihyun_Lee_Databases/CARD_Annotation_V2.tsv]
     # min_Bitscore , max_Evalue , min_Pid , min_subject_pid , min_coverage , min_Query_coverage
@@ -44,5 +44,7 @@ binning :
 Mag : [checkm,native] # value need to be checkm or native (NOT DONE YET, TODO)
   # ------ orf subgraph ------ 
 graph :
-  Card_int1: [CARD,IntI]
-  Card: [CARD]
+  List_graphs:
+    Card_int1: [CARD,IntI]
+    Card: [CARD]
+  CAT_database: /mnt/gpfs/seb/Database/NR_Cat
