@@ -4,7 +4,8 @@
 # Assemble with MegaHIT
 
 rule megahit:
-    input:   left=left_reads, right=right_reads
+    input:   left=left_reads, right=right_reads,
+             qc=IN+"multiqc_report.html"
     output:  "{group}/assembly/final.contigs.fa"
     params:  left=lambda w: ",".join(expand("{r}", r=left_reads(w))),
              right=lambda w: ",".join(expand("{r}", r=right_reads(w))),
@@ -45,14 +46,3 @@ rule bwa_mem_to_bam:
     log:     "{group}/map/{sample}_map.log"
     message: "bwa mem mapping followed by samtool sorting for {input}"
     shell:   "bwa mem -t {threads} {input.contigs} {input.left} {input.right} 2>{log} | samtools view  -b -F 4 -@{threads} - | samtools sort -@{threads} - > {output}"
-
-
-# # ---- map reads to the assembly contigs--------------------------------------------------
-# rule bam_to_cram:
-#     input:   bam="{group}/map/{sample}_mapped_sorted.bam",
-#              contigs="{group}/contigs/contigs.fa",
-#     output:  "{group}/map/{sample}_mapped_sorted.cram"
-#     threads: 1000
-#     log:     "{group}/map/{sample}_map.log"
-#     message: "convert bam to cram for {input.bam}"
-#     shell:   "samtools view -C -T {input.contigs} -@{threads} - > {output}"

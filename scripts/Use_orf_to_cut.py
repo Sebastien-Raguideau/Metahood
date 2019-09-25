@@ -21,7 +21,6 @@ def prodigal_gff_parser(Handle) :
 		if not line :
 			break
 		if line[:16] != "# Sequence Data:" : 
-			print (line)
 			raise ValueError("GFF Output from prodigal should start with '# Sequence Data:'") 
 		seq_data = line.rstrip()
 		Model_data = Handle.readline().rstrip() 
@@ -124,23 +123,26 @@ def Rename_FA(FA_file,Chunk_size,Dico_contigid_Dico_ORfnb_index) :
 	Handle.write(Text_output)	
 	Handle.close()
 
-def main(Fasta_file,Gff_file,Chunk_size,Replace) :
+def main(Fasta_file,Gff_file,output,output_bed,Chunk_size,Replace) :
 	Dico_contigid_gff,Dico_contigs=get_gff_dico(Chunk_size,Gff_file)
-	Dico_Contigid_Cutlocation=Cut_contigs(Chunk_size,Dico_contigid_gff)	
+	Dico_Contigid_Cutlocation=Cut_contigs(Chunk_size,Dico_contigid_gff)
 	Dico_contigid_Dico_ORfnb_index={Contig:{index_orf:next(index for index,value in enumerate([i[1] for i in Dico_Contigid_Cutlocation[Contig]]) if ORF[1]<=value) for index_orf,ORF in enumerate(List_ORF)} for Contig,List_ORF in Dico_contigid_gff.items() if Contig in Dico_Contigid_Cutlocation}
 	# Output cuts contigs		
 	Lim=2*Chunk_size
+	Handle=open(output,"w")
 	for title, sequence in SimpleFastaParser(open(Fasta_file)) :
 		contig=title.split()[0]
 		Dico_contigs[contig]=len(sequence)
 		if (len(sequence)>Lim)&(contig in Dico_Contigid_Cutlocation) :
 			for (index,(start,end)) in enumerate(Dico_Contigid_Cutlocation[contig]) :
-				print (">"+contig+"."+str(index)+"\n"+sequence[start:end])
+				Handle.write(">"+contig+"."+str(index)+"\n"+sequence[start:end]+"\n")
 		else :
-			print(">"+title+"\n"+sequence)
+			Handle.write(">"+contig+"\n"+sequence+"\n")
+	Handle.close()
 	# Output cuts contigs, as feature on intial contigs, in a bed file
-	Contig_bed=delete_ending(".",Gff_file)+"_C"+str(Chunk_size//1000)+"K.bed"
-	Handle=open(Contig_bed,"w")
+	Handle=open(output_bed,"w")
+	# output_bed=delete_ending(".",Gff_file)+"_C"+str(Chunk_size//1000)+"K.bed"
+
 	List_uncut_contigs=[[contig,"1",str(length),contig] for contig,length in Dico_contigs.items() if contig not in Dico_Contigid_Cutlocation]
 	List_cut_contigs=[[contig,str(start+1),str(end),contig+"."+str(index)] for contig,list_coordinate in Dico_Contigid_Cutlocation.items() for index,(start,end) in enumerate(list_coordinate)]
 	Handle.write("\n".join("\t".join(List) for List in List_uncut_contigs+List_cut_contigs))
@@ -166,12 +168,12 @@ def main(Fasta_file,Gff_file,Chunk_size,Replace) :
 		os.system("mv " +AGFFD+"/"+delete_ending(".",Gff_file).split('/')[-1]+".* "+AGFFD+"/No_Cut_Prodigal/" )
 
 	
-
-
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser()
 	parser.add_argument("Fasta_file", help="Fasta file from your assembly that you want to cut in bits")
 	parser.add_argument("GFF", help="Gff file from, for instance prodigal output")
+	parser.add_argument("output", help="file for cut up contigs")
+	parser.add_argument("output_bed", help="file for corresponding bed file")	
 	parser.add_argument("-c", help="chunk size",default="10000")
 	parser.add_argument("-r", help="option to replace prodigal output with updated cut up entries",action='store_true',default=False)
 	args = parser.parse_args()
@@ -179,7 +181,9 @@ if __name__ == "__main__":
 	Fasta_file=args.Fasta_file
 	Gff_file=args.GFF
 	Replace=args.r
-	main(Fasta_file,Gff_file,Chunk_size,Replace)
+	output=args.output
+	output_bed=args.output_bed
+	main(Fasta_file,Gff_file,output,output_bed,Chunk_size,Replace)
 
 
 

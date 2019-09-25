@@ -36,6 +36,7 @@ def main(Fasta_file,Temp_location,Number_task,Splits,output_directory) :
 			if Batch_num==Splits-1 :
 				Handle.write(">"+header+"\n"+seq+"\n")	
 			else :
+				Handle.write(">"+header+"\n"+seq+"\n")
 				Handle.close()
 				while Cant_launch_new_task(Number_task) :
 					time.sleep(10)

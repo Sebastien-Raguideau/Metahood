@@ -27,17 +27,17 @@ rule cut_contigs:
             gff="{group}/annotation/contigs.gff"
     output: contig="{group}/contigs/contigs_C10K.fa",
             Contig_bed="{group}/contigs/contigs_C10K.bed"
+    priority: 50
     message:"Use orfs annotation to cut contigs"
-    shell:  """{SCRIPTS}/Use_orf_to_cut.py {input.fa} {input.gff} > {output.contig}
-            mv {wildcards.group}/annotation/contigs_C10K.bed {output.Contig_bed}"""
+    shell:  """{SCRIPTS}/Use_orf_to_cut.py {input.fa} {input.gff} {output.contig} {output.Contig_bed}"""
 
 
 # ---- use bedtool to compute coverage  ----------------------------------------------------
 rule bedtools:
     input:   bam="{group}/map/{sample}_mapped_sorted.bam",
-             bed="{group}/contigs/contigs_C10K.bed"
-    output:  "{group}/map/{sample}_C10K.cov"
-    log:      "{group}/map/{sample}_C10K.log"
+             bed="{group}/contigs/contigs_{type}.bed"
+    output:  "{group}/map/{sample}_{type}.cov"
+    log:      "{group}/map/{sample}_{type}.log"
     resources:
         memG=200
     shell:   "bedtools coverage -a {input.bed} -b {input.bam} -mean > {output} 2>{log} "

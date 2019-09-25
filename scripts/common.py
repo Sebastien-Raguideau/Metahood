@@ -6,8 +6,10 @@ try:
 except:
     pass
 
+from subprocess import Popen, PIPE
 import os
 import os.path
+from os.path import basename
 import re
 
 
@@ -17,8 +19,15 @@ default_values = {
     "threads":8,
     "assembly":    {"assembler": "megahit","groups": {},"parameters":"" },
     "annotation":{},
-    "graph":{"List_graph":{}}
+    "graph":{"List_graph":{}},
+    "samples":{"setup":0}
 }
+
+# ---- neat regex matching of files --------
+def extended_glob(pattern):
+    process = Popen(['bash -O extglob -c " ls -d '+pattern+'/ "'], stdout=PIPE, stderr=PIPE,shell=True)
+    List_path=[element[:-1] for element in process.communicate()[0].decode("utf-8").split("\n") if element]
+    return [path for path in List_path if basename(path)!="multiqc_data"]
 
 
 # Taken from http://stackoverflow.com/questions/36831998/how-to-fill-default-parameters-in-yaml-file-using-python
@@ -41,7 +50,12 @@ def fill_default_values(config):
 def sample_name(fullname):
     return os.path.splitext(os.path.basename(fullname))[0]
 
-FASTA_EXTS = {".fasta", ".fasta.gz", ".fa", ".fa.gz", ".fna", ".fna.gz", ".fsa",".fsa.gz", ".fastq", ".fastq.gz", ".fq", ".fq.gz"}
+FASTA_EXTS = {".fasta", ".fasta.gz", ".fa", ".fa.gz", ".fna", ".fna.gz", ".fsa",".fsa.gz", ".fastq", ".fastq.gz"}
+def get_extension(file) :
+    for ext in FASTA_EXTS:
+        if file.endswith(ext):
+            return ext 
+
 def gather_paths(path, basename=False):
     for filename in os.listdir(path):
         name = os.path.basename(filename)
@@ -55,7 +69,7 @@ def gather_paths(path, basename=False):
                 yield filepath
 
 def detect_reads(dir):
-    return sorted(list(gather_paths(dir)))[:2]
+    return sorted(list(gather_paths(dir)))
 
 #Autodetect references
 def gather_refs(data):

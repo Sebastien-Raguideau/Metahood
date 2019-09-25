@@ -12,18 +12,6 @@ import time
 
 from scripts.common import fill_default_values
 
-#copied from http://stackoverflow.com/questions/431684/how-do-i-cd-in-python/13197763#13197763
-class cd:
-    """Context manager for changing the current working directory"""
-    def __init__(self, newPath):
-        self.newPath = os.path.expanduser(newPath)
-
-    def __enter__(self):
-        self.savedPath = os.getcwd()
-        os.chdir(self.newPath)
-
-    def __exit__(self, etype, value, traceback):
-        os.chdir(self.savedPath)
 
 parser = argparse.ArgumentParser(description="STRONG - STrain Resolution ON Graphs")
 parser.add_argument("--threads", "-t", type=int, default=1, help="Number of threads")
@@ -43,7 +31,7 @@ LOCAL_DIR = os.path.realpath(exec_dir)
 # ------- set max memory used, in Go ---------------
 CONFIG_FILE = os.path.abspath(args.config)
 Mem_tot=virtual_memory().total
-Percent_mem=yaml.safe_load(open(CONFIG_FILE))["Percent_memory"]
+Percent_mem=yaml.full_load(open(CONFIG_FILE))["Percent_memory"]
 MEMG=str(int((Percent_mem*Mem_tot)/10**9))
 
 # ------- base parameters used to call snakemake -----------
@@ -62,7 +50,22 @@ if args.dag:
 if args.s :
     base_params.extend(args.s)
 
-print("Output folder set to", args.dir)
+
+# ------- call snakemake from  exec_dir -----------
+
+#copied from http://stackoverflow.com/questions/431684/how-do-i-cd-in-python/13197763#13197763
+class cd:
+    """Context manager for changing the current working directory"""
+    def __init__(self, newPath):
+        self.newPath = os.path.expanduser(newPath)
+
+    def __enter__(self):
+        self.savedPath = os.getcwd()
+        os.chdir(self.newPath)
+
+    def __exit__(self, etype, value, traceback):
+        os.chdir(self.savedPath)
+
 
 with cd(exec_dir):
     def call_snake(extra_params=[]):
@@ -74,19 +77,10 @@ with cd(exec_dir):
                 f.write(p2.communicate()[0])
         else :
             subprocess.check_call(base_params + extra_params, stdout=sys.stdout, stderr=sys.stderr)
-
-    def reuse_dir(dir_from, dir_name):
-        if not dir_from:
-            return
-        local_dir = os.path.join(args.dir, dir_name)
-        if not os.path.isdir(dir_from):
-            print("Warning: {} source directory doesn't exist".format(dir_from))
-            return
-        if os.path.exists(local_dir):
-            print("Warning: {} destination directory already exists".format(dir_name))
-            return
-        os.symlink(dir_from, local_dir)
     call_snake.nb=0
+    #setup data folder
+    call_snake(["--snakefile", "Setup_samples.snake"])
+    #launch master snake
     call_snake(["--snakefile", "Master.snake"])
 
 

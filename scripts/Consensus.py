@@ -14,10 +14,14 @@ def main(Bin_file):
 	number_of_dot=Counter(map(lambda x:len(x.split(".")),Dico_contig_bins.keys()))
 	if len(number_of_dot)>3:
 		print("Warning the number of dot in your contigs name is varying too much, it is not possible to distinguich cuts contigs from normal ones")
-		exit()
+		exit(1)
 	if len(number_of_dot)==1 :
-		print("Either all the contigs are split or none, by default we consider none are, no merging has been done")
-		exit()
+		print("Either all the contigs are split or none, by default we consider none are, no merging has been done",file=sys.stderr)
+		print("contig_id,0")
+		for line in Handle:
+			contig,bin=line.rstrip().split(",")
+			print(contig+","+bins)		
+		exit(0)
 	num_split=max(number_of_dot.keys())
 
 	Dico_normal_contigs={contig:bins for (contig,bins) in  Dico_contig_bins.items() if len(contig.split("."))!=num_split}

@@ -1,0 +1,42 @@
+
+rule fastqc_gz :
+	input : IN+"{sample}/{name}.fastq.gz"
+	output : IN+"{sample}/{name}_fastqc.html"
+	shell :"fastqc -o {IN}{wildcards.sample} {input}"
+
+rule fastqc :
+	input : IN+"{sample}/{name}.fastq"
+	output : IN+"{sample}/{name}_fastqc.html"
+	shell :"fastqc -o {IN}{wildcards.sample} {input}"
+
+rule trim_galore_gz :
+	input : file_R1="{folder}/{sample}_R1.fastq.gz",
+			file_R1_qc="{folder}/{sample}_R1_fastqc.html",
+			file_R2="{folder}/{sample}_R2.fastq.gz",
+			file_R2_qc="{folder}/{sample}_R2_fastqc.html"
+	output :file_R1="{folder}/{sample}_R1_val_1.fq.gz",
+			file_R2="{folder}/{sample}_R2_val_2.fq.gz"	
+	log :   "{folder}/{sample}.log"
+	shell :"""
+	trim_galore  --fastqc --gzip -o {wildcards.folder} --paired {input.file_R1} {input.file_R2} > {log} 2>&1 
+	"""
+
+rule trim_galore :
+	input : file_R1="{folder}/{sample}_R1.fastq",
+			file_R1_qc="{folder}/{sample}_R1_fastqc.html",
+			file_R2="{folder}/{sample}_R2.fastq",
+			file_R2_qc="{folder}/{sample}_R2_fastqc.html"
+	output :file_R1="{folder}/{sample}_R1_val_1.fq.gz",
+			file_R2="{folder}/{sample}_R2_val_2.fq.gz"	
+	log :   "{folder}/{sample}.log"
+	shell :"""
+	trim_galore  --fastqc --gzip -o {wildcards.folder} --paired {input.file_R1} {input.file_R2} > {log} 2>&1 
+	"""
+
+
+rule multiqc :
+	input : R1=[SAMPLE_READS[sample][0].replace("_R1.fastq.gz","_R1_val_1.fq.gz").replace("_R2.fastq.gz","_R2_val_2.fq.gz").replace("_R1.fastq","_R1_val_1.fq.gz").replace("_R2.fastq","_R2_val_2.fq.gz") for sample in SAMPLES],
+			R2=[SAMPLE_READS[sample][1].replace("_R1.fastq.gz","_R1_val_1.fq.gz").replace("_R2.fastq.gz","_R2_val_2.fq.gz").replace("_R1.fastq","_R1_val_1.fq.gz").replace("_R2.fastq","_R2_val_2.fq.gz") for sample in SAMPLES],
+	output : IN+"multiqc_report.html"
+	shell : "multiqc --interactive -f {IN} -o {IN}"
+

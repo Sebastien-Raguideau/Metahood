@@ -1,0 +1,54 @@
+from scripts.common import detect_reads, fill_default_values, extended_glob,get_extension
+from collections import defaultdict
+import os.path
+
+#--------------------------- Config parameters ---------------------------
+fill_default_values(config)
+
+# do we need to setup the folders for sampels ? 
+SETUP=config["samples"]["setup"]
+
+# where data folders are going to be created (or should be)
+IN = config["data"]
+
+# #--------------------------- If setup needed  ---------------------------
+if SETUP :
+    rule setup :
+        input : "sample_setup.done"
+
+    rule setup_sample_folder :
+        output: touch("sample_setup.done")
+        run : 
+            SAMPLE_CSV_FILE=config["samples"]["file"] # csv file should have : filename,R1 or R2,sample_name
+            SAMPLE_FOLDER=config["samples"]["folder"] # samples can be wherever you want, but we ask for them to be in the same folder
+            # get the list of samples in that folder
+            DICT_FILES_PATH={os.path.basename(path):path for path in detect_reads(SAMPLE_FOLDER)}
+            DICT_SAMPLE_FILES=defaultdict(list) # allow to merge multiple samples 
+            for line in open(SAMPLE_CSV_FILE) :
+                filename,R1R2,sample=line.rstrip().split(",")
+                if filename=="Filename" : # deal with header
+                    continue
+                # check if file has been found
+                if filename not in DICT_FILES_PATH :
+                    print(filename+" has not been found in folder "+SAMPLE_FOLDER)
+                    exit(1)
+                else :
+                    DICT_SAMPLE_FILES[(sample,R1R2)].append(filename)
+            print(len(DICT_SAMPLE_FILES.items()))
+            print(DICT_SAMPLE_FILES)
+            for (sample,R1R2),list_file in DICT_SAMPLE_FILES.items() :
+                # create a directory by sample 
+                folder_name=os.path.dirname(IN)+"/"+sample
+                os.system("mkdir -p "+folder_name)
+                # get file path :
+                list_path=[DICT_FILES_PATH[file] for file in list_file]
+                # concatenate samples if needed 
+                if len(list_file)>1 : 
+                    extension={get_extension(file) for file in list_file}
+                    if len(extension)>1 :
+                        print('the samples files : '+'\t'.join(list_file)+"\nhave different extension thus we are not able to concatenate them into one sample file" )
+                    new_file_name=sample+"_"+R1R2+list(extension)[0]
+                    os.system("cat "+" ".join(list_path)+">"+folder_name+"/"+new_file_name)
+                else :
+                    new_file_name=sample+"_"+R1R2+get_extension(list_file[0])
+                    os.system("ln -s "+os.path.dirname(SAMPLE_FOLDER)+"/"+list_file[0]+" "+"/".join([folder_name,new_file_name]))
