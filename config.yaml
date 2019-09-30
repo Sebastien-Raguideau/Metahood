@@ -42,9 +42,14 @@ binning :
     execution : 1
 # ------ MAG anaysis------ 
 Mag : [checkm,native] # value need to be checkm or native (NOT DONE YET, TODO)
-  # ------ orf subgraph ------ 
+# ------ orf subgraph ------ 
 graph :
   List_graphs:
     Card_int1: [CARD,IntI]
     Card: [CARD]
   CAT_database: /mnt/gpfs/seb/Database/NR_Cat
+# ------ Samples ------
+samples :
+  setup : 1 
+  file : /mnt/gpfs/seb/Project/temp/Tania/Assemblies/Samples.csv
+  folder: /mnt/gpfs/seb/Project/temp/Tania/Data/
