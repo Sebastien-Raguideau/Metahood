@@ -3,12 +3,14 @@
 
 # Assemble with MegaHIT
 
+
 rule megahit:
-    input:   left=left_reads, right=right_reads,
-             qc=IN+"multiqc_report.html"
+    input:   left=lambda w:LEFT_READS[w["group"]],
+             right=lambda w:RIGHT_READS[w["group"]],
+             qc=IN+"/multiqc_report.html"
     output:  "{group}/assembly/final.contigs.fa"
-    params:  left=lambda w: ",".join(expand("{r}", r=left_reads(w))),
-             right=lambda w: ",".join(expand("{r}", r=right_reads(w))),
+    params:  left=lambda w: ",".join(LEFT_READS[w["group"]]),
+             right=lambda w: ",".join(RIGHT_READS[w["group"]]),
              dir="{group}/assembly",
              mem=MAX_MEM_PERCENT/2.1,
              Additional_params=ASSEMBLER_PARAMS

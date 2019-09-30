@@ -20,7 +20,8 @@ default_values = {
     "assembly":    {"assembler": "megahit","groups": {},"parameters":"" },
     "annotation":{},
     "graph":{"List_graph":{}},
-    "samples":{"setup":0}
+    "samples":{"setup":0},
+    "Percent_memory":0.5
 }
 
 # ---- neat regex matching of files --------
@@ -50,7 +51,7 @@ def fill_default_values(config):
 def sample_name(fullname):
     return os.path.splitext(os.path.basename(fullname))[0]
 
-FASTA_EXTS = {".fasta", ".fasta.gz", ".fa", ".fa.gz", ".fna", ".fna.gz", ".fsa",".fsa.gz", ".fastq", ".fastq.gz"}
+FASTA_EXTS = {".fasta", ".fasta.gz", ".fa", ".fa.gz", ".fna", ".fna.gz", ".fsa",".fsa.gz", ".fastq", ".fastq.gz"}  # "fq.gz" is not in because it allows to ignore trimming files. 
 def get_extension(file) :
     for ext in FASTA_EXTS:
         if file.endswith(ext):

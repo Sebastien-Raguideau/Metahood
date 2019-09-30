@@ -5,6 +5,7 @@ from functools import partial
 from collections import defaultdict
 import glob
 import os.path
+from os.path import basename,dirname
 import tempfile
 import yaml
 from subprocess import Popen, PIPE
@@ -94,13 +95,16 @@ Files_nb=[sample for sample,list_file in SAMPLE_READS.items() if len(list_file)!
 if Files_nb :
     raise WorkflowError("Samples folder : "+" - ".join(Files_nb)+"  does not have 2 fastq files, check the regular expression you used to select samples")
 
-# Add group samples entry to SAMPLE_READS
-GROUP_READS={group:list(zip(*[SAMPLE_READS[sample.split("/")[-1]] for sample in list_sample])) for group,list_sample in GROUPS.items()}
-SAMPLE_READS.update(GROUP_READS)
-
-# build functions based on wildcard value for group and/or sample,
-left_reads=lambda wildcards: map(lambda x:x.replace("_R1.fastq.gz","_R1_val_1.fq.gz").replace("_R2.fastq.gz","_R2_val_2.fq.gz"),SAMPLE_READS[wildcards["group"]][0])
-right_reads=lambda wildcards: map(lambda x:x.replace("_R2.fastq.gz","_R2_val_2.fq.gz").replace("_R1.fastq.gz","_R1_val_1.fq.gz"),SAMPLE_READS[wildcards["group"]][1])
+# Define reads by samples
+qual_rep=lambda fastq:fastq.replace("_R1.fastq.gz","_R1_val_1.fq.gz").replace("_R2.fastq.gz","_R2_val_2.fq.gz")
+LEFT_READS={sample:qual_rep(list_reads[0]) for sample,list_reads in SAMPLE_READS.items()}
+RIGHT_READS={sample:qual_rep(list_reads[1]) for sample,list_reads in SAMPLE_READS.items()}
+# Define reads by groups
+GROUP_LEFT_READS={group:[LEFT_READS[basename(sample)] for sample in list_sample] for group,list_sample in GROUPS.items()}
+GROUP_RIGHT_READS={group:[RIGHT_READS[basename(sample)] for sample in list_sample] for group,list_sample in GROUPS.items()}
+# Add definition to global dict
+LEFT_READS.update(GROUP_LEFT_READS)
+RIGHT_READS.update(GROUP_RIGHT_READS)
 
 
 def samples_yaml():

@@ -80,7 +80,8 @@ with cd(exec_dir):
     call_snake.nb=0
     #setup data folder
     call_snake(["--snakefile", "Setup_samples.snake"])
-    #launch master snake
+    # #launch master snake
     call_snake(["--snakefile", "Master.snake"])
+    # call_snake(["--snakefile", "test2.snake"])
 
 

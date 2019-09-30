@@ -33,10 +33,12 @@ rule trim_galore :
 	trim_galore  --fastqc --gzip -o {wildcards.folder} --paired {input.file_R1} {input.file_R2} > {log} 2>&1 
 	"""
 
+def replace_extensions(sample):
+	return sample.replace("_R1.fastq.gz","_R1_val_1.fq.gz").replace("_R2.fastq.gz","_R2_val_2.fq.gz").replace("_R1.fastq","_R1_val_1.fq.gz").replace("_R2.fastq","_R2_val_2.fq.gz")
 
 rule multiqc :
-	input : R1=[SAMPLE_READS[sample][0].replace("_R1.fastq.gz","_R1_val_1.fq.gz").replace("_R2.fastq.gz","_R2_val_2.fq.gz").replace("_R1.fastq","_R1_val_1.fq.gz").replace("_R2.fastq","_R2_val_2.fq.gz") for sample in SAMPLES],
-			R2=[SAMPLE_READS[sample][1].replace("_R1.fastq.gz","_R1_val_1.fq.gz").replace("_R2.fastq.gz","_R2_val_2.fq.gz").replace("_R1.fastq","_R1_val_1.fq.gz").replace("_R2.fastq","_R2_val_2.fq.gz") for sample in SAMPLES],
-	output : IN+"multiqc_report.html"
-	shell : "multiqc --interactive -f {IN} -o {IN}"
+	input : R1=[replace_extensions(SAMPLE_READS[sample][0]) for sample in SAMPLES],
+			R2=[replace_extensions(SAMPLE_READS[sample][1]) for sample in SAMPLES],
+	output : IN+"/multiqc_report.html"
+	shell : "multiqc --interactive -f {IN}/ -o {IN}/"
 

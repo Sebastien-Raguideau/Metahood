@@ -39,7 +39,7 @@ rule bedtools:
     output:  "{group}/map/{sample}_{type}.cov"
     log:      "{group}/map/{sample}_{type}.log"
     resources:
-        memG=200
+        memG=400
     shell:   "bedtools coverage -a {input.bed} -b {input.bam} -mean > {output} 2>{log} "
 
 # ---- use a awk onliner to regroup all coverages into a unique file -----------------------

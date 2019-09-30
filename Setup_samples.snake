@@ -34,8 +34,6 @@ if SETUP :
                     exit(1)
                 else :
                     DICT_SAMPLE_FILES[(sample,R1R2)].append(filename)
-            print(len(DICT_SAMPLE_FILES.items()))
-            print(DICT_SAMPLE_FILES)
             for (sample,R1R2),list_file in DICT_SAMPLE_FILES.items() :
                 # create a directory by sample 
                 folder_name=os.path.dirname(IN)+"/"+sample
