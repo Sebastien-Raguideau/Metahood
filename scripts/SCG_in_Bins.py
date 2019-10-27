@@ -14,7 +14,7 @@ def main(Bin_file,Fasta_file,path,Table,LIST):
 	# which SCG in which bins
 	Dico_bins_SCG=defaultdict(lambda :defaultdict(list))
 	Dico_bins_nbcontigs=defaultdict(int)
-	for index,line in enumerat(open(Bin_file)) :
+	for index,line in enumerate(open(Bin_file)) :
 		if index==0 :
 			continue
 		contig,Bin=line.rstrip().split(',')
