@@ -78,7 +78,7 @@ with cd(exec_dir):
         else :
             subprocess.check_call(base_params + extra_params, stdout=sys.stdout, stderr=sys.stderr)
     call_snake.nb=0
-    setup data folder
+    # setup data folder
     call_snake(["--snakefile", "Setup_samples.snake"])
     #launch master snake
     call_snake(["--snakefile", "Master.snake"])
