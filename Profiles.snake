@@ -1,35 +1,104 @@
 from Bio.SeqIO.FastaIO import SimpleFastaParser as SFP
 
-
+# ---- generate contig bed   ----------------------------------------------------
 rule bogus_bed:
     input:   contig="{group}/contigs/contigs.fa"
-    output:  bed="{group}/contigs/contigs.bed"
+    output:  bed="{group}/annotation/contigs.bed"
     run :
         handle=open(output['bed'],"w")
         for header,seq in SFP(open(input["contig"])) :
             name=header.split(" ")[0]
-            handle.write("\t".join([name,"0",str(len(seq))+"\n"]))
+            handle.write("\t".join([name,"0",str(len(seq)),name+"\n"]))
         handle.close()
 
+# ---- generate orfs bed   ----------------------------------------------------
 rule bed_orfs:
-    input:   gff="{group}/annotation/contigs.gff"
-    output:  bed="{group}/annotation/Orf.bed"
+    input:   gff="{path}/contigs.gff"
+    output:  bed="{path}/orf.bed"
     shell : "{SCRIPTS}/Gff_to_bed.py {input.gff} {output.bed}"
 
 
-rule bedtools_2:
+# ---- use bedtool to compute coverage  ----------------------------------------------------
+rule bedtools:
     input:   bam="{group}/map/{sample}_mapped_sorted.bam",
-             bed="{group}/contigs/contigs.bed"
-    output:  "{group}/map/{sample}_contig.cov"
-    log:      "{group}/map/{sample}_contig.log"
+             bed="{group}/annotation/{type}.bed"
+    output:  "{group}/map/{sample}.{type}.cov"
+    log:      "{group}/map/{sample}_{type}.log"
     resources:
-        memG=200
+        memG=400
     shell:   "bedtools coverage -a {input.bed} -b {input.bam} -mean > {output} 2>{log} "
 
-rule coverage_2:
-    input:   lambda w : [w.group+"/map/"+sample.split('/')[-1]+"_contig.cov" for sample in  GROUPS[w.group]]
-    output:  "{group}/profile/coverage_contigs.tsv"
-    priority : 1000
+# ---- use a awk oneliner to regroup all coverages into a unique file -----------------------
+rule coverage:
+    input:   lambda w : [w.group+"/map/"+sample.split('/')[-1]+".{type}.cov" for sample in  GROUPS[w.group]]
+    output:  "{group}/profile/coverage_{type}.tsv"
     shell :  """
-            echo -e "contig\t""$(ls {input} | cut -f1 -d "." | rev | cut -f1 -d "/" |rev | tr "\n" "\t" | sed 's/\t$//')"> {output}
-            awk 'NR==FNR{{Matrix_coverage[1,FNR]=$1}}FNR==1{{f++}}{{Matrix_coverage[f+1,FNR]=$4}}END{{for(x=1;x<=FNR;x++){{for(y=1;y<ARGC+1;y++){{if(y<ARGC){{printf("%s\t",Matrix_coverage[y,x])}}if(y==ARGC){{printf("%s",Matrix_coverage[y,x]);print""}}}}}}}}' {input} >>{output}"""
+            echo -e "contig\t""$(ls {input} | rev | cut -f3- -d "."  | cut -f1 -d "/" |rev | tr "\n" "\t" | sed 's/\t$//')"> {output}
+            awk 'NR==FNR{{Matrix_coverage[1,FNR]=$4}}FNR==1{{f++}}{{Matrix_coverage[f+1,FNR]=$5}}END{{for(x=1;x<=FNR;x++){{for(y=1;y<ARGC+1;y++){{if(y<ARGC){{printf("%s\t",Matrix_coverage[y,x])}}if(y==ARGC){{printf("%s",Matrix_coverage[y,x]);print""}}}}}}}}' {input} >>{output}"""
+
+# ---- generate a mapping of annotation to orfs  -----------------------
+rule map_annotation_to_orfs:
+    input:   "{path}/contigs_best_hits.{annotation}.tsv"
+    output:  "{path}/{annotation}_to_orfs.tsv"
+    shell:  """{SCRIPTS}/Annotation_listcontig.py {input} {output} """
+
+# ---- generate annotation profile  -----------------------
+rule generate_profile:
+    input:  cov="{group}/profile/coverage_orf.tsv",
+            map="{group}/annotation/{annotation}_to_orfs.tsv"
+    output: "{group}/profile/coverage_{annotation}.tsv"
+    shell:  "{SCRIPTS}/Extract_gene_profile.py {input.map} {input.cov} {output}"
+
+# ----------------------------------------------------------
+# ---- generate Normalisation file  -----------------------
+# ----------------------------------------------------------
+
+# ---- generate nb nucleotides by sample  -----------------------
+rule nb_bases:
+    input: lambda w : [fastq_file+"_trimming_report.txt" for sample in  GROUPS[w.group] for fastq_file in SAMPLE_READS[basename(sample)]]
+    output: temp("{group}/profile/nucleotides.tsv")
+    run: 
+        dict_sample_nb=defaultdict(list)
+        for file in input:
+            sample=basename(dirname(file))
+            with open(file) as handle:
+                line=next(handle)
+                while "Total written (filtered):" not in line:
+                    line=next(handle)
+                nb=line.split(":")[1].split("bp")[0].replace(",","").replace(" ","")
+                dict_sample_nb[sample].append(float(nb))
+        dict_sample_nb={sample:str(sum(list_nb)) for sample,list_nb in dict_sample_nb.items()}
+        print(output[0])
+        with open(output[0],"w") as handle:
+            handle.write("Normalisation\t"+"\t".join(dict_sample_nb.keys())+"\n")
+            handle.write("Nb_nucleotides\t"+"\t".join(dict_sample_nb.values())+"\n")
+        handle.close()
+
+# ---- generate cog profile  -----------------------
+rule median_SCG_cov:
+    input:  cov="{group}/profile/coverage_cogs.tsv",
+            nuc="{group}/profile/nucleotides.tsv"
+    output: "{group}/profile/Normalisation.tsv"
+    run: 
+        set_SCG = {cog.rstrip() for cog in open(SCG_DATA+"/scg_cogs_min0.97_max1.03_unique_genera.txt")}
+        List_profile = []
+        # compute median of SCG       
+        with open(input.cov) as handle:
+            samples = next(handle).rstrip().split("\t")[1:]
+            for index,line in enumerate(handle):
+                split_line = line.rstrip().split("\t")
+                cog = split_line[0]
+                if cog in set_SCG:
+                    List_profile.append([float(element) for element in split_line[1:]])
+        scg_norm=np.median(List_profile, axis=0)
+        # get previous normalisation
+        with open(input.nuc) as handle:
+            samples_local=next(handle).rstrip().split("\t")[1:]
+            nuc_norm=next(handle).rstrip().split("\t")[1:]
+        sample_to_norm={sample:nuc_norm[index] for index,sample in enumerate(samples_local)}
+        with open(output[0],"w") as handle:
+            handle.write("Normalisation\t"+"\t".join(samples)+"\n")
+            handle.write("Nucleotides\t"+"\t".join([sample_to_norm[sample] for sample in samples])+"\n")
+            handle.write("median_scg\t"+"\t".join(map(str,scg_norm))+"\n")
+
+

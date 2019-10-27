@@ -1,36 +1,25 @@
-
-rule fastqc_gz :
-	input : IN+"{sample}/{name}.fastq.gz"
-	output : IN+"{sample}/{name}_fastqc.html"
-	shell :"fastqc -o {IN}{wildcards.sample} {input}"
+from scripts.common import detect_reads, fill_default_values, extended_glob,get_extension
+from os.path import basename
+SAMPLE_EXT={sample:{get_extension(fastq_file) for fastq_file in list_fastq} for sample,list_fastq in SAMPLE_READS.items()}
+for sample,ext in SAMPLE_EXT.items() :
+	if len(ext)>1 :
+		print("issue with sample %s, there are multiple extensions detect_reads : "%sample +" ".join(list(ext)))
 
 rule fastqc :
-	input : IN+"{sample}/{name}.fastq"
-	output : IN+"{sample}/{name}_fastqc.html"
-	shell :"fastqc -o {IN}{wildcards.sample} {input}"
-
-rule trim_galore_gz :
-	input : file_R1="{folder}/{sample}_R1.fastq.gz",
-			file_R1_qc="{folder}/{sample}_R1_fastqc.html",
-			file_R2="{folder}/{sample}_R2.fastq.gz",
-			file_R2_qc="{folder}/{sample}_R2_fastqc.html"
-	output :file_R1="{folder}/{sample}_R1_val_1.fq.gz",
-			file_R2="{folder}/{sample}_R2_val_2.fq.gz"	
-	log :   "{folder}/{sample}.log"
-	shell :"""
-	trim_galore  --fastqc --gzip -o {wildcards.folder} --paired {input.file_R1} {input.file_R2} > {log} 2>&1 
-	"""
+	input : lambda w:IN+"{path}/{sample}"+list(SAMPLE_EXT[basename(w.path)])[0]
+	output : IN+"{path}/{sample}_fastqc.html"
+	shell :"fastqc -o {IN}{wildcards.path} {input}"
 
 rule trim_galore :
-	input : file_R1="{folder}/{sample}_R1.fastq",
-			file_R1_qc="{folder}/{sample}_R1_fastqc.html",
-			file_R2="{folder}/{sample}_R2.fastq",
-			file_R2_qc="{folder}/{sample}_R2_fastqc.html"
-	output :file_R1="{folder}/{sample}_R1_val_1.fq.gz",
-			file_R2="{folder}/{sample}_R2_val_2.fq.gz"	
-	log :   "{folder}/{sample}.log"
+	input : file_R1=lambda w:"{path}/{sample}_R1"+list(SAMPLE_EXT[basename(w.path)])[0],
+			file_R1_qc="{path}/{sample}_R1_fastqc.html",
+			file_R2=lambda w:"{path}/{sample}_R2"+list(SAMPLE_EXT[basename(w.path)])[0],
+			file_R2_qc="{path}/{sample}_R2_fastqc.html"
+	output :file_R1="{path}/{sample}_R1_val_1.fq.gz",
+			file_R2="{path}/{sample}_R2_val_2.fq.gz"	
+	log :   "{path}/{sample}.log"
 	shell :"""
-	trim_galore  --fastqc --gzip -o {wildcards.folder} --paired {input.file_R1} {input.file_R2} > {log} 2>&1 
+	trim_galore  --fastqc --gzip -o {wildcards.path} --paired {input.file_R1} {input.file_R2} > {log} 2>&1 
 	"""
 
 def replace_extensions(sample):

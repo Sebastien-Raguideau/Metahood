@@ -49,6 +49,8 @@ def main(Rpsblast_ouptut,Database_file,min_Evalue,min_Pid,min_Subject_Pid,min_co
     # Filter things out
     if (Evalue>=min_Evalue)&(PID>=min_Pid)&(Subject_Pid>=min_Subject_Pid)&(Coverage>=min_coverage)&(Query_coverage>=min_Query_coverage) :
       Querry_Annotation.append([Query,Subject,Evalue,PID,Subject_Pid,Coverage,Query_coverage])
+  if Querry_Annotation!=[]:
+    Print_Final_annotation(Querry_Annotation)
 
 if __name__ == "__main__":
   parser = argparse.ArgumentParser()

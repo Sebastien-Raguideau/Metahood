@@ -36,14 +36,9 @@ rule subgraph_contiguous:
 	output:"{group}/graph/{name}.{DB}_contiguous.gfa"
 	shell:"{SCRIPTS}/Graph_selection.py {input.annotation} {input.gfa} contiguous -o {output}"
 
-rule gff_to_bed:
-	input: "{filepath}.gff"
-	output: "{filepath}.bed"
-	shell: "{SCRIPTS}/Gff_to_bed.py {input} {output}"
-
 rule orf_graph:
 	input: gfa="{group}/graph/{name}.gfa",
-		   bed="{group}/annotation/contigs.bed"
+		   bed="{group}/annotation/orf.bed"
 	output:"{group}/graph/{name}_ORF.gfa"
 	shell:"{SCRIPTS}/Build_ORF_graph.py {input.bed} {input.gfa} {output}"
 

@@ -40,23 +40,30 @@ METABAT2_EXECUTION = config["binning"]["metabat2"]["execution"]
 MIN_CONTIG_SIZE_METABAT2=config["binning"]["metabat2"]["contig_size"]
 BINNER=CONCOCT_EXECUTION*["concoct"]+METABAT2_EXECUTION*["metabat2"]
 
-# -------- MAG analysis ------
-MAG_ANALYSIS=config["mag"]
-
-
 # -------- Annotation --------
 COG_DB= config["cog_database"]
 SCG_DATA = config["scg_data"]
 ANNOTATION = config["annotation"]
 
-# -------- graph --------
+# -------- MAG analysis ------
+MAG_ANALYSIS=config["maganalysis"]
+LIST_COGS=[line.rstrip() for line in open(SCG_DATA+"/scg_cogs_min0.97_max1.03_unique_genera.txt")]
 
+# -------- DESMAN ------
+DESMAN=config["desman"]["execution"]
+DSCRIPTS=config["desman"]["scripts"]
+DESMAN_HAPLOTYPE_NB = config["desman"]["nb_haplotypes"]
+DESMAN_REPEAT = config["desman"]["nb_repeat"]
+MIN_COV_DESMAN = config["desman"]["min_cov"]
+
+
+# -------- graph --------
 if config["graph"]["List_graph"] :
     GRAPH_TASKS=["contigs."+".".join(List_annotation)+"_contiguous_ORF_annotation.csv" for List_annotation in config["graph"]["List_graph"].values()]
     CAT_DB=config["graph"]["CAT_database"]
     DB_COLORS={DB:Dict_things['color'] for DB,Dict_things in ANNOTATION.items()}
 else :
-    GRAPH_TASKS=["NO_GRAPH_IN_CONFIGS"]
+    GRAPH_TASKS=[]
 
 
 
@@ -88,10 +95,10 @@ if Empty_group :
 
 # -------- Files associated with each samples --------
 # Each sample should have its own folder with fasta/fastq files in it
-SAMPLES={sample.split("/")[-1] for list_sample in GROUPS.values() for sample in list_sample}
+SAMPLES= {sample.split("/")[-1] for list_sample in GROUPS.values() for sample in list_sample}
 SAMPLE_READS = dict(map(lambda sample: (sample, detect_reads(os.path.join(IN, sample))), SAMPLES))
 
-Files_nb=[sample for sample,list_file in SAMPLE_READS.items() if len(list_file)!=2]
+Files_nb = [sample for sample,list_file in SAMPLE_READS.items() if len(list_file)!=2]
 if Files_nb :
     raise WorkflowError("Samples folder : "+" - ".join(Files_nb)+"  does not have 2 fastq files, check the regular expression you used to select samples")
 

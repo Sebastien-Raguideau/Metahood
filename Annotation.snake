@@ -10,8 +10,8 @@ rule diamond:
 	shell :   "diamond {params.blast} -d {params.db}  -q {input} -p {threads} -o {output} -f6 qseqid sseqid qstart qend qlen sstart send slen length pident evalue bitscore &>{log}"
 
 rule annotation_diamond:
-	input :  "{filename}_{annotation}.m8"
-	output : "{filename}_{annotation}.tsv"
+	input :  "{group}/annotation/{filename}_{annotation}.m8"
+	output : "{group}/annotation/{filename}_{annotation}.tsv"
 	params : annotation=lambda w: ANNOTATION[w.annotation]["annotation"],
 			 Bitscore=lambda w: ANNOTATION[w.annotation]["filter"][0],
 			 Evalue=lambda w: ANNOTATION[w.annotation]["filter"][1],

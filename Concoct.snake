@@ -26,29 +26,10 @@ rule cut_contigs:
     input:  fa="{group}/contigs/contigs.fa",
             gff="{group}/annotation/contigs.gff"
     output: contig="{group}/contigs/contigs_C10K.fa",
-            Contig_bed="{group}/contigs/contigs_C10K.bed"
+            Contig_bed="{group}/annotation/contigs_C10K.bed"
     priority: 50
     message:"Use orfs annotation to cut contigs"
     shell:  """{SCRIPTS}/Use_orf_to_cut.py {input.fa} {input.gff} {output.contig} {output.Contig_bed}"""
-
-
-# ---- use bedtool to compute coverage  ----------------------------------------------------
-rule bedtools:
-    input:   bam="{group}/map/{sample}_mapped_sorted.bam",
-             bed="{group}/contigs/contigs_{type}.bed"
-    output:  "{group}/map/{sample}_{type}.cov"
-    log:      "{group}/map/{sample}_{type}.log"
-    resources:
-        memG=400
-    shell:   "bedtools coverage -a {input.bed} -b {input.bam} -mean > {output} 2>{log} "
-
-# ---- use a awk onliner to regroup all coverages into a unique file -----------------------
-rule coverage:
-    input:   lambda w : [w.group+"/map/"+sample.split('/')[-1]+"_C10K.cov" for sample in  GROUPS[w.group]]
-    output:  "{group}/profile/coverage_contigs_C10K.tsv"
-    shell :  """
-            echo -e "contig\t""$(ls {input} | cut -f1 -d "." | rev | cut -f1 -d "/" |rev | tr "\n" "\t" | sed 's/\t$//')"> {output}
-            awk 'NR==FNR{{Matrix_coverage[1,FNR]=$4}}FNR==1{{f++}}{{Matrix_coverage[f+1,FNR]=$5}}END{{for(x=1;x<=FNR;x++){{for(y=1;y<ARGC+1;y++){{if(y<ARGC){{printf("%s\t",Matrix_coverage[y,x])}}if(y==ARGC){{printf("%s",Matrix_coverage[y,x]);print""}}}}}}}}' {input} >>{output}"""
 
 
 # ------------------------------------------ COG Annotation -------------------------------
@@ -138,12 +119,23 @@ rule merge_contigs:
 # --------- estimate the number of mag ------------------------------------------------------------
 
 rule output_number_of_mag:
-    input:   "{path}/{binner}_SCG_table.csv"
-    output:  "{path}/{binner}_MAG_nb.txt"
+    input:   table="{path}/{binner}_SCG_table.csv"
+    output:  mag_nb="{path}/{binner}_MAG_nb.txt",
+             mag_list="{path}/{binner}_MAG_list.txt"
     run:
-        Handle=open(output[0],"w")
-        Handle.write(str(sum([sum([element=="1" for element in line.rstrip().split(',')[1:]])>=(0.75*36) for index,line in enumerate(open(input[0])) if index>1])))
-        Handle.close()
+        with open(output["mag_nb"],"w") as handle_nb:
+            with open(output["mag_list"],"w") as handle_list:
+                nb=0
+                mags=[]
+                for index,line in enumerate(open(input["table"])) :
+                    if index==0:
+                        continue
+                    split_line=line.rstrip().split(',')
+                    if sum([element=="1" for element in split_line[1:]])>=(0.75*36) :
+                        nb+=1
+                        mags.append(split_line[0])
+                handle_nb.write(str(nb)+"\n")
+                handle_list.write("\n".join(mags))
 
 # --------- produce a contig file for each bins be they good or not (metabat2 style) ---------------
 rule output_bins:

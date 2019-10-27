@@ -13,7 +13,7 @@ import time
 from scripts.common import fill_default_values
 
 
-parser = argparse.ArgumentParser(description="STRONG - STrain Resolution ON Graphs")
+parser = argparse.ArgumentParser(description="MetaHood - pipeline for assembly and binning of metagenomic samples")
 parser.add_argument("--threads", "-t", type=int, default=1, help="Number of threads")
 parser.add_argument("dir", type=str, help="Output directory")
 parser.add_argument("--config", "-c", type=str, default="", help="config_file.yaml to use")
@@ -78,10 +78,11 @@ with cd(exec_dir):
         else :
             subprocess.check_call(base_params + extra_params, stdout=sys.stdout, stderr=sys.stderr)
     call_snake.nb=0
-    #setup data folder
+    setup data folder
     call_snake(["--snakefile", "Setup_samples.snake"])
-    # #launch master snake
+    #launch master snake
     call_snake(["--snakefile", "Master.snake"])
-    # call_snake(["--snakefile", "test2.snake"])
+    # launch desman
+    call_snake(["--snakefile", "Desman.snake"])
 
 

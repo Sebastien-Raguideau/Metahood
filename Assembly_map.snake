@@ -12,17 +12,17 @@ rule megahit:
     params:  left=lambda w: ",".join(LEFT_READS[w["group"]]),
              right=lambda w: ",".join(RIGHT_READS[w["group"]]),
              dir="{group}/assembly",
-             mem=MAX_MEM_PERCENT/2.1,
+             mem=MAX_MEM_PERCENT,
              Additional_params=ASSEMBLER_PARAMS
     resources:
-        memG=int(MAX_MEMG/2.1)
+        memG=int(MAX_MEMG)
     threads: 70
     log:     "{group}/assembly.log"
     message: "Assembling {wildcards.group} with MegaHIT"
     shell:   """rm -rf {params.dir}
              megahit -1 {params.left} -2 {params.right} {params.Additional_params} -t {threads} -m {params.mem} -o {params.dir} &> {log}"""
 
-checkpoint contig_folder:
+rule contig_folder:
     input: "{group}/assembly/final.contigs.fa"
     output: "{group}/contigs/contigs.fa"
     shell: "mv {input} {output}"

@@ -1,0 +1,178 @@
+include: "Common.snake"
+from Bio.SeqIO.FastaIO import SimpleFastaParser as sfp
+from os.path import basename 
+import glob
+import os
+
+# -------- get a dictionary yielding the mags for all (group,binner) --------
+GROUP_BINNER_TO_BINS={(group,binner):["Bin_"+line.rstrip() for line in open(group+"/binning/"+binner+"/"+binner+"_MAG_list.txt")] for group in GROUPS for binner in BINNER}
+# -------- List_results --------
+List_results=["/".join([group,"desman",binner,bin_,"desman_analysis_done"]) for (group,binner),list_bins in GROUP_BINNER_TO_BINS.items() for bin_ in list_bins]
+
+if DESMAN==1:
+    # -------- launch desman by requiring the final result file  --------
+    rule all: 
+        input:  List_results
+
+    # bins = lambda w: GROUP_BINNER_TO_BINS[w.group,w.binner]
+
+    # -------- symbolic link of MAGs fastas --------
+    rule symlink_fasta:
+        input:  "{group}/binning/{binner}/bins/{bin}.fa"
+        output: "{group}/desman/{binner}/{bin}/{bin}.fa"
+        shell: """
+               ln -s $(realpath --relative-to="$(dirname {output})" "{input}") {output}
+               """
+
+    # -------- Mag specific bed file --------
+    rule contigs_bed:
+        input: "{path}/{bin}/{bin}.fa"
+        output: "{path}/{bin}/{bin}.bed"
+        shell: "{SCRIPTS}/WriteBed.py {input} > {output}"
+
+
+    # -------- Mag specific bed file --------
+    rule bam_by_bin:
+        input:  global_bam = "{group}/map/{sample}_mapped_sorted.bam",
+                bin_bed = "{group}/desman/{binner}/{bin}/{bin}.bed"
+        output: bin_bam = "{group}/desman/{binner}/{bin}/{sample}.{bin}.bam"
+        threads: THREADS
+        shell: """
+        samtools view -b -L {input.bin_bed} {input.global_bam} -@{threads} > {output.bin_bam}
+        """
+    # -------- index fasta --------
+    rule index_fasta:
+        input: "{path}.fa"
+        output: "{path}.fa.fai"
+        shell: "samtools faidx {input}"
+
+    # -------- get counts on each mags contigs --------
+    rule bam_readcount:
+        input:  fasta = "{group}/desman/{binner}/{bin}/{bin}.fa",
+                fai = "{group}/desman/{binner}/{bin}/{bin}.fa.fai",
+                bam = "{group}/desman/{binner}/{bin}/{sample}.{bin}.bam",
+                bed = "{group}/desman/{binner}/{bin}/{bin}.bed"
+        output: "{group}/desman/{binner}/{bin}/{sample}.cnt.gz"
+        log: "{group}/desman/{binner}/{bin}/bam_readcount_{sample}.log"
+        shell: """
+            samtools index {input.bam} {input.bam}.bai
+            bam-readcount -l {input.bed} -f {input.fasta} {input.bam} 2> {log} | gzip > {output}
+            """
+
+    # -------- get a bed file for SCG   --------
+    rule scg_bed:
+        input:  orfs_bed = "{group}/annotation/orf.bed",
+                scg_file = "{group}/annotation/contigs_SCG.fna"
+        output: scg_bed =  "{group}/desman/SCG.bed"
+        run:
+            seq_names = {name.split()[0] for name, seq in sfp(open(input.scg_file))}
+            with open(output.scg_bed, 'w') as scg_bed:
+                for line in open(input.orfs_bed):
+                    if line.split()[3] in seq_names:
+                        scg_bed.write(line)
+
+    # -------- get SCG coordinates   --------
+    rule build_scg_coordinates_for_ExtractCountFreqGenes:
+        input:  scg_bed = "{group}/desman/SCG.bed",
+                bin_definition = "{group}/binning/{binner}/clustering_concoct.csv",
+                scg_file = "{group}/annotation/contigs_SCG.fna"
+        output: coordinates = "{group}/desman/{binner}/{bin}/scg_coordinates.tsv"
+        run:
+            # contigs specific to the bin
+            set_contigs={line.rstrip().split(",")[0] for line in open(input["bin_definition"]) if (line.rstrip().split(",")[1]==wildcards.bin.replace("Bin_",""))}
+            # NODE_11_length_160076_cov_189.092050_50 COG0552 strand=+
+            # Cog annotation of orfs in header of the file 
+            dict_scg = {header.split(" ")[0]: header.split(" ") for header, seq in sfp(open(input.scg_file))}
+            with open(output.coordinates, "w") as handle :
+                for line in open(input.scg_bed):
+                    contig, start, end, orf = line.rstrip().split("\t")
+                    if contig in set_contigs:
+                        cog, strand = dict_scg[orf][1:]
+                        cog, strand = dict_scg[orf][1:]
+                        strand = str((strand == "strand=+")*1-(strand == "strand=-")*1)
+                        contig = "_".join(orf.split("_")[:-1])
+                        handle.write(",".join([cog, contig, start, end, orf, strand])+"\n")
+
+    rule extract_counts:
+        input:  counts=lambda w:["/".join([w.group,'desman',w.binner,w.bin,basename(sample)+".cnt.gz"]) for sample in GROUPS[w.group]],
+                scg_coordinates = "{group}/desman/{binner}/{bin}/scg_coordinates.tsv"
+        output: "{group}/desman/{binner}/{bin}/count.csv"
+        params: input_dir = "{group}/desman/{binner}/{bin}"
+        log:    "{group}/desman/{binner}/{bin}/extract_counts.log"
+        shell: """
+        python {DSCRIPTS}/ExtractCountFreqGenes.py {input.scg_coordinates} {params.input_dir} --output_file {output} &>> {log}
+            """
+
+    checkpoint filter_variant:
+        input:
+            "{path}/{bin}/count.csv"
+        output:
+            expand("{{path}}/{{bin}}/freqs_{output_file_type}",
+                   output_file_type=["sel_var.csv", "p_df.csv", "q_df.csv", "r_df.csv", "tran_df.csv", "log.txt"])
+        params: "{path}/{bin}/freqs_"
+        log:
+            "{path}/Logs/{bin}_Filter_variant.log"
+        shell: """
+            {DSCRIPTS}/Variant_Filter.py {input} -o {params} -p -m {MIN_COV_DESMAN} 2>{log}
+            """
+
+    rule run_desman:
+        input:
+            sel_var = "{path}/{bin}/freqs_sel_var.csv",
+            err = "{path}/{bin}/freqs_tran_df.csv"
+        output:
+            "{path}/{bin}/Run_{g}_{r}/fit.txt"
+        log:
+            "{path}/Logs/Run_{g}_{r}/{bin}_{g}_{r}.log"
+        shell: """
+          desman {input.sel_var} -e {input.err} -o $(dirname {output}) -m {MIN_COV_DESMAN} -i 100 -g {wildcards.g} -s {wildcards.r} &> {log}
+          """
+
+
+    rule desman_fit:
+        input: expand("{{path}}/Run_{g}_{r}/fit.txt", g=range(1, DESMAN_HAPLOTYPE_NB+1), r=range(DESMAN_REPEAT))
+        output: "{{path}}/Deviance.csv"
+        shell: """
+            cat {input} | cut -d"," -f2- > {output}
+            sed -i '1iH,G,LP,Dev' {output}
+        """
+
+    rule desman_plot:
+        input: "{path}/Deviance.csv",
+        output: "{path}/Deviance.pdf"
+        log: "{path}/PlotDev.log"
+        shell: """
+            {DSCRIPTS}/PlotDev.R -l {input} -o {output} 2> {log}
+        """
+
+    rule haplo_seqs:
+        input:
+            fasta = "{group}/contigs/contigs.fa",
+            deviance_file = "{group}/desman/{binner}/{bin}/Deviance.pdf",
+            scg_coordinates = "{group}/desman/{binner}/{bin}/scg_coordinates.tsv"
+        output: "{group}/desman/{binner}/{bin}/best_run.txt"
+        params: "{group}/desman/{binner}/{bin}"
+        shell: """
+            python {DSCRIPTS}/resolvenhap.py {params}/Run > {params}/best_run.txt
+            
+            cut -d"," -f 1 < {params}/freqs_sel_var.csv | sort | uniq | sed '1d' > {params}/coregenes.txt
+
+            mkdir -p {params}/haplotype_seqs
+            python {DSCRIPTS}/GetVariantsCore.py {input.fasta} {input.scg_coordinates} $(cut -d"," -f5 {params}/best_run.txt) {params}/coregenes.txt -o {params}/haplotype_seqs/
+        """
+
+    def do_we_need_to_run_desman(wildcards):
+        freq_sel_var_file = checkpoints.filter_variant.get(group=wildcards.group,binner=wildcards.binner,bin=wildcards.bin).output[0]
+        # "binning/{bin}/count.csv"
+        nb_line = len([inline for inline in open(freq_sel_var_file)])
+        if nb_line > 1:
+            with open("/".join([wildcards.group,"desman",wildcards.binner,"Bin_Runs.txt"]),"a") as handle:
+                handle.write(wildcards.bin)
+            return "/".join([wildcards.group,"desman",wildcards.binner,wildcards.bin,"best_run.txt"])
+        else:
+            return freq_sel_var_file
+
+
+    rule is_desman_done:
+        input: do_we_need_to_run_desman
+        output: touch("{group}/desman/{binner}/{bin}/desman_analysis_done")

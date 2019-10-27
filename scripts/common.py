@@ -21,7 +21,9 @@ default_values = {
     "annotation":{},
     "graph":{"List_graph":{}},
     "samples":{"setup":0},
-    "Percent_memory":0.5
+    "Percent_memory":0.5,
+    "maganalysis":1,
+    "desman":{"execution":0, "nb_haplotypes": 10,"nb_repeat": 5,"min_cov": 1}
 }
 
 # ---- neat regex matching of files --------
