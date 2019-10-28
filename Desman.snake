@@ -120,7 +120,7 @@ if DESMAN==1:
         log:
             "{path}/Logs/{bin}_Filter_variant.log"
         shell: """
-            {DSCRIPTS}/desman/Variant_Filter.py {input} -o {params} -p -m {MIN_COV_DESMAN} 2>{log}
+            {DSCRIPTS}/../desman/Variant_Filter.py {input} -o {params} -p -m {MIN_COV_DESMAN} 2>{log}
             """
 
     rule run_desman:
