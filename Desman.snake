@@ -8,7 +8,7 @@ import os
 GROUP_BINNER_TO_BINS={(group,binner):["Bin_"+line.rstrip() for line in open(group+"/binning/"+binner+"/"+binner+"_MAG_list.txt")] for group in GROUPS for binner in BINNER}
 # -------- List_results --------
 List_results=["/".join([group,"desman",binner,bin_,"desman_analysis_done"]) for (group,binner),list_bins in GROUP_BINNER_TO_BINS.items() for bin_ in list_bins]
-
+print(List_results)
 if DESMAN==1:
     # -------- launch desman by requiring the final result file  --------
     rule all: 
@@ -131,7 +131,7 @@ if DESMAN==1:
 
     rule desman_fit:
         input: expand("{{path}}/Run_{g}_{r}/fit.txt", g=range(1, DESMAN_HAPLOTYPE_NB+1), r=range(DESMAN_REPEAT))
-        output: "{{path}}/Deviance.csv"
+        output: "{path}/Deviance.csv"
         shell: """
             cat {input} | cut -d"," -f2- > {output}
             sed -i '1iH,G,LP,Dev' {output}
