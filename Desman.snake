@@ -162,7 +162,7 @@ if DESMAN==1:
         """
 
     def do_we_need_to_run_desman(wildcards):
-        freq_sel_var_file = checkpoints.filter_variant.get(group=wildcards.group,binner=wildcards.binner,bin=wildcards.bin).output[0]
+        freq_sel_var_file = checkpoints.filter_variant.get(path="/".join([wildcards.group,"desman",wildcards.binner]),bin=wildcards.bin).output[0]
         # "binning/{bin}/count.csv"
         nb_line = len([inline for inline in open(freq_sel_var_file)])
         if nb_line > 1:
