@@ -59,6 +59,12 @@ if DESMAN==1:
             bam-readcount -l {input.bed} -f {input.fasta} {input.bam} 2> {log} | gzip > {output}
             """
 
+    # ---- generate orfs bed   ----------------------------------------------------
+    rule bed_orfs:
+        input:   gff="{path}/contigs.gff"
+        output:  bed="{path}/orf.bed"
+        shell : "{SCRIPTS}/Gff_to_bed.py {input.gff} {output.bed}"
+
     # -------- get a bed file for SCG   --------
     rule scg_bed:
         input:  orfs_bed = "{group}/annotation/orf.bed",
