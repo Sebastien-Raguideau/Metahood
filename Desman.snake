@@ -7,8 +7,9 @@ import os
 # -------- get a dictionary yielding the mags for all (group,binner) --------
 GROUP_BINNER_TO_BINS={(group,binner):["Bin_"+line.rstrip() for line in open(group+"/binning/"+binner+"/"+binner+"_MAG_list.txt")] for group in GROUPS for binner in BINNER}
 # -------- List_results --------
-List_results=["/".join([group,"desman",binner,bin_,"desman_analysis_done"]) for (group,binner),list_bins in GROUP_BINNER_TO_BINS.items() for bin_ in list_bins]
-print(List_results)
+# temporarilly remove metabat2
+List_results=["/".join([group,"desman",binner,bin_,"desman_analysis_done"]) for (group,binner),list_bins in GROUP_BINNER_TO_BINS.items() for bin_ in list_bins if binner=="concoct" ]
+
 if DESMAN==1:
     # -------- launch desman by requiring the final result file  --------
     rule all: 
