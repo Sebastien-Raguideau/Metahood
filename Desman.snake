@@ -174,7 +174,7 @@ if DESMAN==1:
         nb_line = len([inline for inline in open(freq_sel_var_file)])
         if nb_line > 1:
             with open("/".join([wildcards.group,"desman",wildcards.binner,"Bin_Runs.txt"]),"a") as handle:
-                handle.write(wildcards.bin)
+                handle.write(wildcards.bin+"\n")
             return "/".join([wildcards.group,"desman",wildcards.binner,wildcards.bin,"best_run.txt"])
         else:
             return freq_sel_var_file
