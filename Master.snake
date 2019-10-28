@@ -31,7 +31,7 @@ if GRAPH_TASKS:
     List_inputs += expand("{group}/graph/{tasks}", group=GROUPS, tasks=GRAPH_TASKS)
 # MagAnalysis
 if MAG_ANALYSIS==1:
-List_inputs += expand("{group}/MagAnalysis/concoct/Tree/Mag_refseq_assign.tsv", group=list(GROUPS.keys())[0])
+	List_inputs += expand("{group}/MagAnalysis/concoct/Tree/Mag_refseq_assign.tsv", group=list(GROUPS.keys())[0])
 
 
 # ------------ snakemake start ------------
