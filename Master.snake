@@ -16,8 +16,6 @@ if "concoct" in BINNER:
     List_inputs += expand("{group}/binning/concoct/bins/done", group=list(GROUPS.keys())[:2])
 # contigs coverage profile
 List_inputs += expand("{group}/profile/coverage_contigs.tsv", group=GROUPS)
-# MagAnalysis
-List_inputs += expand("{group}/MagAnalysis/concoct/Tree/Mag_refseq_assign.tsv", group=list(GROUPS.keys())[0])
 
 # ------------ optional outputs ------------
 # annotation and annotation profiles
@@ -31,6 +29,9 @@ if GRAPH_TASKS:
     List_inputs += expand("{group}/graph/contigs.gfa", group=GROUPS)
     # orfs subgraphs with annotation as well as taxonomy
     List_inputs += expand("{group}/graph/{tasks}", group=GROUPS, tasks=GRAPH_TASKS)
+# MagAnalysis
+if MAG_ANALYSIS==1:
+List_inputs += expand("{group}/MagAnalysis/concoct/Tree/Mag_refseq_assign.tsv", group=list(GROUPS.keys())[0])
 
 
 # ------------ snakemake start ------------
