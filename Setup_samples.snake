@@ -28,6 +28,8 @@ if SETUP :
                 filename,R1R2,sample=line.rstrip().split(",")
                 if filename=="Filename" : # deal with header
                     continue
+                if filename=="File_name" :
+                    continue
                 # check if file has been found
                 if filename not in DICT_FILES_PATH :
                     print(filename+" has not been found in folder "+SAMPLE_FOLDER)
