@@ -8,7 +8,7 @@ data: ~/path/to/data/folder/ # path to data folder,
 samples :
   setup : 1 
   file : /mnt/gpfs/seb/Project/temp/Anna/Assemblies/Samples.csv
-  folder: /mnt/gpfs/seb/Project/temp/Anna/Data/
+  folder: /mnt/gpfs/seb/Project/temp/Anna/Data/ # where the samples are going to be stored
 # ------ Assembly parameters ------
 assembly: 
   assembler: megahit # only option so far, won't change in the near future
