@@ -44,7 +44,7 @@ def main(argv):
     for corecog, dict_List_bins in corecog_bin.items():
         with open(path_output + corecog + ".fna", "w") as output_handle:
             for bin_name, (header, seq) in dict_List_bins.items():
-                new_name = bin_name + "_" + corecog+" "+header
+                new_name = "Bin_"+bin_name + "_" + corecog+" "+header
                 output_handle.write(">"+new_name+"\n"+seq+"\n")
 
 

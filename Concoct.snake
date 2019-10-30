@@ -135,7 +135,7 @@ rule output_number_of_mag:
                         nb+=1
                         mags.append(split_line[0])
                 handle_nb.write(str(nb)+"\n")
-                handle_list.write("\n".join(["Bin_"+nb for nb in mags]))
+                handle_list.write("\n".join([nb for nb in mags]))
 
 # --------- produce a contig file for each bins be they good or not (metabat2 style) ---------------
 rule output_bins:
