@@ -25,7 +25,9 @@ Metahood is a pipeline entirely based on snakemake.
 ![alt tag](./Binning.png)
 
 ###  How to install Metahood:
-You can have a look at Conda_envs/conda_env.yaml, for an exhaustive list of all dependencies.  An already resolved environment is available in this same folder and can be used with this command line. 
+You can have a look at 
+[conda_env.yaml](https://github.com/Sebastien-Raguideau/Metahood/blob/master/Conda_envs/conda_env.yaml)
+, for an exhaustive list of all dependencies.  An already resolved environment is available in this same folder and can be used with this command line. 
 ```
 conda env create -f Conda_envs/conda_env_MetaHood.yaml
 ```
@@ -43,5 +45,5 @@ You then need to activate the corresponding environment using :
 
  **Configuration file**
  The apparent lack of parameters is hidding all the complexity in a configuration file in .yaml format.  
-[https://github.com/Sebastien-Raguideau/Metahood/blob/master/config.yaml](https://github.com/Sebastien-Raguideau/Metahood/blob/master/config.yaml)
+[config.yaml](https://github.com/Sebastien-Raguideau/Metahood/blob/master/config.yaml)
 
