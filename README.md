@@ -58,15 +58,27 @@ The apparent lack of parameters is deceiving as all the complexity is hidden in 
 [config.yaml](https://github.com/Sebastien-Raguideau/Metahood/blob/master/config.yaml)
 
  ------ Resssources ------
- **Threads** : Each task is allowed a maximum of 8 cores by default, you can change this value.
- **Percent_memory**: some tasks are memory intensive and some heuristic have been applied so that they don't use more than this number.
+
+**Threads** : Each task is allowed a maximum of 8 cores by default, you can change this value.
+
+**Percent_memory**: some tasks are memory intensive and some heuristic have been applied so that they don't use more than this number.
+
 ------ Path to data folder ------
+
 **data**: Path to samples. Currently Metahood require for all samples to be stored in independant folders. The folder name will later define sample names in profiles. Samples must be at the format .fastq.gz and only 2 .fastq.gz can be present in any folder. 
+
 ------ Assembly parameters ------
+
 **assembly**:
+
 <p> 
+
 **assembler** :  Currently only accept megahit.
+
 **parameters**: any parameter you wish to pass to megahit
+
 **per_sample**:  This line is optional, if you keep it, assembly and binning will also be carried per sample. You may specify a folder where to store these and also select the set of samples you want to have assembled, for instance : [per_sampleA|sampleA*] will create a per_sampleA directory and run a single sample approach on all samples starting with sampleA.
+
 **groups**:  This line is optional, you may here specify any number of group of samples 
+
 </p>
