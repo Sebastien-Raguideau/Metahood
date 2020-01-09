@@ -1,6 +1,4 @@
-# Metahood / snakemake tutorial
-
-## Metahood
+# Metahood
 Metahood is a pipeline entirely based on snakemake. 
 
 **What does the  pipeline do :**
@@ -44,6 +42,6 @@ You then need to activate the corresponding environment using :
 
 
  **Configuration file**
- The apparent lack of parameters is hidding all the complexity in a configuration file in .yaml format.  
+ The apparent lack of parameters is deceiving as all the complexity is hidden in a configuration file.  
 [config.yaml](https://github.com/Sebastien-Raguideau/Metahood/blob/master/config.yaml)
 
