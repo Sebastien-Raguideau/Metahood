@@ -65,7 +65,7 @@ rule gfa_to_fasta:
 				Handle.write(">"+Splitline[1]+"\n"+Splitline[2]+"\n")
 		Handle.close()
 
-rule CAT_annotation:
+rule CAT_graph_annotation:
 	input: contigs="{group}/graph/{name}_contigs.fa"
 	output: ORF2LCA="{group}/graph/CAT/{name}.ORF2LCA.txt"
 	params : Dir="{group}/graph/CAT/{name}"
@@ -74,7 +74,7 @@ rule CAT_annotation:
 	CAT contigs -c {input.contigs}  -d {CAT_DB} -t {CAT_DB} -n {threads} --out_prefix {params.Dir} --top 11 --I_know_what_Im_doing --force
 	"""
 
-rule CAT_ORF_annotation:
+rule CAT_ORF_graph_annotation:
 	input: ORF2LCA="{group}/graph/CAT/{name}.ORF2LCA.txt"
 	output: annotation="{group}/graph/{name}.cat",
 			done=touch("{group}/graph/{name}.taxadone")

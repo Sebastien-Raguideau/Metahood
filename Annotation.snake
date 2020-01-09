@@ -1,5 +1,29 @@
 
 
+# in order to allow for multiple annotation process to coexist and produce similar names output, we just define rules priority
+# if parse_cogs_annotation does not work, it tries annotation_diamond
+ruleorder: parse_cogs_annotation > annotation_diamond
+
+# ---- prodigal annotation on splits ----------------------------------------------------------------
+rule prodigal:
+    input:
+        "{group}/contigs/contigs.fa"
+    output:
+        faa="{group}/annotation/contigs.faa",
+        fna="{group}/annotation/contigs.fna",
+        gff="{group}/annotation/contigs.gff",
+        cut_faa=expand("{{group}}/annotation/temp_splits/Batch_{nb}.faa",nb=range(100))
+    params:
+        dir='{group}/annotation'
+    priority: 100
+    threads:
+        1000
+    message:"Parallel prodigal run in {input}"
+    shell:
+        "{SCRIPTS}/Parallel_prodigal.py {threads} {input} -s 100 -o {params.dir} -T {params.dir}/temp_splits"
+
+
+
 rule diamond:
 	input :  "{filename}.faa"
 	output : "{filename}_{annotation}.m8"
@@ -11,7 +35,7 @@ rule diamond:
 
 rule annotation_diamond:
 	input :  "{group}/annotation/{filename}_{annotation}.m8"
-	output : "{group}/annotation/{filename}_{annotation}.tsv"
+	output : "{group}/annotation/{filename}_{annotation}_best_hits.tsv"
 	params : annotation=lambda w: ANNOTATION[w.annotation]["annotation"],
 			 Bitscore=lambda w: ANNOTATION[w.annotation]["filter"][0],
 			 Evalue=lambda w: ANNOTATION[w.annotation]["filter"][1],
@@ -20,6 +44,73 @@ rule annotation_diamond:
 			 subject_coverage=lambda w: ANNOTATION[w.annotation]["filter"][4],
 			 querry_coverage=lambda w: ANNOTATION[w.annotation]["filter"][5],
 	shell :   "{SCRIPTS}/M8_Filtering.py {input} -D {params.annotation} -B {params.Bitscore} -E {params.Evalue} -P {params.PID} -R {params.subject_pid} -C {params.subject_coverage} -Q {params.querry_coverage}  >{output}"
+
+
+# taxonomic annotation
+rule CAT_annotation:
+	input: contigs="{group}/contigs/contigs.fa",
+		   faa="{group}/annotation/contigs.faa"
+	output: ORF2LCA="{group}/annotation/CAT/contigs.ORF2LCA.txt"
+	params : Dir="{group}/annotation/CAT/contigs"
+	conda : CONDA_ENV+"/cat.yaml"
+	threads: 1000
+	shell : """
+	CAT contigs -c {input.contigs}  -d {CAT_DB} -t {CAT_DB} -p {input.faa} -n {threads} --out_prefix {params.Dir} --top 11 --I_know_what_Im_doing --force
+	"""
+
+rule CAT_ORF_annotation:
+	input: ORF2LCA="{group}/annotation/CAT/contigs.ORF2LCA.txt"
+	output: annotation="{group}/annotation/CAT_contigs_taxonomy.tsv"
+	conda : CONDA_ENV+"/cat.yaml"
+	shell : """
+	CAT add_names -i {input.ORF2LCA} -o {output.annotation} -t {CAT_DB} --only_official
+	"""
+
+# kraken annotation
+rule kraken_uniq:
+	input: ORF2LCA = "{group}/contigs/contigs.fa"
+	output: report = "{group}/annotation/kraken_taxonomy_report.tsv",
+			classif = "{group}/annotation/kraken_contig_taxonomy.tsv"
+	conda : CONDA_ENV+"/kraken.yaml"
+	threads: 1000
+	shell : """
+	krakenuniq --db {KRAKEN_DB} --preload --fasta-input {input} --threads {threads} --report-file {output.report} > {output.classif}
+	"""
+
+# ------------------------------------------ COG Annotation -------------------------------
+# ------- rpsblast on previous batchs 
+rule Batch_rpsblast:
+    input:   "{group}/{path}.faa"
+    output:  "{group}/{path,a.*/Batch.*}.cogs.tsv"
+    log:     "{group}/{path}_cog.log"
+    params:  db=COG_DB
+    resources: memG=150
+    shell:   """
+             rpsblast+ -outfmt '6 qseqid sseqid evalue pident length slen qlen' -evalue 0.00001 -query {input} -db {params.db} -out {output} &>log
+             """
+
+#------- select best hit and use criterion : min 5% coverage, min 1e-10 evalue--------------
+rule parse_cogs_annotation:
+    input:   Batch=expand("{{group}}/annotation/temp_splits/Batch_{nb}.cogs.tsv",nb=range(100))
+    output:  cog="{group}/annotation/contigs_cogs_best_hits.tsv",
+             cat=temp("{group}/annotation/contigs_Cog.out")
+    shell:   """
+             cat {input} > {output.cat}   
+             {SCRIPTS}/Filter_Cogs.py {output.cat} --cdd_cog_file {SCG_DATA}/cdd_to_cog.tsv  > {output.cog}
+             """
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 # rule HMM:

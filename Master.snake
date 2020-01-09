@@ -13,22 +13,30 @@ List_inputs = []
 #main task, handle sample trimming, assembly and binning
 List_inputs += expand("{group}/binning/{binner}/{binner}_MAG_list.txt",group=GROUPS, binner=BINNER)
 if "concoct" in BINNER:
-    List_inputs += expand("{group}/binning/concoct/bins/done", group=list(GROUPS.keys())[:2])
+    List_inputs += expand("{group}/binning/concoct/bins/done", group=list(GROUPS.keys()))
 # contigs coverage profile
 List_inputs += expand("{group}/profile/coverage_contigs.tsv", group=GROUPS)
-
+# orf coverage profile
+List_inputs += expand("{group}/profile/coverage_orf.tsv", group=GROUPS)
+# get mapped information
+List_inputs += expand("{group}/profile/mapping_percent.tsv", group=GROUPS)
+List_inputs += expand("{group}/profile/mag_{binner}_percent_mapped.tsv",group=GROUPS,binner=BINNER)
 # ------------ optional outputs ------------
 # annotation and annotation profiles
 if ANNOTATION:
-    List_inputs += expand("{group}/annotation/contigs_{annotation}.tsv",annotation=ANNOTATION, group=GROUPS)
+    List_inputs += expand("{group}/annotation/contigs_{annotation}_best_hits.tsv",annotation=ANNOTATION, group=GROUPS)
     List_inputs += expand("{group}/profile/Normalisation.tsv", group=GROUPS)
-    List_inputs += expand("{group}/profile/coverage_{annotation}.tsv",annotation=ANNOTATION, group=GROUPS)
+    List_inputs += expand("{group}/profile/cov_{annotation}.tsv",annotation=ANNOTATION, group=GROUPS)
+# if CAT_DB:
+#     List_inputs += expand("{group}/annotation/CAT_contigs_taxonomy.tsv",group=GROUPS)
+# if KRAKEN_DB:
+#     List_inputs += expand("{group}/annotation/kraken_taxonomy_report.tsv",group=GROUPS)    
 # Assembly graphs
-if GRAPH_TASKS:
-    # assembly graph in gfa
-    List_inputs += expand("{group}/graph/contigs.gfa", group=GROUPS)
-    # orfs subgraphs with annotation as well as taxonomy
-    List_inputs += expand("{group}/graph/{tasks}", group=GROUPS, tasks=GRAPH_TASKS)
+# if GRAPH_TASKS:
+#     # assembly graph in gfa
+#     List_inputs += expand("{group}/graph/contigs.gfa", group=GROUPS)
+#     # orfs subgraphs with annotation as well as taxonomy
+#     List_inputs += expand("{group}/graph/{tasks}", group=GROUPS, tasks=GRAPH_TASKS)
 # MagAnalysis
 if MAG_ANALYSIS==1:
 	List_inputs += expand("{group}/MagAnalysis/concoct/Tree/Mag_refseq_assign.tsv", group=list(GROUPS.keys())[0])

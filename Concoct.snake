@@ -3,23 +3,6 @@ import numpy as np
 from collections import Counter
 from Bio.SeqIO.FastaIO import SimpleFastaParser
 
-# ---- prodigal annotation on splits ----------------------------------------------------------------
-rule prodigal:
-    input:
-        "{group}/contigs/contigs.fa"
-    output:
-        faa="{group}/annotation/contigs.faa",
-        fna="{group}/annotation/contigs.fna",
-        gff="{group}/annotation/contigs.gff",
-        cut_faa=expand("{{group}}/annotation/temp_splits/Batch_{nb}.faa",nb=range(100))
-    params:
-        dir='{group}/annotation'
-    priority: 100
-    threads:
-        1000
-    message:"Parallel prodigal run in {input}"
-    shell:
-        "{SCRIPTS}/Parallel_prodigal.py {threads} {input} -s 100 -o {params.dir} -T {params.dir}/temp_splits"
 
 # ---- get the bed file for the cut up contigs-------------------------------------------
 rule cut_contigs:
@@ -32,30 +15,9 @@ rule cut_contigs:
     shell:  """{SCRIPTS}/Use_orf_to_cut.py {input.fa} {input.gff} {output.contig} {output.Contig_bed}"""
 
 
-# ------------------------------------------ COG Annotation -------------------------------
-# ------- rpsblast on previous batchs 
-rule Batch_rpsblast:
-    input:   "{group}/{path,a.*/Batch.*}.faa"
-    output:  "{group}/{path,a.*/Batch.*}.cogs.tsv"
-    log:     "{group}/{path,a.*/Batch.*}_cog.log"
-    params:  db=COG_DB
-    shell:   """
-             rpsblast+ -outfmt '6 qseqid sseqid evalue pident length slen qlen' -evalue 0.00001 -query {input} -db {params.db} -out {output} &>log
-             """
-
-#------- select best hit and use criterion : min 5% coverage, min 1e-10 evalue--------------
-rule parse_cogs_annotation:
-    input:   Batch=expand("{{group}}/annotation/temp_splits/Batch_{nb}.cogs.tsv",nb=range(100))
-    output:  cog="{group}/annotation/contigs_best_hits.cogs.tsv",
-             cat=temp("{group}/annotation/contigs_Cog.out")
-    shell:   """
-             cat {input} > {output.cat}   
-             {SCRIPTS}/Filter_Cogs.py {output.cat} --cdd_cog_file {SCG_DATA}/cdd_to_cog.tsv  > {output.cog}
-             """
-
 # ------- extract scg ------------------------------------------------------------------------
 checkpoint extract_SCG_sequences:
-    input:  annotation="{filename}_best_hits.cogs.tsv",
+    input:  annotation="{filename}_cogs_best_hits.tsv",
             gff="{filename}.gff",
             fna="{filename}.fna"
     output: "{filename}_SCG.fna"

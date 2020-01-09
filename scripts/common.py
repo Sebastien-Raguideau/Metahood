@@ -19,11 +19,13 @@ default_values = {
     "threads":8,
     "assembly":    {"assembler": "megahit","groups": {},"parameters":"" },
     "annotation":{},
-    "graph":{"List_graph":{}},
+    'cat_db':"",
+    "kraken_db":"",
+    "graph":{"List_graphs":{}},
     "samples":{"setup":0},
     "Percent_memory":0.5,
-    "maganalysis":1,
-    "desman":{"execution":0, "nb_haplotypes": 10,"nb_repeat": 5,"min_cov": 1}
+    "maganalysis":0,
+    "desman":{"execution":0, "nb_haplotypes": 10,"nb_repeat": 5,"min_cov": 1,"scripts":""}
 }
 
 # ---- neat regex matching of files --------
@@ -48,12 +50,14 @@ def fill_default_values(config):
     if local_dir:
         default_values["scripts"] = os.path.join(local_dir, "scripts")
         default_values["scg_data"]= os.path.join(local_dir, "scg_data")
+        default_values["conda_env"]= os.path.join(local_dir, "Conda_envs")
     setdefault_recursively(config)
 
 def sample_name(fullname):
     return os.path.splitext(os.path.basename(fullname))[0]
 
-FASTA_EXTS = {".fasta", ".fasta.gz", ".fa", ".fa.gz", ".fna", ".fna.gz", ".fsa",".fsa.gz", ".fastq", ".fastq.gz"}  # "fq.gz" is not in because it allows to ignore trimming files. 
+# FASTA_EXTS = {".fastq", ".fastq.gz"}  # only 2 extension are valid. 
+FASTA_EXTS = {".fastq.gz"}  # only extension valid. 
 def get_extension(file) :
     for ext in FASTA_EXTS:
         if file.endswith(ext):

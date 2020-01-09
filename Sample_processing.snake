@@ -1,29 +1,31 @@
 from scripts.common import detect_reads, fill_default_values, extended_glob,get_extension
 from os.path import basename
-SAMPLE_EXT={sample:{get_extension(fastq_file) for fastq_file in list_fastq} for sample,list_fastq in SAMPLE_READS.items()}
-for sample,ext in SAMPLE_EXT.items() :
-	if len(ext)>1 :
-		print("issue with sample %s, there are multiple extensions detect_reads : "%sample +" ".join(list(ext)))
+
 
 rule fastqc :
-	input : lambda w:IN+"{path}/{sample}"+list(SAMPLE_EXT[basename(w.path)])[0]
+	input : lambda w:IN+"{path}/{sample}.fastq.gz"
 	output : IN+"{path}/{sample}_fastqc.html"
 	shell :"fastqc -o {IN}{wildcards.path} {input}"
 
 rule trim_galore :
-	input : file_R1=lambda w:"{path}/{sample}_R1"+list(SAMPLE_EXT[basename(w.path)])[0],
+	input : file_R1=lambda w:"{path}/{sample}_R1.fastq.gz",
 			file_R1_qc="{path}/{sample}_R1_fastqc.html",
-			file_R2=lambda w:"{path}/{sample}_R2"+list(SAMPLE_EXT[basename(w.path)])[0],
+			file_R2=lambda w:"{path}/{sample}_R2.fastq.gz",
 			file_R2_qc="{path}/{sample}_R2_fastqc.html"
 	output :file_R1="{path}/{sample}_R1_val_1.fq.gz",
-			file_R2="{path}/{sample}_R2_val_2.fq.gz"	
+			file_R2="{path}/{sample}_R2_val_2.fq.gz",
+			report_R1="{path}/{sample}_R1.fastq.gz_trimming_report.txt", # broken : works only file ini is .fastq
+			report_R2="{path}/{sample}_R2.fastq.gz_trimming_report.txt" # broken
 	log :   "{path}/{sample}.log"
 	shell :"""
 	trim_galore  --fastqc --gzip -o {wildcards.path} --paired {input.file_R1} {input.file_R2} > {log} 2>&1 
 	"""
 
+
+
+
 def replace_extensions(sample):
-	return sample.replace("_R1.fastq.gz","_R1_val_1.fq.gz").replace("_R2.fastq.gz","_R2_val_2.fq.gz").replace("_R1.fastq","_R1_val_1.fq.gz").replace("_R2.fastq","_R2_val_2.fq.gz")
+	return sample.replace("_R1.fastq.gz","_R1_val_1.fq.gz").replace("_R2.fastq.gz","_R2_val_2.fq.gz")
 
 rule multiqc :
 	input : R1=[replace_extensions(SAMPLE_READS[sample][0]) for sample in SAMPLES],

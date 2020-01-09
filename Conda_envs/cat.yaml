@@ -1,0 +1,5 @@
+channels:
+ - bioconda
+dependencies:
+ - cat
+ - diamond=0.9.24

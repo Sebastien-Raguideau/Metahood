@@ -26,7 +26,7 @@ args = parser.parse_args()
 
 exec_dir = os.path.dirname(os.path.realpath(sys.argv[0]))
 LOCAL_DIR = os.path.realpath(exec_dir)
-
+print(LOCAL_DIR)
 
 # ------- set max memory used, in Go ---------------
 CONFIG_FILE = os.path.abspath(args.config)
@@ -35,7 +35,7 @@ Percent_mem=yaml.full_load(open(CONFIG_FILE))["Percent_memory"]
 MEMG=str(int((Percent_mem*Mem_tot)/10**9))
 
 # ------- base parameters used to call snakemake -----------
-base_params = ["snakemake", "--directory", os.path.realpath(args.dir), "--cores", str(args.threads), "--config", "LOCAL_DIR" + "=" + LOCAL_DIR,"--configfile="+CONFIG_FILE,"--resources",'memG='+MEMG, "--latency-wait", "12"]
+base_params = ["snakemake", "--directory", os.path.realpath(args.dir), "--cores", str(args.threads), "--config", "LOCAL_DIR" + "=" + LOCAL_DIR,"--configfile="+CONFIG_FILE,"--resources",'memG='+MEMG, "--latency-wait", "12","--use-conda"]
 
 if args.verbose:
     base_params.extend(["-p", "-r", "--verbose"]) 

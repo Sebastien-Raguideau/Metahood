@@ -19,8 +19,8 @@ rule megahit:
     threads: 70
     log:     "{group}/assembly.log"
     message: "Assembling {wildcards.group} with MegaHIT"
-    shell:   """rm -rf {params.dir}
-             megahit -1 {params.left} -2 {params.right} {params.Additional_params} -t {threads} -m {params.mem} -o {params.dir} &> {log}"""
+    shell:   """
+             megahit -1 {params.left} -2 {params.right} {params.Additional_params} -t {threads} -m {params.mem} --continue -o {params.dir} &> {log}"""
 
 rule contig_folder:
     input: "{group}/assembly/final.contigs.fa"

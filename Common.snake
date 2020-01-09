@@ -13,7 +13,8 @@ from snakemake.exceptions import WorkflowError
 from scripts.common import detect_reads, fill_default_values, extended_glob
 
 #--------------------------- Config parameters ---------------------------
-
+# config=yaml.load(open("./config_AD07.yaml"))
+# config["LOCAL_DIR"]="/mnt/gpfs/seb/Project/Metahood/" 
 fill_default_values(config)
 
 # --------- Setup ----------
@@ -28,8 +29,9 @@ ASSEMBLER_PARAMS = config["assembly"]["parameters"]
 MAX_MEM_PERCENT = config["Percent_memory"]
 THREADS = config["threads"]
 SCRIPTS = config["scripts"]
-Mem_tot=virtual_memory().total
-MAX_MEMG=int((MAX_MEM_PERCENT*Mem_tot)/10**9)
+Mem_tot = virtual_memory().total
+MAX_MEMG = int((MAX_MEM_PERCENT*Mem_tot)/10**9)
+CONDA_ENV = config["conda_env"]
 
 # -------- Binning -----------
 CONCOCT_EXECUTION = config["binning"]["concoct"]["execution"]
@@ -44,6 +46,8 @@ BINNER=CONCOCT_EXECUTION*["concoct"]+METABAT2_EXECUTION*["metabat2"]
 COG_DB= config["cog_database"]
 SCG_DATA = config["scg_data"]
 ANNOTATION = config["annotation"]
+CAT_DB = config["cat_db"]
+KRAKEN_DB = config["kraken_db"] 
 
 # -------- MAG analysis ------
 MAG_ANALYSIS=config["maganalysis"]
@@ -58,14 +62,12 @@ MIN_COV_DESMAN = config["desman"]["min_cov"]
 
 
 # -------- graph --------
-if config["graph"]["List_graph"] :
-    GRAPH_TASKS=["contigs."+".".join(List_annotation)+"_contiguous_ORF_annotation.csv" for List_annotation in config["graph"]["List_graph"].values()]
+if config["graph"]["List_graphs"] :
+    GRAPH_TASKS=["contigs."+".".join(List_annotation)+"_contiguous_ORF_annotation.csv" for List_annotation in config["graph"]["List_graphs"].values()]
     CAT_DB=config["graph"]["CAT_database"]
     DB_COLORS={DB:Dict_things['color'] for DB,Dict_things in ANNOTATION.items()}
 else :
     GRAPH_TASKS=[]
-
-
 
 
 #--------------------------- Read group and sample composition ---------------------------

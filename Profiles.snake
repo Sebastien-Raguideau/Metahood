@@ -1,4 +1,5 @@
 from Bio.SeqIO.FastaIO import SimpleFastaParser as SFP
+from os.path import dirname,basename,join
 
 # ---- generate contig bed   ----------------------------------------------------
 rule bogus_bed:
@@ -33,20 +34,20 @@ rule coverage:
     input:   lambda w : [w.group+"/map/"+sample.split('/')[-1]+".{type}.cov" for sample in  GROUPS[w.group]]
     output:  "{group}/profile/coverage_{type}.tsv"
     shell :  """
-            echo -e "contig\t""$(ls {input} | rev | cut -f3- -d "."  | cut -f1 -d "/" |rev | tr "\n" "\t" | sed 's/\t$//')"> {output}
+            echo -e "contig\t""$(ls -U {input} | rev | cut -f3- -d "."  | cut -f1 -d "/" |rev | tr "\n" "\t" | sed 's/\t$//')"> {output}
             awk 'NR==FNR{{Matrix_coverage[1,FNR]=$4}}FNR==1{{f++}}{{Matrix_coverage[f+1,FNR]=$5}}END{{for(x=1;x<=FNR;x++){{for(y=1;y<ARGC+1;y++){{if(y<ARGC){{printf("%s\t",Matrix_coverage[y,x])}}if(y==ARGC){{printf("%s",Matrix_coverage[y,x]);print""}}}}}}}}' {input} >>{output}"""
 
 # ---- generate a mapping of annotation to orfs  -----------------------
 rule map_annotation_to_orfs:
-    input:   "{path}/contigs_best_hits.{annotation}.tsv"
-    output:  "{path}/{annotation}_to_orfs.tsv"
+    input:   "{path}/contigs_{annotation}_best_hits.tsv"
+    output:  "{path}/map_{annotation}_to_orfs.tsv"
     shell:  """{SCRIPTS}/Annotation_listcontig.py {input} {output} """
 
 # ---- generate annotation profile  -----------------------
 rule generate_profile:
     input:  cov="{group}/profile/coverage_orf.tsv",
-            map="{group}/annotation/{annotation}_to_orfs.tsv"
-    output: "{group}/profile/coverage_{annotation}.tsv"
+            map="{group}/annotation/map_{annotation}_to_orfs.tsv"
+    output: "{group}/profile/cov_{annotation}.tsv"
     shell:  "{SCRIPTS}/Extract_gene_profile.py {input.map} {input.cov} {output}"
 
 # ----------------------------------------------------------
@@ -75,8 +76,9 @@ rule nb_bases:
         handle.close()
 
 # ---- generate cog profile  -----------------------
+
 rule median_SCG_cov:
-    input:  cov="{group}/profile/coverage_cogs.tsv",
+    input:  cov="{group}/profile/cov_cogs.tsv",
             nuc="{group}/profile/nucleotides.tsv"
     output: "{group}/profile/Normalisation.tsv"
     run: 
@@ -100,5 +102,105 @@ rule median_SCG_cov:
             handle.write("Normalisation\t"+"\t".join(samples)+"\n")
             handle.write("Nucleotides\t"+"\t".join([sample_to_norm[sample] for sample in samples])+"\n")
             handle.write("median_scg\t"+"\t".join(map(str,scg_norm))+"\n")
+
+
+# ---- percent maped info  -----------------------
+
+rule mapped_reads:
+    input:  bam="{group}/map/{sample}_mapped_sorted.bam"
+    output: readnb="{group}/map/{sample}_mapped_read.txt"
+    threads:THREADS
+    shell: """samtools flagstat {input.bam} -@ {threads} | grep 'paired in sequencing' | cut -f1 -d " " > {output.readnb}""" 
+
+rule reads_qty:
+    input:  R1=lambda w:LEFT_READS[w["sample"]]
+    output: IN+"/{sample}/{sample}_readsnb.txt"
+    shell: "echo $(($(zcat {input.R1} | wc -l)/2)) > {output}"
+
+rule get_percent:
+    input: mapped=lambda w:[w.group+"/map/"+sample.split('/')[-1]+"_mapped_read.txt" for sample in  GROUPS[w.group]],
+           total=lambda w:[IN+"/"+sample.split('/')[-1]+"/"+sample.split('/')[-1]+"_readsnb.txt" for sample in  GROUPS[w.group]]
+    output:  "{group}/profile/mapping_percent.tsv"
+    shell: """
+            for path in {input.mapped}
+            do
+                file=$(basename $path)
+                sample=${{file%_mapped_read.txt}}
+                tot_reads=$(cat {IN}/$sample/$sample"_readsnb.txt")
+                mapped_reads=$(cat $path)
+                echo $tot_reads $mapped_reads
+                echo -e $sample\t$(bc -l <<< "$mapped_reads / $tot_reads")>>{output}
+            done
+           """
+
+
+# ---- mags infos  ----------------------
+def get_cluster_def(file,mags):
+    cluster_def=defaultdict(list)
+    contig_to_cluster={}
+    for line in open(file):
+        contig,cluster=line.rstrip().split(",")
+        if cluster in mags:
+            cluster_def[cluster].append(contig)
+            contig_to_cluster[contig]=cluster
+    return cluster_def,contig_to_cluster
+
+def get_contig_cov(file,contigs):
+    contig_cov={}
+    with open(file) as handle :
+        header=next(handle)
+        for line in handle:
+            splitline=line.rstrip().split("\t")
+            contig=splitline[0]
+            if contig in contigs:
+                contig_cov[contig]=np.array(list(map(float,splitline[1:])))
+    return header,contig_cov
+
+rule mag_coverage:
+    input: mags="{group}/binning/{binner}/{binner}_MAG_list.txt",
+           cluster="{group}/binning/{binner}/clustering_{binner}.csv",
+           cov="{group}/profile/coverage_contigs.tsv",
+           len="{group}/annotation/contigs.bed",
+           nb_nuc="{group}/profile/Normalisation.tsv"
+    output: mag_cov="{group}/profile/mag_{binner}_coverage.tsv",
+            mag_map="{group}/profile/mag_{binner}_percent_mapped.tsv"
+    run:
+        # get the sets of bins, considered mags
+        mags={line.rstrip() for line in open(input["mags"])}
+        # get cluster definition
+        cluster_def,contig_to_cluster=get_cluster_def(input["cluster"],mags)
+        # get contigs coverage
+        header,contig_cov=get_contig_cov(input["cov"],contig_to_cluster)
+        # get contigs lengths
+        contig_len={line.rstrip().split('\t')[0]:float(line.rstrip().split('\t')[2]) for line in open(input["len"]) if line.rstrip().split('\t')[0] in contig_to_cluster}
+        # get nb reads :
+        with open(input["nb_nuc"]) as handle:
+            header_norm=next(handle).rstrip()
+            if header_norm.rstrip().split("\t")[1:]!=header.rstrip().split("\t")[1:]:
+                print("error, header are differents : \n%s\n%s"%(header_norm.split("\t")[1:],header.split("\t")[1:]))
+            nuc_nb=list(map(float,next(handle).rstrip().split("\t")[1:]))
+        # get mag nucleotides
+        handle_cov=open(output["mag_cov"],"w")
+        handle_map=open(output["mag_map"],"w")
+        samples=header.rstrip().split('\t')[1:]
+        handle_map.write("mag\t"+"\t".join(samples)+"\n")
+        handle_cov.write("mag\t"+"\t".join(samples)+"\n")
+        for cluster,list_contigs in cluster_def.items():
+            tot_len=0
+            tot_nuc=np.zeros(len(samples))
+            for contig in list_contigs:
+                if contig=="contig_id":
+                    break
+                tot_len+=contig_len[contig]
+                tot_nuc+=contig_cov[contig]*contig_len[contig]
+            if contig!="contig_id":
+                handle_cov.write("Bin_%s\t"%cluster+"\t".join(list(map(str,tot_nuc/tot_len)))+"\n")
+                handle_map.write("Bin_%s\t"%cluster+"\t".join(list(map(str,tot_nuc/nuc_nb)))+"\n")
+
+
+
+
+
+
 
 
