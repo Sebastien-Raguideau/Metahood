@@ -5,7 +5,7 @@ from functools import partial
 from collections import defaultdict
 import glob
 import os.path
-from os.path import basename,dirname
+from os.path import basename,dirname,abspath,realpath
 import tempfile
 import yaml
 from subprocess import Popen, PIPE
@@ -16,6 +16,7 @@ from scripts.common import detect_reads, fill_default_values, extended_glob
 # config=yaml.load(open("./config_AD07.yaml"))
 # config["LOCAL_DIR"]="/mnt/gpfs/seb/Project/Metahood/" 
 fill_default_values(config)
+METAHOOD=dirname(abspath(realpath(workflow.snakefile)))
 
 # --------- Setup ----------
 SETUP=config["samples"]["setup"]
@@ -32,6 +33,9 @@ SCRIPTS = config["scripts"]
 Mem_tot = virtual_memory().total
 MAX_MEMG = int((MAX_MEM_PERCENT*Mem_tot)/10**9)
 CONDA_ENV = config["conda_env"]
+CONFIG_PATH = config["CONFIG_PATH"]
+LOCAL_DIR = config["LOCAL_DIR"]
+EXEC_DIR = config["EXEC_DIR"]
 
 # -------- Binning -----------
 CONCOCT_EXECUTION = config["binning"]["concoct"]["execution"]
@@ -61,13 +65,13 @@ DESMAN_REPEAT = config["desman"]["nb_repeat"]
 MIN_COV_DESMAN = config["desman"]["min_cov"]
 
 
-# -------- graph --------
-if config["graph"]["List_graphs"] :
-    GRAPH_TASKS=["contigs."+".".join(List_annotation)+"_contiguous_ORF_annotation.csv" for List_annotation in config["graph"]["List_graphs"].values()]
-    CAT_DB=config["graph"]["CAT_database"]
-    DB_COLORS={DB:Dict_things['color'] for DB,Dict_things in ANNOTATION.items()}
-else :
-    GRAPH_TASKS=[]
+# # -------- graph --------
+# if config["graph"]["List_graphs"] :
+#     GRAPH_TASKS=["contigs."+".".join(List_annotation)+"_contiguous_ORF_annotation.csv" for List_annotation in config["graph"]["List_graphs"].values()]
+#     CAT_DB=config["graph"]["CAT_database"]
+#     DB_COLORS={DB:Dict_things['color'] for DB,Dict_things in ANNOTATION.items()}
+# else :
+#     GRAPH_TASKS=[]
 
 
 #--------------------------- Read group and sample composition ---------------------------

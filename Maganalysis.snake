@@ -1,12 +1,34 @@
-# --------- Start of MagAnalysis -------------------------------------------------
+include: "Common.snake"
+from os.path import basename,dirname
+from collections import defaultdict,Counter
+import numpy as np
+import glob
+import re
+
+MAGs={group:[line.rstrip() for line in open("%s/binning/%s/%s_MAG_list.txt"%(group,binner,binner))] for group in list(GROUPS.keys()) for binner in ["concoct"] }
+
+
+# MagAnalysis
+List_inputs=[]
+if MAG_ANALYSIS == 1:
+    List_inputs += expand("{group}/MagAnalysis/{binner}/Tree/Mag_refseq_assign.tsv",group=GROUPS,binner=["concoct"])
+    List_inputs += expand("{group}/MagAnalysis/{binner}/mags_infos/{annotation}_summary.tsv",annotation=ANNOTATION,group=GROUPS,binner=["concoct"])
+    List_inputs += expand("{group}/MagAnalysis/{binner}/mags_infos/mag_{binner}_percent_mapped.tsv",group=GROUPS,binner=["concoct"])
+
+
+# ------------ snakemake start ------------
+rule all:
+    input: List_inputs
+
+# --------- MagAnalysis ----------------
 
 # get scg sequences of all MAGs and concatenate them by scg.
 rule Mags_SCG:
     input: mag_list="{group}/binning/{binner}/{binner}_MAG_list.txt",
            cluster_definition="{group}/binning/{binner}/clustering_{binner}.csv",
            cog_annotation='{group}/annotation/contigs_SCG.fna'
-    output: expand("{{group}}/MagAnalysis/{{binner}}/SCGs/{COG}.fna",COG=LIST_COGS)
-    params: "{group}/MagAnalysis/{binner}/SCGs/"
+    output: expand("{{group}}/MagAnalysis/{{binner}}/Tree/SCGs/{COG}.fna",COG=LIST_COGS)
+    params: "{group}/MagAnalysis/{binner}/Tree/SCGs/"
     shell: """
     {SCRIPTS}/Get_MAG_SCG.py {input.cog_annotation} {input.cluster_definition} {input.mag_list} {SCG_DATA}/scg_cogs_min0.97_max1.03_unique_genera.txt {params}
     """
@@ -19,11 +41,11 @@ rule extract_ref_SCGs:
 
 # ------- Start allignment -------------------
 rule run_mafft:
-    input: scg="{path}/SCGs/{COG}.fna",
+    input: scg="{path}/Tree/SCGs/{COG}.fna",
            database_scg=SCG_DATA+"/All_{COG}.ffn"
-    output: all_scg="{path}/AlignAll/{COG}_all.fna",
-            alignement="{path}/AlignAll/{COG}_all.msa"
-    log: "{path}/AlignAll/mafft_{COG}.log"
+    output: all_scg="{path}/Tree/AlignAll/{COG}_all.fna",
+            alignement="{path}/Tree/AlignAll/{COG}_all.msa"
+    log: "{path}/Tree/AlignAll/mafft_{COG}.log"
     threads:1000
     shell: """
     cat {input.scg} {input.database_scg} > {output.all_scg}
@@ -51,9 +73,9 @@ rule generate_data_for_fastree:
 
 # ----------- Launch Fastree ------------------
 rule Launch_FastTree:
-    input: "{path}/AlignAll/concat_scg.msa"
+    input: "{path}/Tree/AlignAll/concat_scg.msa"
     output: "{path}/Tree/Mag_and_refseqs.tree"
-    log: "{path}/AlignAll/SelectR.out"
+    log: "{path}/Tree/AlignAll/SelectR.out"
     shell:"""
     FastTreeMP -nt -gtr < {input} 2> {log} > {output}
     """
@@ -66,12 +88,62 @@ rule  Assign_tree:
     {SCRIPTS}/AssignTree.py {input} {SCG_DATA}/TaxaSpeciesR.txt {SCG_DATA}/all_taxa_lineage.tsv > {output}
     """
 
-
 # --------- MAG annotation -------------------------------------------------
+# go through all annotation file created and add them to each folder
+# Add .fna and .faa by mag
+# Add all annotation.
+rule Split_by_bins:
+    input:  annotation = expand("{{group}}/annotation/contigs_{annotation}_best_hits.tsv",annotation=ANNOTATION),
+            faa="{group}/annotation/contigs.faa",
+            fna="{group}/annotation/contigs.fna",
+            cog="{group}/annotation/contigs_cogs_best_hits.tsv",
+            cat="{group}/annotation/CAT_contigs_taxonomy.tsv",
+            assembly="{group}/contigs/contigs.fa",
+            cluster="{group}/binning/{binner}/clustering_{binner}.csv",
+            mags="{group}/binning/{binner}/{binner}_MAG_list.txt"
+    output: expand("{{group}}/MagAnalysis/{{binner}}/mags/log/{annotation}_done",annotation=ANNOTATION)
+    shell:"""
+    {SCRIPTS}/Split_fasta_by_bin.py {input.cluster} $(dirname $(dirname {output[0]})) -l {input.mags}  --folder --fasta {input.faa} {input.fna} {input.assembly} --annotation {input.annotation} {input.cog} {input.cat} 
+    touch {output}
+    """
+
+# Add summary of annotation files
+rule annotation_summary:
+    input:  annotation=expand("{{group}}/MagAnalysis/{{binner}}/mags/log/{annotation}_done",annotation=ANNOTATION),
+            cluster="{group}/binning/{binner}/clustering_{binner}.csv",
+            mags="{group}/binning/{binner}/{binner}_MAG_list.txt"
+    output: summary=expand("{{group}}/MagAnalysis/{{binner}}/mags_infos/{annotation}_summary.tsv",annotation=ANNOTATION)
+    run:
+        # get annotation files for each mag
+        folder=dirname(dirname(input["annotation"][0]))
+        annotations=['cogs']+list(ANNOTATION.keys())
+        anno_to_files={anno:glob.glob("%s/*/*%s_best_hits.tsv"%(folder,anno)) for anno in annotations}
+        # build annotation matrix for each annotation
+        sorted_mags=sorted({file.split("/")[-2] for files in  anno_to_files.values() for file in files })
+        folder_out=dirname(output["summary"][0])
+        for anno, list_files in  anno_to_files.items() :
+            annotation_count={basename(file).split('_%s'%anno)[0]:Counter([line.split('\t')[1] for line in open(file)]) for file in list_files }
+            sorted_annotation=sorted({key for count in annotation_count.values() for key in count})
+            annotation_to_index={key:index for index,key in enumerate(sorted_annotation)}
+            matrix=np.zeros((len(sorted_mags),len(sorted_annotation)))
+            for index_row,mag in enumerate(sorted_mags) :
+                for key,count in annotation_count[mag].items() :
+                    index_col=annotation_to_index[key]
+                    matrix[index_row,index_col]= count
+            with open("%s/%s_summary.tsv"%(folder_out,anno),"w") as handle : 
+                handle.write("\t".join(["summary"]+sorted_annotation)+"\n")
+                handle.write("\n".join(["\t".join([mag]+[str(int(nb)) for nb in matrix[index_row,:]]) for index_row,mag in enumerate(sorted_mags)])+"\n")
 
 
-
-
-
+# Add all infos 
+rule profiles_info:
+    input:  cov = "{group}/profile/mag_{binner}_coverage.tsv",
+            percent =  "{group}/profile/mag_{binner}_percent_mapped.tsv"
+    output : cov = "{group}/MagAnalysis/{binner}/mags_infos/mag_{binner}_coverage.tsv",
+             percent =  "{group}/MagAnalysis/{binner}/mags_infos/mag_{binner}_percent_mapped.tsv"
+    shell : """
+    ln -s $(realpath {input.cov}) {output.cov}
+    ln -s $(realpath {input.percent}) {output.percent}
+    """
 
 

@@ -3,7 +3,8 @@ from Bio.SeqIO.FastaIO import SimpleFastaParser as SFP
 rule generate_depth :
     input:  lambda w : [w.group+"/map/"+sample.split('/')[-1]+"_mapped_sorted.bam" for sample in  GROUPS[w.group]]
     output: "{group}/map/depth.txt"
-    shell: "jgi_summarize_bam_contig_depths --outputDepth {output} {input}"
+    log : "{group}/map/depth.log"
+    shell: "jgi_summarize_bam_contig_depths --outputDepth {output} {input} &>{log}" 
 
 checkpoint metabat2 :
     input:  contig="{group}/contigs/contigs.fa",
@@ -32,3 +33,14 @@ rule post_processing :
             for name,seq in SFP(open(file)) :
                 Handle.write(",".join([name,bin_name])+"\n")
         Handle.close()
+
+rule renames_metabat2_bins :
+    input: get_list_bins
+    output:"{group}/binning/metabat2/bins/name_done"
+    params: get_list_bins
+    run:
+        List_bins=params[0]
+        for bin_ in List_bins:
+            new_name=bin_.replace("bin.","Bin_")
+            os.system("mv %s %s"%(bin_,new_name))
+        os.system("touch %s"%output)

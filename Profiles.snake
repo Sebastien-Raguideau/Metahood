@@ -196,7 +196,8 @@ rule mag_coverage:
             if contig!="contig_id":
                 handle_cov.write("Bin_%s\t"%cluster+"\t".join(list(map(str,tot_nuc/tot_len)))+"\n")
                 handle_map.write("Bin_%s\t"%cluster+"\t".join(list(map(str,tot_nuc/nuc_nb)))+"\n")
-
+        handle_cov.close()
+        handle_map.close()
 
 
 

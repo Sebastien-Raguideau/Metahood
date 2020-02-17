@@ -50,7 +50,7 @@ rule annotation_diamond:
 rule CAT_annotation:
 	input: contigs="{group}/contigs/contigs.fa",
 		   faa="{group}/annotation/contigs.faa"
-	output: ORF2LCA="{group}/annotation/CAT/contigs.ORF2LCA.txt"
+	output: ORF2LCA="{group}/annotation/CAT/contigs.contig2classification.txt"
 	params : Dir="{group}/annotation/CAT/contigs"
 	conda : CONDA_ENV+"/cat.yaml"
 	threads: 1000
@@ -59,7 +59,7 @@ rule CAT_annotation:
 	"""
 
 rule CAT_ORF_annotation:
-	input: ORF2LCA="{group}/annotation/CAT/contigs.ORF2LCA.txt"
+	input: ORF2LCA="{group}/annotation/CAT/contigs.contig2classification.txt"
 	output: annotation="{group}/annotation/CAT_contigs_taxonomy.tsv"
 	conda : CONDA_ENV+"/cat.yaml"
 	shell : """

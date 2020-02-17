@@ -103,10 +103,11 @@ rule output_number_of_mag:
 rule output_bins:
     input:   contigs="{group}/contigs/contigs.fa",
              clustering="{group}/binning/concoct/clustering_concoct.csv"
-    output:  touch("{group}/binning/concoct/bins/done")
-    params:  "{group}/binning/concoct/bins/"
+    output:  "{group}/binning/concoct/bins/done"
     shell :"""
-    {SCRIPTS}/Split_fasta_by_bin.py {input.contigs} {input.clustering} {params}"""
+    {SCRIPTS}/Split_fasta_by_bin.py {input.clustering} $(dirname {output}) --fasta {input.contigs}
+    touch {output}
+    """
 
 
 

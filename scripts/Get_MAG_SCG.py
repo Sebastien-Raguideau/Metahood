@@ -14,8 +14,7 @@ def main(argv):
     parser.add_argument("cluster_definition", help="csv file, firts column is the contig, second is the bin")
     parser.add_argument("mag_list", help="list of mags")    
     parser.add_argument("cogs_list", help="list of COGs to collate from bins")
-    parser.add_argument(
-        "output_folder", help="output folder name, where do we want to put the sequences")
+    parser.add_argument("output_folder", help="output folder name, where do we want to put the sequences")
     args = parser.parse_args()
     # set of SCG
     with open(args.cogs_list, 'r') as f:

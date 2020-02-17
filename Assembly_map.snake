@@ -17,10 +17,10 @@ rule megahit:
     resources:
         memG=int(MAX_MEMG)
     threads: 70
-    log:     "{group}/assembly.log"
+    log:     "{group}/assembly/assembly.log"
     message: "Assembling {wildcards.group} with MegaHIT"
     shell:   """
-             megahit -1 {params.left} -2 {params.right} {params.Additional_params} -t {threads} -m {params.mem} --continue -o {params.dir} &> {log}"""
+             megahit -1 {params.left} -2 {params.right} {params.Additional_params} -t {threads} -m {params.mem} --continue -o {params.dir} -f &> {log}"""
 
 rule contig_folder:
     input: "{group}/assembly/final.contigs.fa"

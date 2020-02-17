@@ -43,9 +43,10 @@ def Write_gfa_ORF(output,Dico_ORF_Seq,Dico_contig_lines,Dico_Contigs_ORFs,List_e
 		# [S,name,sequence,LN:i:117,KC:i:85209]
 		KC_contig=0
 		Contig_len=len(Line.split("\t")[2])
-		Match_KC=re.search("KC:i:(\d*)",Line).groups()
+		# on some occasion, KC is negative, bug with bandage reduce, so we just ignore it.
+		Match_KC=re.search("KC:i:(\d+)",Line)
 		if Match_KC :
-			KC_contig=int(Match_KC[0])
+			KC_contig=int(Match_KC.groups()[0])
 		for index,ORF in enumerate(Dico_Contigs_ORFs[Contig]) :
 			Seq=Dico_ORF_Seq[ORF]
 			ORF_Len=len(Seq)

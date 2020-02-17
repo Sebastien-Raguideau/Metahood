@@ -25,8 +25,10 @@ parser.add_argument('-s', nargs=argparse.REMAINDER,help="Pass additional argumen
 args = parser.parse_args()
 
 exec_dir = os.path.dirname(os.path.realpath(sys.argv[0]))
+# snakemake dir
 LOCAL_DIR = os.path.realpath(exec_dir)
-print(LOCAL_DIR)
+# execution dir 
+EXEC_DIR=os.path.realpath(args.dir)
 
 # ------- set max memory used, in Go ---------------
 CONFIG_FILE = os.path.abspath(args.config)
@@ -35,7 +37,7 @@ Percent_mem=yaml.full_load(open(CONFIG_FILE))["Percent_memory"]
 MEMG=str(int((Percent_mem*Mem_tot)/10**9))
 
 # ------- base parameters used to call snakemake -----------
-base_params = ["snakemake", "--directory", os.path.realpath(args.dir), "--cores", str(args.threads), "--config", "LOCAL_DIR" + "=" + LOCAL_DIR,"--configfile="+CONFIG_FILE,"--resources",'memG='+MEMG, "--latency-wait", "12","--use-conda"]
+base_params = ["snakemake", "--directory", EXEC_DIR, "--cores", str(args.threads), "--config", "LOCAL_DIR=%s"%LOCAL_DIR,"CONFIG_PATH=%s"%CONFIG_FILE,"EXEC_DIR=%s"%EXEC_DIR,"--configfile="+CONFIG_FILE,"--resources",'memG='+MEMG, "--latency-wait", "120","--use-conda"]
 
 if args.verbose:
     base_params.extend(["-p", "-r", "--verbose"]) 
@@ -82,6 +84,8 @@ with cd(exec_dir):
     call_snake(["--snakefile", "Setup_samples.snake"])
     #launch master snake
     call_snake(["--snakefile", "Master.snake"])
+    # launch Maganalysis
+    call_snake(["--snakefile", "Maganalysis.snake"])    
     # launch desman
     call_snake(["--snakefile", "Desman.snake"])
 

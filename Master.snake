@@ -6,7 +6,8 @@ include: 'Assembly_map.snake'
 include: 'megahit_graph.snake'
 include: 'Metabat.snake'
 include: 'Profiles.snake'
-include: "Maganalysis.snake"
+# include: 'Maganalysis.snake'
+
 
 # ------------ Define the list of outputs ------------
 List_inputs = []
@@ -14,6 +15,8 @@ List_inputs = []
 List_inputs += expand("{group}/binning/{binner}/{binner}_MAG_list.txt",group=GROUPS, binner=BINNER)
 if "concoct" in BINNER:
     List_inputs += expand("{group}/binning/concoct/bins/done", group=list(GROUPS.keys()))
+if "metabat2" in BINNER:
+    List_inputs += expand("{group}/binning/metabat2/bins/name_done", group=list(GROUPS.keys()))
 # contigs coverage profile
 List_inputs += expand("{group}/profile/coverage_contigs.tsv", group=GROUPS)
 # orf coverage profile
@@ -27,8 +30,8 @@ if ANNOTATION:
     List_inputs += expand("{group}/annotation/contigs_{annotation}_best_hits.tsv",annotation=ANNOTATION, group=GROUPS)
     List_inputs += expand("{group}/profile/Normalisation.tsv", group=GROUPS)
     List_inputs += expand("{group}/profile/cov_{annotation}.tsv",annotation=ANNOTATION, group=GROUPS)
-# if CAT_DB:
-#     List_inputs += expand("{group}/annotation/CAT_contigs_taxonomy.tsv",group=GROUPS)
+if CAT_DB:
+    List_inputs += expand("{group}/annotation/CAT_contigs_taxonomy.tsv",group=GROUPS)
 # if KRAKEN_DB:
 #     List_inputs += expand("{group}/annotation/kraken_taxonomy_report.tsv",group=GROUPS)    
 # Assembly graphs
@@ -37,12 +40,26 @@ if ANNOTATION:
 #     List_inputs += expand("{group}/graph/contigs.gfa", group=GROUPS)
 #     # orfs subgraphs with annotation as well as taxonomy
 #     List_inputs += expand("{group}/graph/{tasks}", group=GROUPS, tasks=GRAPH_TASKS)
-# MagAnalysis
-if MAG_ANALYSIS==1:
-	List_inputs += expand("{group}/MagAnalysis/concoct/Tree/Mag_refseq_assign.tsv", group=list(GROUPS.keys())[0])
+
+# # MagAnalysis
+# if MAG_ANALYSIS == 1:
+#     List_inputs += expand("{group}/MagAnalysis/concoct/Tree/Mag_refseq_assign.tsv",group=list(GROUPS.keys()))
+#     List_inputs += expand("{group}/MagAnalysis/concoct/mags/done",group=list(GROUPS.keys()))
 
 
 # ------------ snakemake start ------------
 rule all:
     input: List_inputs
-        
+
+# ---------------------------------------
+# ------------ Subworkflows  ------------
+# ---------------------------------------
+
+# # --------- MagAnalysis ---------
+# subworkflow Maganalysis:
+#     snakefile:  "Maganalysis.snake"
+#     configfile: CONFIG_PATH
+
+# # MagAnalysis
+# if MAG_ANALYSIS==1:
+# 	List_inputs += [Maganalysis("%s/MagAnalysis/concoct/Tree/Mag_refseq_assign.tsv"%(EXEC_DIR+"/"+group)) for group in list(GROUPS.keys())]

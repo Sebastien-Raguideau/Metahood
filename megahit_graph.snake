@@ -89,7 +89,6 @@ rule concatenate_annotation:
 		   graph_annotation="{group}/graph/{name}_contiguous_ORF_annotation.tmp"
 	output: annotation="{group}/graph/{name}_contiguous_ORF_annotation.csv"
 	params : Dir="{group}/graph/CAT/{name}"
-	threads: 1000
 	run :
 		Handle=open(output["annotation"],"w")
 		Cat_annotation={line.split('\t')[0]:line.rstrip().split('\t')[3:] for line in open(input["cat"])}
