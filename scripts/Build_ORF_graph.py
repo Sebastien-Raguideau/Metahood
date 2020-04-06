@@ -36,7 +36,7 @@ def Write_gfa_ORF(output,Dico_ORF_Seq,Dico_contig_lines,Dico_Contigs_ORFs,List_e
 	if len(List_match)>1 :
 		print("more than one Kmer length : "+"\t".join(List_match)) 
 	else :
-		kmer_len=int(List_match[0])
+		kmer_len=int(List_match[0][:-1])
 	List_lines=[]
 	List_edges=[]
 	for Contig,Line in Dico_contig_lines.items() :

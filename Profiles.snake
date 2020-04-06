@@ -29,13 +29,11 @@ rule bedtools:
         memG=400
     shell:   "bedtools coverage -a {input.bed} -b {input.bam} -mean > {output} 2>{log} "
 
-# ---- use a awk oneliner to regroup all coverages into a unique file -----------------------
+# ---- collate all files  -----------------------
 rule coverage:
     input:   lambda w : [w.group+"/map/"+sample.split('/')[-1]+".{type}.cov" for sample in  GROUPS[w.group]]
     output:  "{group}/profile/coverage_{type}.tsv"
-    shell :  """
-            echo -e "contig\t""$(ls -U {input} | rev | cut -f3- -d "."  | cut -f1 -d "/" |rev | tr "\n" "\t" | sed 's/\t$//')"> {output}
-            awk 'NR==FNR{{Matrix_coverage[1,FNR]=$4}}FNR==1{{f++}}{{Matrix_coverage[f+1,FNR]=$5}}END{{for(x=1;x<=FNR;x++){{for(y=1;y<ARGC+1;y++){{if(y<ARGC){{printf("%s\t",Matrix_coverage[y,x])}}if(y==ARGC){{printf("%s",Matrix_coverage[y,x]);print""}}}}}}}}' {input} >>{output}"""
+    shell : "{SCRIPTS}/collate_coverage.py -o {output} -l {input} "
 
 # ---- generate a mapping of annotation to orfs  -----------------------
 rule map_annotation_to_orfs:
@@ -175,14 +173,19 @@ rule mag_coverage:
         contig_len={line.rstrip().split('\t')[0]:float(line.rstrip().split('\t')[2]) for line in open(input["len"]) if line.rstrip().split('\t')[0] in contig_to_cluster}
         # get nb reads :
         with open(input["nb_nuc"]) as handle:
-            header_norm=next(handle).rstrip()
-            if header_norm.rstrip().split("\t")[1:]!=header.rstrip().split("\t")[1:]:
-                print("error, header are differents : \n%s\n%s"%(header_norm.split("\t")[1:],header.split("\t")[1:]))
+            header_norm = next(handle).rstrip().split("\t")[1:]
+            samples = header.rstrip().split('\t')[1:]
             nuc_nb=list(map(float,next(handle).rstrip().split("\t")[1:]))
+
+            if samples != header_norm :
+                reorder = [header_norm.index(elmt) for elmt in samples]
+                header_norm = np.array(header_norm)[reorder]
+                nuc_nb = np.array(nuc_nb)[reorder]
+            assert samples == header_norm,"error, header are differents : \n%s\n%s"%(samples, header_norm)
+
         # get mag nucleotides
         handle_cov=open(output["mag_cov"],"w")
         handle_map=open(output["mag_map"],"w")
-        samples=header.rstrip().split('\t')[1:]
         handle_map.write("mag\t"+"\t".join(samples)+"\n")
         handle_cov.write("mag\t"+"\t".join(samples)+"\n")
         for cluster,list_contigs in cluster_def.items():

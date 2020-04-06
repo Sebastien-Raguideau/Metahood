@@ -11,8 +11,11 @@ def Best_solution_yet(Coverage_profile,Indexed_coverage_profile,Set_genes) :
 	Indexed_coverage_profile+="3"
 	try :
 		Dico_gene_index=marshal.load(open(Indexed_coverage_profile,"rb"))
-		# python 3, seems like all string loaded are binary. So the dictionary throw key error since the genes from Set_genes are not binary string... So there is a need to decode binary to utf-8.
-		# Dico_gene_index={key.decode():values for key,values in Dico_gene_index.items()}
+		# TOFIX : sometimes encoding shenanigans : ipython3.5, will need the .decode()
+		#  python 3, seems like all string loaded are binary. So the dictionary throw key error since the genes from Set_genes are not binary string... So there is a need to decode binary to utf-8.
+		Dico_gene_index={key.decode():values for key,values in Dico_gene_index.items()}
+
+		# +2 is because linecache start at 1 (fucking assholes ) and because I got a line of headers.
 		Sorted_index=sorted([Dico_gene_index[gene]+2 for gene in Set_genes])
 		Nb_genes=len(Sorted_index)
 		List_reduced=[getline(Coverage_profile, line_nb) for line_nb in Sorted_index]

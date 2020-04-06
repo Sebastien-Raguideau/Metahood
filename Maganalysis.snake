@@ -5,14 +5,14 @@ import numpy as np
 import glob
 import re
 
-MAGs={group:[line.rstrip() for line in open("%s/binning/%s/%s_MAG_list.txt"%(group,binner,binner))] for group in list(GROUPS.keys()) for binner in ["concoct"] }
+# MAGs={group:[line.rstrip() for line in open("%s/binning/%s/%s_MAG_list.txt"%(group,binner,binner))] for group in list(GROUPS.keys()) for binner in ["concoct"] }
 
 
 # MagAnalysis
 List_inputs=[]
 if MAG_ANALYSIS == 1:
     List_inputs += expand("{group}/MagAnalysis/{binner}/Tree/Mag_refseq_assign.tsv",group=GROUPS,binner=["concoct"])
-    List_inputs += expand("{group}/MagAnalysis/{binner}/mags_infos/{annotation}_summary.tsv",annotation=ANNOTATION,group=GROUPS,binner=["concoct"])
+    List_inputs += expand("{group}/MagAnalysis/{binner}/mags_infos/{annotation}_summary.tsv",annotation=BEST_HITS,group=GROUPS,binner=["concoct"])
     List_inputs += expand("{group}/MagAnalysis/{binner}/mags_infos/mag_{binner}_percent_mapped.tsv",group=GROUPS,binner=["concoct"])
 
 
@@ -93,15 +93,14 @@ rule  Assign_tree:
 # Add .fna and .faa by mag
 # Add all annotation.
 rule Split_by_bins:
-    input:  annotation = expand("{{group}}/annotation/contigs_{annotation}_best_hits.tsv",annotation=ANNOTATION),
+    input:  annotation = expand("{{group}}/annotation/contigs_{annotation}_best_hits.tsv",annotation=BEST_HITS),
             faa="{group}/annotation/contigs.faa",
             fna="{group}/annotation/contigs.fna",
             cog="{group}/annotation/contigs_cogs_best_hits.tsv",
-            cat="{group}/annotation/CAT_contigs_taxonomy.tsv",
             assembly="{group}/contigs/contigs.fa",
             cluster="{group}/binning/{binner}/clustering_{binner}.csv",
             mags="{group}/binning/{binner}/{binner}_MAG_list.txt"
-    output: expand("{{group}}/MagAnalysis/{{binner}}/mags/log/{annotation}_done",annotation=ANNOTATION)
+    output: expand("{{group}}/MagAnalysis/{{binner}}/mags/log/{annotation}_done",annotation=BEST_HITS)
     shell:"""
     {SCRIPTS}/Split_fasta_by_bin.py {input.cluster} $(dirname $(dirname {output[0]})) -l {input.mags}  --folder --fasta {input.faa} {input.fna} {input.assembly} --annotation {input.annotation} {input.cog} {input.cat} 
     touch {output}
@@ -109,14 +108,14 @@ rule Split_by_bins:
 
 # Add summary of annotation files
 rule annotation_summary:
-    input:  annotation=expand("{{group}}/MagAnalysis/{{binner}}/mags/log/{annotation}_done",annotation=ANNOTATION),
+    input:  annotation=expand("{{group}}/MagAnalysis/{{binner}}/mags/log/{annotation}_done",annotation=BEST_HITS),
             cluster="{group}/binning/{binner}/clustering_{binner}.csv",
             mags="{group}/binning/{binner}/{binner}_MAG_list.txt"
-    output: summary=expand("{{group}}/MagAnalysis/{{binner}}/mags_infos/{annotation}_summary.tsv",annotation=ANNOTATION)
+    output: summary=expand("{{group}}/MagAnalysis/{{binner}}/mags_infos/{annotation}_summary.tsv",annotation=BEST_HITS)
     run:
         # get annotation files for each mag
         folder=dirname(dirname(input["annotation"][0]))
-        annotations=['cogs']+list(ANNOTATION.keys())
+        annotations=BEST_HITS
         anno_to_files={anno:glob.glob("%s/*/*%s_best_hits.tsv"%(folder,anno)) for anno in annotations}
         # build annotation matrix for each annotation
         sorted_mags=sorted({file.split("/")[-2] for files in  anno_to_files.values() for file in files })

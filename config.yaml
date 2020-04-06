@@ -40,25 +40,28 @@ desman :
   min_cov: 1
 # ------ Annotation parameters ------ 
 annotation: # support only diamond for now
-  CARD:
-    db: [/mnt/gpfs/seb/Database/CARD/CARD_DB_0.9.24.dmnd]
-    blast: [blastp]
-    # Annotation is a tsv file, 1st column is gene name, 2nd is new name (ex KO,COG), all others are optional/additional info (function, definition, pathway...)
-    annotation: [/mnt/gpfs/seb/Database/Kihyun_Lee_Databases/CARD_Annotation_V2.tsv] 
-    # min_Bitscore , max_Evalue , min_Pid , min_subject_pid , min_coverage , min_Query_coverage
-    filter: [0,1e-5,0.8,0,0.2,0.8]
-    color: "#00ff00" # orf graph
-  IntI:
-    db: [/mnt/gpfs/seb/Database/Kihyun_Lee_Databases/IntI.db.dmnd]
-    blast: [blastp]
-    # Annotation can be none, in this case, only gene name appears    
-    annotation: [none] 
-    # min_Bitscore , max_Evalue , min_Pid , min_subject_pid , min_coverage , min_Query_coverage
-    filter: [0,1e-5,0.8,0,0.2,0.8]
-    color: "#ff0000" # orf graph
-cog_database: /home/sebr/seb/Database/rpsblast_cog_db/Cog
-cat_db: /mnt/gpfs/seb/Database/NR_Cat
-kraken_db: /mnt/gpfs/seb/Database/Kraken_Standard
+  diamond :
+    CARD:
+      db: [/mnt/gpfs/seb/Database/CARD/CARD_DB_0.9.24.dmnd]
+      # Annotation is a tsv file, 1st column is gene name, 2nd is new name (ex KO,COG), all others are optional/additional info (function, definition, pathway...)
+      annotation: [/mnt/gpfs/seb/Database/Kihyun_Lee_Databases/CARD_Annotation_V2.tsv] 
+      # min_Bitscore , max_Evalue , min_Pid , min_subject_pid , min_coverage , min_Query_coverage
+      filter: [0,1e-5,0.8,0,0.2,0.8]
+      color: "#00ff00" # orf graph
+    IntI:
+      db: [/mnt/gpfs/seb/Database/Kihyun_Lee_Databases/IntI.db.dmnd]
+      # Annotation can be none, in this case, only gene name appears    
+      annotation: [none] 
+      # min_Bitscore , max_Evalue , min_Pid , min_subject_pid , min_coverage , min_Query_coverage
+      filter: [0,1e-5,0.8,0,0.2,0.8]
+      color: "#ff0000" # orf graph
+  rpsblast:
+    cog_database: /home/sebr/seb/Database/rpsblast_cog_db/Cog
+  cat_db: /mnt/gpfs/seb/Database/NR_Cat
+  kraken_db: /mnt/gpfs/seb/Database/Kraken_Standard
+  kofamscan: 
+    profiles: /mnt/gpfs/seb/Database/KEGG/kofamscan/profiles
+    ko_list: /mnt/gpfs/seb/Database/KEGG/kofamscan/ko_list
 # ------ orf subgraph ------ 
 graph :
   List_graphs:

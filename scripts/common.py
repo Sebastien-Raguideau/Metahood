@@ -6,27 +6,28 @@ try:
 except:
     pass
 
+from collections import defaultdict
 from subprocess import Popen, PIPE
+from os.path import basename
 import os
 import os.path
-from os.path import basename
 import re
 
 
 default_values = {
-    "binning":{"concoct":{"contig_size" : 1000,"execution" : 1,"max_bin_nb" : 5000},"metabat2":{"execution" : 0,"contig_size":1500}},
+    "binning":{"concoct":{"contig_size" : 1000,"execution" : 1,"max_bin_nb" : 2000},"metabat2":{"execution" : 0,"contig_size":1500}},
     "mag":["native"],
     "threads":8,
     "assembly":    {"assembler": "megahit","groups": {},"parameters":"" },
-    "annotation":{},
-    'cat_db':"",
-    "kraken_db":"",
+    "annotation": {'diamond':{},"cat_db":"","kraken_db":"","kofamscan":{"profiles":"","ko_list":""}},
     "graph":{"List_graphs":{}},
     "samples":{"setup":0},
     "Percent_memory":0.5,
     "maganalysis":0,
     "desman":{"execution":0, "nb_haplotypes": 10,"nb_repeat": 5,"min_cov": 1,"scripts":""}
 }
+
+
 
 # ---- neat regex matching of files --------
 def extended_glob(pattern):

@@ -2,7 +2,7 @@
 
 # in order to allow for multiple annotation process to coexist and produce similar names output, we just define rules priority
 # if parse_cogs_annotation does not work, it tries annotation_diamond
-ruleorder: parse_cogs_annotation > annotation_diamond
+ruleorder: annotation_kofamscan > parse_cogs_annotation  >annotation_diamond
 
 # ---- prodigal annotation on splits ----------------------------------------------------------------
 rule prodigal:
@@ -22,31 +22,62 @@ rule prodigal:
     shell:
         "{SCRIPTS}/Parallel_prodigal.py {threads} {input} -s 100 -o {params.dir} -T {params.dir}/temp_splits"
 
-
-
+# ---- diamond annotation  ----------------------------------------------------------------
 rule diamond:
 	input :  "{filename}.faa"
 	output : "{filename}_{annotation}.m8"
-	params : db=lambda w: ANNOTATION[w.annotation]["db"],
-			 blast=lambda w: ANNOTATION[w.annotation]["blast"]
+	params : db=lambda w: DIAMOND[w.annotation]["db"],
 	log:     "{filename}_{annotation}_diamond.log"
 	threads:  1000
-	shell :   "diamond {params.blast} -d {params.db}  -q {input} -p {threads} -o {output} -f6 qseqid sseqid qstart qend qlen sstart send slen length pident evalue bitscore &>{log}"
+	shell :   "diamond blastp --more-sensitive -d {params.db}  -q {input} -p {threads} -o {output} -f6 qseqid sseqid qstart qend qlen sstart send slen length pident evalue bitscore &>{log}"
 
 rule annotation_diamond:
 	input :  "{group}/annotation/{filename}_{annotation}.m8"
 	output : "{group}/annotation/{filename}_{annotation}_best_hits.tsv"
-	params : annotation=lambda w: ANNOTATION[w.annotation]["annotation"],
-			 Bitscore=lambda w: ANNOTATION[w.annotation]["filter"][0],
-			 Evalue=lambda w: ANNOTATION[w.annotation]["filter"][1],
-			 PID=lambda w: ANNOTATION[w.annotation]["filter"][2],
-			 subject_pid=lambda w: ANNOTATION[w.annotation]["filter"][3],
-			 subject_coverage=lambda w: ANNOTATION[w.annotation]["filter"][4],
-			 querry_coverage=lambda w: ANNOTATION[w.annotation]["filter"][5],
+	params : annotation=lambda w: DIAMOND[w.annotation]["annotation"],
+			 Bitscore=lambda w: DIAMOND[w.annotation]["filter"][0],
+			 Evalue=lambda w: DIAMOND[w.annotation]["filter"][1],
+			 PID=lambda w: DIAMOND[w.annotation]["filter"][2],
+			 subject_pid=lambda w: DIAMOND[w.annotation]["filter"][3],
+			 subject_coverage=lambda w: DIAMOND[w.annotation]["filter"][4],
+			 querry_coverage=lambda w: DIAMOND[w.annotation]["filter"][5],
 	shell :   "{SCRIPTS}/M8_Filtering.py {input} -D {params.annotation} -B {params.Bitscore} -E {params.Evalue} -P {params.PID} -R {params.subject_pid} -C {params.subject_coverage} -Q {params.querry_coverage}  >{output}"
 
 
-# taxonomic annotation
+# ---- kegg own annotation pipeline  --------------------
+
+rule kofamscan:
+	input :  "{filename}.faa"
+	output : "{filename}_kofamscan.out"
+	conda : CONDA_ENV + "/kofamscan.yaml"	
+	params : profiles = KOFAMSCAN["profiles"],
+			 ko_list = KOFAMSCAN["ko_list"]
+	threads : 1000
+	shell :   "exec_annotation {input} -o {output} -p {params.profiles} -k {params.ko_list}  --cpu {threads} --tmp-dir $(dirname {input})/tmp"
+
+rule annotation_kofamscan :
+	input : file = "{filename}_kofamscan.out"
+	output : out = "{filename}_KEGG_best_hits.tsv"
+	run : 
+		with open(input['file']) as handle :
+			orf_to_ko={}
+			for line in handle :
+				if line[0] != "*" :
+					continue
+				splitline = line.rstrip().split()[1:6] + [" ".join(line.rstrip().split()[6:])]
+				if splitline[0] in orf_to_ko :
+					orf_to_ko[splitline[0]] = min([orf_to_ko[splitline[0]],splitline],key = lambda x:float(x[4]))
+				else : 
+					orf_to_ko[splitline[0]]=splitline
+		with open(output["out"],"w") as handle_w :
+			handle_w.write('\t'.join(['orf',"KO","threshold","score","KO definition"])+"\n")
+			for line in orf_to_ko.values() : 
+				handle_w.write("\t".join(line)+"\n")
+
+
+
+# ------ taxonomic annotation  --------------------
+
 rule CAT_annotation:
 	input: contigs="{group}/contigs/contigs.fa",
 		   faa="{group}/annotation/contigs.faa"
@@ -66,7 +97,7 @@ rule CAT_ORF_annotation:
 	CAT add_names -i {input.ORF2LCA} -o {output.annotation} -t {CAT_DB} --only_official
 	"""
 
-# kraken annotation
+# ------- kraken annotation -----------------------
 rule kraken_uniq:
 	input: ORF2LCA = "{group}/contigs/contigs.fa"
 	output: report = "{group}/annotation/kraken_taxonomy_report.tsv",
@@ -76,6 +107,7 @@ rule kraken_uniq:
 	shell : """
 	krakenuniq --db {KRAKEN_DB} --preload --fasta-input {input} --threads {threads} --report-file {output.report} > {output.classif}
 	"""
+
 
 # ------------------------------------------ COG Annotation -------------------------------
 # ------- rpsblast on previous batchs 

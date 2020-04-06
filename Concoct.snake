@@ -1,7 +1,7 @@
 import os.path
 import numpy as np
 from collections import Counter
-from Bio.SeqIO.FastaIO import SimpleFastaParser
+from Bio.SeqIO.FastaIO import SimpleFastaParser as sfp
 
 
 # ---- get the bed file for the cut up contigs-------------------------------------------
@@ -16,7 +16,7 @@ rule cut_contigs:
 
 
 # ------- extract scg ------------------------------------------------------------------------
-checkpoint extract_SCG_sequences:
+rule extract_SCG_sequences:
     input:  annotation="{filename}_cogs_best_hits.tsv",
             gff="{filename}.gff",
             fna="{filename}.fna"
@@ -24,23 +24,32 @@ checkpoint extract_SCG_sequences:
     shell:  "{SCRIPTS}/Extract_SCG.py {input.fna} {input.annotation} {SCG_DATA}/scg_cogs_min0.97_max1.03_unique_genera.txt {input.gff}>{output}"
 
 # --------- Concoct ------------------------------------------------------------------------
-def get_initial_number_of_bins(wildcards):
-    SCF_faa_handle=open(checkpoints.extract_SCG_sequences.get(filename=wildcards.group+"/annotation/contigs").output[0])
-    nb_bin=int(5*np.median(list(Counter([header.split(" ")[1] for header,seq in SimpleFastaParser(SCF_faa_handle)]).values())))
+# def get_initial_number_of_bins(wildcards):
+#     SCF_faa_handle=open(checkpoints.extract_SCG_sequences.get(filename=wildcards.group+"/annotation/contigs").output[0])
+#     nb_bin=int(2*np.median(list(Counter([header.split(" ")[1] for header,seq in SimpleFastaParser(SCF_faa_handle)]).values())))
+#     return min(nb_bin,MAX_BIN_NB)
+
+def get_initial_number_of_bins(file):
+    print(file)
+    nb_bin=int(2*np.median(list(Counter([header.split(" ")[1] for header,seq in sfp(open(file))]).values())))
     return min(nb_bin,MAX_BIN_NB)
+
 
 rule concoct:
     input:   cov="{group}/profile/coverage_contigs_C10K.tsv",
              fasta="{group}/contigs/contigs_C10K.fa",
              SCG="{group}/annotation/contigs_SCG.fna"
-    output:  "{group}/binning/concoct/clustering_gt"+str(MIN_CONTIG_SIZE)+".csv",
+    output:  cluster="{group}/binning/concoct/clustering_gt"+str(MIN_CONTIG_SIZE)+".csv",
              Data="{group}/binning/concoct/original_data_gt%d.csv"%MIN_CONTIG_SIZE
-    params:  min_contig_size=MIN_CONTIG_SIZE,
-             nb_bin=get_initial_number_of_bins
+    log: "{group}/binning/concoct/log.txt"
+    params:  min_contig_size=MIN_CONTIG_SIZE
     threads: 20
-    shell:   """
-             concoct --coverage_file {input.cov} --composition_file {input.fasta} -b {wildcards.group}/binning/concoct -c {params.nb_bin} -l {params.min_contig_size} -t {threads}
-             """
+    # I don't want to use checkpoints, (buggy and increase DAG resolution time?) so I'll run the code inside a python run
+    run :
+        print(input["SCG"])
+        nb_bin_init = get_initial_number_of_bins(input["SCG"])
+        shell("concoct --coverage_file {input.cov} -i 1000 --composition_file {input.fasta} -b {wildcards.group}/binning/concoct -c %s -l {params.min_contig_size} -t {threads} &>> {log}"%nb_bin_init)
+
 
 # --------- Get SCG table out of clustering --------------------------------------------------
 rule SCG_table:
