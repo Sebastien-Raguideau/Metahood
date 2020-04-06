@@ -5,16 +5,21 @@ import numpy as np
 import argparse
 import marshal
 import time 
+import sys 
+
+version = "%s.%s"%sys.version_info[:2]
 
 def Best_solution_yet(Coverage_profile,Indexed_coverage_profile,Set_genes) :
 	# save line number of each contig with marshal and using linecache, pretty sure this is not optimal yet, because it does not exploit the ordered part of the list of line.
 	Indexed_coverage_profile+="3"
 	try :
 		Dico_gene_index=marshal.load(open(Indexed_coverage_profile,"rb"))
-		# TOFIX : sometimes encoding shenanigans : ipython3.5, will need the .decode()
-		#  python 3, seems like all string loaded are binary. So the dictionary throw key error since the genes from Set_genes are not binary string... So there is a need to decode binary to utf-8.
-		Dico_gene_index={key.decode():values for key,values in Dico_gene_index.items()}
-
+		# TOFIX : sometimes encoding shenanigans : python 3.5, will need the .decode(),  seems like all string loaded are binary. So the dictionary throw key error since the genes from Set_genes are not binary string... So there is a need to decode binary to utf-8
+		# TOFIX : sometimes encoding shenanigans : on python 3.7,  the .decode() make it fail. 
+		if version == "3.5" :
+			Dico_gene_index={key.decode():values for key,values in Dico_gene_index.items()}
+		else :
+			Dico_gene_index={key:values for key,values in Dico_gene_index.items()}
 		# +2 is because linecache start at 1 (fucking assholes ) and because I got a line of headers.
 		Sorted_index=sorted([Dico_gene_index[gene]+2 for gene in Set_genes])
 		Nb_genes=len(Sorted_index)
