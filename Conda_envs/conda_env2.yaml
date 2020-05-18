@@ -1,0 +1,35 @@
+name: MetaHood
+channels:
+    - bioconda
+    - anaconda
+    - conda-forge
+    - defaults
+dependencies:
+    - snakemake >=5.5.6
+    - python
+    - biopython
+    - bowtie2 
+    - samtools
+    - prodigal
+    - megahit
+    - spades
+    - blast
+    - concoct
+    - mafft
+    - trimal
+    - fasttree
+    - gfapy
+    - future
+    - pysam
+    - pygam
+    - statsmodels
+    - pathos
+    - ete3
+    - bam-readcount
+    - fastqc 
+    - multiqc
+    - trim-galore
+    - metabat2
+    - diamond
+    - hmmer
+    - gtdbtk
