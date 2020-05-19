@@ -1,13 +1,13 @@
 include: "Common.snake"
-from os.path import basename,dirname
+from Bio.SeqIO.FastaIO import SimpleFastaParser as sfp
 from collections import defaultdict,Counter
+from os.path import basename,dirname
 import numpy as np
 import glob
 import re
 
-# MAGs={group:[line.rstrip() for line in open("%s/binning/%s/%s_MAG_list.txt"%(group,binner,binner))] for group in list(GROUPS.keys()) for binner in ["concoct"] }
-
-
+MAGs={group:[line.rstrip() for line in open("%s/binning/consensus/consensus_MAG_list.txt"%(group)) ] for group in list(GROUPS.keys()) }
+Nb_MAGs = len([mag for mags in MAGs.values() for mag in mags])
 # MagAnalysis
 List_inputs=[]
 if MAG_ANALYSIS == 1:
@@ -15,12 +15,147 @@ if MAG_ANALYSIS == 1:
     List_inputs += expand("{group}/MagAnalysis/{binner}/mags_infos/{annotation}_summary.tsv",annotation=BEST_HITS,group=GROUPS,binner=["concoct"])
     List_inputs += expand("{group}/MagAnalysis/{binner}/mags_infos/mag_{binner}_percent_mapped.tsv",group=GROUPS,binner=["concoct"])
 
-
 # ------------ snakemake start ------------
 rule all:
-    input: List_inputs
+    input : "MAGs/gtdb/gtdbtk.ar122.classify.tree"
 
-# --------- MagAnalysis ----------------
+
+# --------- get all mags from differents assemblies ----------------
+checkpoint regroup_mags : 
+    input : expand("{groups}/binning/consensus/consensus_MAG_list.txt",groups=GROUPS)
+    output : map = "MAGs/bin_analysis/mag_to_assemblies.tsv"
+    params : output_dir = 'MAGs/Non_dRep_Mags'
+    run :
+        output_folder = params["output_dir"]
+        shell("mkdir -p {params.output_dir}")
+        map_mag_to_bin = [["mag_name","assembly_nb","mag_nb","assembly_name","bin_name"]]
+        mag_nb = 0
+        for index_group, group in enumerate(GROUPS) : 
+            path = "%s/binning/consensus"%group
+            file = "%s/consensus_MAG_list.txt"%path
+            bins_path = "%s/bins"%path
+            for line in open(file) : 
+                bin_name = line.rstrip()
+                mag_nb+=1
+                name = "a%s_m%s.fa"%(index_group,mag_nb)
+                map_mag_to_bin.append([name.split(".fa")[0],index_group,mag_nb,group,"Bin_%s"%bin_name])
+                with open("%s/%s"%(output_folder,name),"w") as handle :
+                    for header,seq in sfp(open("%s/Bin_%s.fa"%(bins_path,bin_name))) :
+                        new_header = "assembly_%s_%s"%(index_group,header)
+                        handle.write(">%s\n%s\n"%(new_header,seq))
+        with open(output["map"],"w") as handle :
+            handle.write("\n".join(["\t".join(list(map(str,line))) for line in map_mag_to_bin])+"\n")
+
+
+
+
+if len(GROUPS)>1 :
+    #  --------- Schedule dereplication ----------------
+    def derep_input(w,index):
+        def get_inputs() :
+            if Nb_MAGs > 10000 :
+                # EXPERIMENTAL, Please don't have more than 10000 mags
+                # first option, try to find group of coassemblies disjoint in term of samples
+                # this bit of code works if the largest coassemblies do not overlap in terms of samples, then it will dereplicate assemblies at the level of the largest coassemblies.
+                group_to_nb = {assembly:len(mags) for assembly,mags in MAGs.items()}
+                # 1) get which assemblies are covering which samples
+                sample_to_assembly = defaultdict(list)
+                for assembly,samples in GROUPS.items() :
+                    for sample in samples : 
+                        sample_to_assembly[sample].append(assembly)
+                # 2) cluster together samples which have been coassembled, with some luck this does not yield anything too big 
+                Set_samples = {tuple(sorted({sample for assembly in assemblies for sample in GROUPS[assembly]})) for sample,assemblies in sample_to_assembly.items()}
+                # 3) get corresponding group of assemlbies : 
+                Group_assemblies = [list({assemblies for sample in tupple for assemblies in sample_to_assembly[sample]}) for tupple in Set_samples]
+                # TOFIX : what can go wrong : --> new group has more than 10000, new groups don't aggregate enougth assemblies.
+                # 4) check none is too big >10000, otherwise build random group of 
+                # if sum([sum([group_to_nb[assembly] for assembly in group])>10000 for group in Group_assemblies]>1) : 
+                # assert(nb<10000), "automatic hierarchical dereplication strategy will fail, please code a better one (nb=%s)"%nb
+                # 5) encode scheduled tasks
+                drep_groups = {"/temp/drep_%s/"%index :"MAGs/bin_analysis/mag_to_assemblies.tsv" for index,groups in enumerate(Group_assemblies)}
+                drep_groups.update({"/":["MAGs/dRep/temp/drep_%s/data_tables/Cdb.csv"%index for index in range(len(Group_assemblies))]})
+                ## Get corresponding mags names
+                # get old mag names to new : 
+                mag_old_to_new = {(line.rstrip().split("\t")[3],line.rstrip().split("\t")[4].replace("Bin_","")):line.rstrip().split("\t")[0] for line in open("MAGs/bin_analysis/mag_to_assemblies.tsv")}
+                group_to_mags = {"/temp/drep_%s/"%index : " ".join(["MAGs/Non_dRep_Mags/%s.fa"%mag_old_to_new[(assembly,mag)] for assembly in assemblies for mag in MAGs[assembly]]).replace("MAGs/Non_dRep_Mags/","") for index,assemblies in enumerate(Group_assemblies)}
+            else :
+                drep_groups = {"/":["MAGs/bin_analysis/mag_to_assemblies.tsv"]}
+                group_to_mags ={"/": " ".join(glob.glob('MAGs/Non_dRep_Mags/*.fa')).replace("MAGs/Non_dRep_Mags/","")}
+            # store grouping
+            derep_input.input = drep_groups
+            derep_input.mags = group_to_mags
+        def get_global_drep():
+            if Nb_MAGs > 10000 :
+                derep_input.mags.update({"/":" ".join([mags.split("/")[-1] for index in range(len(derep_input.input)-1) for mags in glob.glob("MAGs/dRep/temp/drep_%s/dereplicated_genomes/*"%index)])})
+        # start of the function 
+        _=checkpoints.regroup_mags.get()
+        if not hasattr(derep_input, 'input'):
+            get_inputs()
+        if w["group"]=="/" :
+            get_global_drep()
+        return [derep_input.input[w["group"]],derep_input.mags[w["group"]]][index]
+
+
+    #  --------- launch dereplication ----------------
+    rule dereplication :
+        input : lambda w: derep_input(w,0)
+        output : cluster = "MAGs/dRep{group}data_tables/Cdb.csv"
+        params : mags = lambda w:derep_input(w,1), # snakemake ask for prerun time value but still evaluated at run time, so it works.
+                 output = "%s/MAGs/dRep{group}"%EXEC_DIR
+        conda : CONDA_ENV + "/drep.yaml" 
+        threads : 50
+        shell : """
+        cd MAGs/Non_dRep_Mags
+        dRep dereplicate {params.output} -g {params.mags} --ignoreGenomeQuality -p {threads}
+        """
+
+    #  --------- build a tree ----------------
+    rule gtdb_drep :
+        input : "MAGs/dRep/data_tables/Cdb.csv"
+        output : "MAGs/gtdb/gtdbtk.ar122.classify.tree"
+        conda : CONDA_ENV + "/gtdbtk.yaml" 
+        threads : 50
+        shell : """
+        gtdbtk classify_wf --cpus {threads} --genome_dir MAGs/dRep/dereplicated_genomes/ --out_dir $(dirname {output}) --extension .fa
+        """
+else :
+    rule gtdb :
+        input : "MAGs/bin_analysis/mag_to_assemblies.tsv"
+        output : "MAGs/gtdb/gtdbtk.ar122.classify.tree"
+        conda : CONDA_ENV + "/gtdbtk.yaml"
+        threads : 50
+        shell : """
+        gtdbtk classify_wf --cpus {threads} --genome_dir MAGs/Non_dRep_Mags/ --out_dir $(dirname {output}) --extension .fa
+        """
+
+
+
+
+
+
+
+# #  --------- get SCG table ----------------
+# rule concatenate_SCG_tabls:
+#     input : expand("{groups}/binning/{binner}/{binner}_MAG_list.txt",groups=GROUPS, binner=BINNER),
+#             "MAGs/bin_analysis/mag_to_assemblies.tsv"
+#     output : "MAGs/bin_analysis/SCG_table.tsv"
+#     run : 
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # get scg sequences of all MAGs and concatenate them by scg.
 rule Mags_SCG:

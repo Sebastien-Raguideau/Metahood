@@ -17,6 +17,16 @@ rule metabat2 :
             touch {output}
             """
 
+rule renames_metabat2_bins :
+    input: "{group}/binning/metabat2/bins/done"
+    output:"{group}/binning/metabat2/bins/name_done"
+    run:
+        List_bins=glob.glob(wildcards.group+"/binning/metabat2/bins/bin*.fa")
+        for bin_ in List_bins:
+            new_name=bin_.replace("bin.","Bin_")
+            os.system("mv %s %s"%(bin_,new_name))
+        os.system("touch %s"%output)
+
 rule post_processing :
     input: "{group}/binning/metabat2/bins/name_done"
     output:"{group}/binning/metabat2/clustering_metabat2.csv"
@@ -30,12 +40,3 @@ rule post_processing :
                 Handle.write(",".join([name,bin_name])+"\n")
         Handle.close()
 
-rule renames_metabat2_bins :
-    input: "{group}/binning/metabat2/bins/done"
-    output:"{group}/binning/metabat2/bins/name_done"
-    run:
-        List_bins=glob.glob(wildcards.group+"/binning/metabat2/bins/bin*.fa")
-        for bin_ in List_bins:
-            new_name=bin_.replace("bin.","Bin_")
-            os.system("mv %s %s"%(bin_,new_name))
-        os.system("touch %s"%output)

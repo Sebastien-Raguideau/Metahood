@@ -30,7 +30,6 @@ rule extract_SCG_sequences:
 #     return min(nb_bin,MAX_BIN_NB)
 
 def get_initial_number_of_bins(file):
-    print(file)
     nb_bin=int(2*np.median(list(Counter([header.split(" ")[1] for header,seq in sfp(open(file))]).values())))
     return min(nb_bin,MAX_BIN_NB)
 
@@ -54,9 +53,11 @@ rule concoct:
 # --------- Get SCG table out of clustering --------------------------------------------------
 rule SCG_table:
     input  : bins="{group}/binning/{binner}/clustering_{name}.csv",
-             SCG="{group}/annotation/contigs_SCG.fna"
+             SCG="{group}/annotation/contigs_SCG.fna",
+             orf_bed="{group}/annotation/orf.bed",
+             split_bed="{group}/annotation/contigs_C10K.bed"
     output : "{group}/binning/{binner}/{name}_SCG_table.csv"
-    shell  : "{SCRIPTS}/SCG_in_Bins.py {input.bins} {input.SCG} -t {output}"
+    shell  : "{SCRIPTS}/SCG_in_Bins.py {input.bins} {input.SCG} {input.orf_bed} {input.split_bed} -t {output}"
 
 
 # --------- Concoct refine -------------------------------------------------------------------
@@ -109,14 +110,30 @@ rule output_number_of_mag:
                 handle_list.write("\n".join([nb for nb in mags]))
 
 # --------- produce a contig file for each bins be they good or not (metabat2 style) ---------------
+ruleorder : metabat2>output_bins
 rule output_bins:
     input:   contigs="{group}/contigs/contigs.fa",
-             clustering="{group}/binning/concoct/clustering_concoct.csv"
-    output:  "{group}/binning/concoct/bins/done"
+             clustering="{group}/binning/{binner}/clustering_{binner}.csv"
+    output:  "{group}/binning/{binner}/bins/done"
     shell :"""
     {SCRIPTS}/Split_fasta_by_bin.py {input.clustering} $(dirname {output}) --fasta {input.contigs}
     touch {output}
     """
 
+# --------- create a consensus binning between concoct and metabat2 ----------------
+
+rule get_consensus_binning :
+    # only support 2 binner as of now
+    input : c_bin_def = "{group}/binning/concoct/clustering_concoct.csv",
+            m_bin_def = "{group}/binning/metabat2/clustering_metabat2.csv",
+            c_mag_list = "{group}/binning/concoct/concoct_MAG_list.txt",
+            m_mag_list = "{group}/binning/metabat2/metabat2_MAG_list.txt",
+            scg = "{group}/annotation/contigs_SCG.fna",
+            contig_profiles = "{group}/binning/concoct/original_data_gt%s.csv"%MIN_CONTIG_SIZE,
+            contig_bed = "{group}/annotation/contigs.bed"
+    output : "{group}/binning/consensus/clustering_consensus.csv"
+    shell :"""
+    {SCRIPTS}/consensus_binning.py -c_bin_def {input.c_bin_def} -m_bin_def {input.m_bin_def} -c_mag_list {input.c_mag_list} -m_mag_list {input.m_mag_list} -scg {input.scg} -contig_profiles {input.contig_profiles} -contig_bed {input.contig_bed} -o {output}
+    """
 
 

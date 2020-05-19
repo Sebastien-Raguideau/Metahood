@@ -58,83 +58,40 @@ def sample_name(fullname):
     return os.path.splitext(os.path.basename(fullname))[0]
 
 # FASTA_EXTS = {".fastq", ".fastq.gz"}  # only 2 extension are valid. 
-FASTA_EXTS = {".fastq.gz"}  # only extension valid. 
-def get_extension(file) :
-    for ext in FASTA_EXTS:
-        if file.endswith(ext):
-            return ext 
+FASTA_EXTS = {".fastq.gz",".fastq",".fq.gz",".fq",".fa",".fasta",".fasta.gz",".fa.gz"}  # only extension valid. 
 
-def gather_paths(path, basename=False):
+def gather_paths(path):
     for filename in os.listdir(path):
         name = os.path.basename(filename)
         for ext in FASTA_EXTS:
             if not name.endswith(ext):
                 continue
-            filepath = os.path.join(path, filename)
-            if basename:
-                yield (name[0:-len(ext)], filepath)
-            else:
-                yield filepath
+            if "trimmed" in name : 
+                continue
+            yield os.path.join(path, filename)
 
 def detect_reads(dir):
     return sorted(list(gather_paths(dir)))
 
-#Autodetect references
-def gather_refs(data):
-    if type(data) is list:
-        for path in data:
-            for ref in gather_refs(path):
-                yield ref
-    else:
-        if data.startswith("@"):
-            with open(data[1:]) as input:
-                for ref in load_dict(input).items():
-                    yield ref
-        elif os.path.isdir(data):
-            for ref in gather_paths(data, True):
-                yield ref
-        else:
-            yield (sample_name(data), data)
+def get_extension(file) :
+    for ext in FASTA_EXTS:
+        if file.endswith(ext):
+            return ext 
 
-def get_id(internal_id, sample):
-    res = internal_id.split("_", 2)[1]
-    return sample + "-" + res
+def replace_extensions(sample):
+    ext = get_extension(sample)
+    if ext in {".fastq.gz",".fastq",".fq.gz",".fq"} :
+        return sample.replace(ext,"_trimmed%s"%ext)
+    else :
+        return sample
 
-id_re = re.compile("\\d+")
-split_format = re.compile("^([\w.-]+)_\(\d+_\d+\)$")
-
-def extract_id(name):
-    bin_id = None
-    params = name.split("-", 1)
-    if len(params) > 1:
-        bin_id = int(id_re.findall(params[0])[0])
-        name = params[1]
-    contig_id = int(id_re.findall(name)[0])
-    if bin_id is None:
-        return contig_id
-    else:
-        return (bin_id, contig_id)
-
-def load_annotation(file, normalize=True):
-    res = dict()
-    sample, _ = os.path.splitext(os.path.basename(file))
-    with open(file) as input:
-        for line in input:
-            info = line.split("\t")
-            id = get_id(info[0], sample) if normalize else info[0]
-            bins = info[1].split()
-            if id in res:
-                res[id].update(bins)
-            else:
-                res[id] = set(bins)
-    return res
-
-def contig_length(name):
-    # Length of contig split
-    split = re.search("\((\d+)_(\d+)\)", name)
-    if split:
-        return int(split.group(2)) - int(split.group(1))
-    #Default format
-    else:
-        return int(name.split("_")[3])
-
+def samples_yaml():
+    libs = []
+    for s in SAMPLES:
+        info = {}
+        info["left reads"] = [SAMPLE_READS[s][0]]
+        info["right reads"] = [SAMPLE_READS[s][1]]
+        info["type"] = "paired-end"
+        info["orientation"] = "fr"
+        libs.append(info)
+    return yaml.dump(libs, default_style='"', default_flow_style=False)

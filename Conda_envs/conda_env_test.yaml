@@ -1,6 +1,9 @@
 name: MetaHood3
 channels:
-    - https://metachannel.conda-forge.org/bioconda,anaconda,conda-forge,defaults/--max-build-no
+    - bioconda
+    - anaconda
+    - conda-forge
+    - defaults
 dependencies:
     - snakemake >=5.5.6
     - python

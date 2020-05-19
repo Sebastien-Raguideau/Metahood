@@ -81,12 +81,12 @@ with cd(exec_dir):
             subprocess.check_call(base_params + extra_params, stdout=sys.stdout, stderr=sys.stderr)
     call_snake.nb=0
     # setup data folder
-    call_snake(["--snakefile", "Setup_samples.snake"])
+    # call_snake(["--snakefile", "Setup_samples.snake"])
     #launch master snake
     call_snake(["--snakefile", "Master.snake"])
     # launch Maganalysis
-    call_snake(["--snakefile", "Maganalysis.snake"])    
+    # call_snake(["--snakefile", "Maganalysis.snake"])    
     # launch desman
-    call_snake(["--snakefile", "Desman.snake"])
+    # call_snake(["--snakefile", "Desman.snake"])
 
 

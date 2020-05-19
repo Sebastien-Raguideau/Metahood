@@ -1,5 +1,6 @@
 from Bio.SeqIO.FastaIO import SimpleFastaParser as SFP
 from os.path import dirname,basename,join
+import gzip
 
 # ---- generate contig bed   ----------------------------------------------------
 rule bogus_bed:
@@ -53,25 +54,46 @@ rule generate_profile:
 # ----------------------------------------------------------
 
 # ---- generate nb nucleotides by sample  -----------------------
-rule nb_bases:
-    input: lambda w : [fastq_file+"_trimming_report.txt" for sample in  GROUPS[w.group] for fastq_file in SAMPLE_READS[basename(sample)]]
-    output: temp("{group}/profile/nucleotides.tsv")
-    run: 
-        dict_sample_nb=defaultdict(list)
-        for file in input:
-            sample=basename(dirname(file))
-            with open(file) as handle:
-                line=next(handle)
-                while "Total written (filtered):" not in line:
+if IS_FASTA : 
+    rule nb_bases_fasta:
+        input: lambda w : [fastq_file for sample in  GROUPS[w.group] for fastq_file in SAMPLE_READS[basename(sample)]]
+        output: temp("{group}/profile/nucleotides.tsv")
+        run: 
+            dict_sample_nb=defaultdict(list)
+            for file in input:
+                sample=basename(dirname(file))
+                if file.endswith(".gz") :
+                    handle = gzip.open(file,"rt")
+                else :
+                    handle = open(file)
+                nb = sum([len(seq) for header,seq in sfp(handle)])
+                dict_sample_nb[sample].append(nb)
+            dict_sample_nb={sample:str(sum(list_nb)) for sample,list_nb in dict_sample_nb.items()}
+            with open(output[0],"w") as handle:
+                handle.write("Normalisation\t"+"\t".join(dict_sample_nb.keys())+"\n")
+                handle.write("Nb_nucleotides\t"+"\t".join(dict_sample_nb.values())+"\n")
+            handle.close()
+else :
+    rule nb_bases:
+        input: lambda w : [fastq_file+"_trimming_report.txt" for sample in  GROUPS[w.group] for fastq_file in SAMPLE_READS[basename(sample)]]
+        output: temp("{group}/profile/nucleotides.tsv")
+        run: 
+            dict_sample_nb=defaultdict(list)
+            for file in input:
+                sample=basename(dirname(file))
+                with open(file) as handle:
                     line=next(handle)
-                nb=line.split(":")[1].split("bp")[0].replace(",","").replace(" ","")
-                dict_sample_nb[sample].append(float(nb))
-        dict_sample_nb={sample:str(sum(list_nb)) for sample,list_nb in dict_sample_nb.items()}
-        print(output[0])
-        with open(output[0],"w") as handle:
-            handle.write("Normalisation\t"+"\t".join(dict_sample_nb.keys())+"\n")
-            handle.write("Nb_nucleotides\t"+"\t".join(dict_sample_nb.values())+"\n")
-        handle.close()
+                    while "Total written (filtered):" not in line:
+                        line=next(handle)
+                    nb=line.split(":")[1].split("bp")[0].replace(",","").replace(" ","")
+                    dict_sample_nb[sample].append(float(nb))
+            dict_sample_nb={sample:str(sum(list_nb)) for sample,list_nb in dict_sample_nb.items()}
+            print(output[0])
+            with open(output[0],"w") as handle:
+                handle.write("Normalisation\t"+"\t".join(dict_sample_nb.keys())+"\n")
+                handle.write("Nb_nucleotides\t"+"\t".join(dict_sample_nb.values())+"\n")
+            handle.close()
+
 
 # ---- generate cog profile  -----------------------
 
@@ -110,10 +132,16 @@ rule mapped_reads:
     threads:THREADS
     shell: """samtools flagstat {input.bam} -@ {threads} | grep 'paired in sequencing' | cut -f1 -d " " > {output.readnb}""" 
 
-rule reads_qty:
-    input:  R1=lambda w:LEFT_READS[w["sample"]]
-    output: IN+"/{sample}/{sample}_readsnb.txt"
-    shell: "echo $(($(zcat {input.R1} | wc -l)/2)) > {output}"
+if IS_FASTA :
+    rule reads_qty:
+        input:  R1=lambda w:LEFT_READS[w["sample"]]
+        output: IN+"/{sample}/{sample}_readsnb.txt"
+        shell: "echo $(( $(zgrep -c '>' {input.R1})*2 )) > {output}"
+else : 
+    rule reads_qty:
+        input:  R1=lambda w:LEFT_READS[w["sample"]]
+        output: IN+"/{sample}/{sample}_readsnb.txt"
+        shell: "echo $(($(zless {input.R1} | wc -l)/2)) > {output}"
 
 rule get_percent:
     input: mapped=lambda w:[w.group+"/map/"+sample.split('/')[-1]+"_mapped_read.txt" for sample in  GROUPS[w.group]],

@@ -10,7 +10,7 @@ from psutil import virtual_memory
 from subprocess import Popen, PIPE
 from snakemake.exceptions import WorkflowError
 from os.path import basename,dirname,abspath,realpath
-from scripts.common import detect_reads, fill_default_values, extended_glob
+from scripts.common import detect_reads, fill_default_values, extended_glob, replace_extensions, get_extension
 
 #--------------------------- Config parameters ---------------------------
 # config=yaml.load(open("./config_AD07.yaml"))
@@ -45,7 +45,7 @@ MIN_CONTIG_SIZE = config["binning"]["concoct"]["contig_size"]
 METABAT2_EXECUTION = config["binning"]["metabat2"]["execution"]
 MIN_CONTIG_SIZE_METABAT2=config["binning"]["metabat2"]["contig_size"]
 BINNER=CONCOCT_EXECUTION*["concoct"]+METABAT2_EXECUTION*["metabat2"]
-
+BINNER+=(len(BINNER)-1)*["consensus"]
 # -------- Annotation --------
 ANNOTATION = config["annotation"]
 COG_DB = ANNOTATION["rpsblast"]["cog_database"]
@@ -76,6 +76,8 @@ if config["graph"] :
 else :
     GRAPH_TASKS=[]
 
+# ---------- other flag ------
+IS_FASTA = 0 # in case metahood is run on fasta files, change a few things
 
 #--------------------------- Read group and sample composition ---------------------------
 
@@ -98,6 +100,8 @@ GROUPS=defaultdict(list)
 for group,list_sample in GROUPS_DEF.items() :
     # get the samples paths corresponding to the group
     GROUPS[group]=[path for sample in list_sample for path in extended_glob(IN+"/"+sample)]
+
+# check that group definition allow us to find samples
 Empty_group=[group for group,value in GROUPS.items() if len(value)==0]
 if Empty_group :
     raise WorkflowError("Samples specified in groups "+"/".join(Empty_group)+" haven't been found at "+IN+ ", check your config file for potential errors")
@@ -109,50 +113,26 @@ SAMPLE_READS = dict(map(lambda sample: (sample, detect_reads(os.path.join(IN, sa
 
 Files_nb = [sample for sample,list_file in SAMPLE_READS.items() if len(list_file)!=2]
 if Files_nb :
-    raise WorkflowError("Samples folder : "+" - ".join(Files_nb)+"  does not have 2 fastq files, check the regular expression you used to select samples")
+    raise WorkflowError("Samples folder : "+" - ".join(Files_nb)+"  does not have exactly 2 reads files, you may have more or less than 2, files recognised as reads files are the following : .fastq, .fastq.gz, .fq, .fq.gz, .fa, .fa.gz, .fasta, .fasta.gz. You may also want to check the regular expression you used to select samples")
 
-# Define reads by samples
-qual_rep=lambda fastq:fastq.replace("_R1.fastq.gz","_R1_val_1.fq.gz").replace("_R2.fastq.gz","_R2_val_2.fq.gz")
-LEFT_READS={sample:qual_rep(list_reads[0]) for sample,list_reads in SAMPLE_READS.items()}
-RIGHT_READS={sample:qual_rep(list_reads[1]) for sample,list_reads in SAMPLE_READS.items()}
+# replace_extension, change file name so that trimmed version is taken for assembly/mapping..etc instead of initials samples
+LEFT_READS={sample:replace_extensions(list_reads[0]) for sample,list_reads in SAMPLE_READS.items()}
+RIGHT_READS={sample:replace_extensions(list_reads[1]) for sample,list_reads in SAMPLE_READS.items()}
+
+# in case all reads are fasta files, skip trimming/fastqc
+if len([read for read in [value for value in LEFT_READS.values()] if get_extension(read) in {".fastq.gz",".fastq",".fq.gz",".fq"}])==0 :
+    IS_FASTA=1
+    if not os.path.exists("%s/quality_done"%IN) :
+        os.system("touch %s/quality_done"%IN)
+
 # Define reads by groups
 GROUP_LEFT_READS={group:[LEFT_READS[basename(sample)] for sample in list_sample] for group,list_sample in GROUPS.items()}
 GROUP_RIGHT_READS={group:[RIGHT_READS[basename(sample)] for sample in list_sample] for group,list_sample in GROUPS.items()}
+
 # Add definition to global dict
 LEFT_READS.update(GROUP_LEFT_READS)
 RIGHT_READS.update(GROUP_RIGHT_READS)
 
 
-def samples_yaml():
-    libs = []
-    for s in SAMPLES:
-        info = {}
-        info["left reads"] = [SAMPLE_READS[s][0]]
-        info["right reads"] = [SAMPLE_READS[s][1]]
-        info["type"] = "paired-end"
-        info["orientation"] = "fr"
-        libs.append(info)
-    return yaml.dump(libs, default_style='"', default_flow_style=False)
 
-def is_fastq(wildcards):
-    name = getattr(wildcards, "sample", None)
-    if not name:
-        try:
-            name = GROUPS[wildcards.group][0]
-        except KeyError:
-            name = wildcards.group
-
-    for ext in {".fasta", ".fasta.gz", ".fa", ".fa.gz", ".fna", ".fna.gz", ".fsa",".fsa.gz", ".fastq", ".fastq.gz", ".fq", ".fq.gz"}:
-        if SAMPLE_READS[name][0].endswith(ext):
-            return True
-    return False
-
-def check_scratch_avail(root):
-    if os.path.isdir(root):
-        try:
-            with tempfile.TemporaryDirectory(dir=root) as temp_dir:
-                return True
-        except:
-            print("Launch with tmpdir failed")
-    return False
 

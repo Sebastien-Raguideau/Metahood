@@ -7,7 +7,7 @@
 rule megahit:
     input:   left=lambda w:LEFT_READS[w["group"]],
              right=lambda w:RIGHT_READS[w["group"]],
-             qc=IN+"/multiqc_report.html"
+             sample_processing= IN+"/quality_done"
     output:  "{group}/assembly/final.contigs.fa"
     params:  left=lambda w: ",".join(LEFT_READS[w["group"]]),
              right=lambda w: ",".join(RIGHT_READS[w["group"]]),
