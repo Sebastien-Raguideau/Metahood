@@ -8,24 +8,27 @@ rule megahit:
     input:   left=lambda w:LEFT_READS[w["group"]],
              right=lambda w:RIGHT_READS[w["group"]],
              sample_processing= IN+"/quality_done"
-    output:  "{group}/assembly/final.contigs.fa"
+    output:  "{group}/contigs/contigs.fa"
     params:  left=lambda w: ",".join(LEFT_READS[w["group"]]),
              right=lambda w: ",".join(RIGHT_READS[w["group"]]),
              dir="{group}/assembly",
              mem=MAX_MEM_PERCENT,
-             Additional_params=ASSEMBLER_PARAMS
+             Additional_params=ASSEMBLER_PARAMS,
+             assembly = "../assembly/final.contigs.fa"
     resources:
         memG=int(MAX_MEMG)
     threads: 70
     log:     "{group}/assembly/assembly.log"
     message: "Assembling {wildcards.group} with MegaHIT"
     shell:   """
-             megahit -1 {params.left} -2 {params.right} {params.Additional_params} -t {threads} -m {params.mem} --continue -o {params.dir} -f &> {log}"""
+             megahit -1 {params.left} -2 {params.right} {params.Additional_params} -t {threads} -m {params.mem} --continue -o {params.dir} -f &> {log}
+             ln -s {params.assembly} {output}
+             """
 
-rule contig_folder:
-    input: "{group}/assembly/final.contigs.fa"
-    output: "{group}/contigs/contigs.fa"
-    shell: "mv {input} {output}"
+# rule contig_folder:
+#     input: "{group}/assembly/final.contigs.fa"
+#     output: "{group}/contigs/contigs.fa"
+#     shell: "mv {input} {output}"
 
 # ---- bwa index file  -------------------------------------------
 

@@ -15,16 +15,16 @@ rule fastqc :
            """
 
 rule trim_galore :
-    input : file_R1="{path}/{sample}_R1.{ext}",
-            file_R1_qc="{path}/{sample}_R1.{ext}_fastqc_done",
-            file_R2="{path}/{sample}_R2.{ext}",
-            file_R2_qc="{path}/{sample}_R2.{ext}_fastqc_done"
-    output :R1="{path}/{sample}_R1_trimmed.{ext}",
-            R2="{path}/{sample}_R2_trimmed.{ext}",
-            report_R1="{path}/{sample}_R1.{ext}_trimming_report.txt", # broken : works only file ini is .fastq
-            report_R2="{path}/{sample}_R2.{ext}_trimming_report.txt" # broken
-    params : R1 = lambda w: "%s/%s_R1_val_1.fq"%(w.path,w.sample)+".gz"*(".gz" in w.ext),
-             R2 = lambda w: "%s/%s_R2_val_2.fq"%(w.path,w.sample)+".gz"*(".gz" in w.ext),
+    input : file_R1="{path}/{sample}R1.{ext}",
+            file_R1_qc="{path}/{sample}R1.{ext}_fastqc_done",
+            file_R2="{path}/{sample}R2.{ext}",
+            file_R2_qc="{path}/{sample}R2.{ext}_fastqc_done"
+    output :R1="{path}/{sample}R1_trimmed.{ext}",
+            R2="{path}/{sample}R2_trimmed.{ext}",
+            report_R1="{path}/{sample}R1.{ext}_trimming_report.txt", # broken : works only file ini is .fastq
+            report_R2="{path}/{sample}R2.{ext}_trimming_report.txt" # broken
+    params : R1 = lambda w: "%s/%sR1_val_1.fq"%(w.path,w.sample)+".gz"*(".gz" in w.ext),
+             R2 = lambda w: "%s/%sR2_val_2.fq"%(w.path,w.sample)+".gz"*(".gz" in w.ext),
              option = lambda w:"--gzip"*("gz" in w['ext']),
     log :   "{path}/{sample}.{ext}.log"
     shell :"""
