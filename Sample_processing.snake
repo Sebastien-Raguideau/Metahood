@@ -1,36 +1,44 @@
 from scripts.common import detect_reads, fill_default_values, extended_glob, get_extension
 from os.path import basename
 
+# deal with mutliple possible extensions : 
+wildcard_constraints:
+    ext="(fastq.gz|fq.gz|fastq|fq)"
 
+# need to use a _done file, so that I can precise {ext}, since fastqc output name can't be precised.
 rule fastqc :
-	input : lambda w:IN+"{path}/{sample}.fastq.gz"
-	output : IN+"{path}/{sample}_fastqc.html"
-	shell :"fastqc -o {IN}{wildcards.path} {input}"
+    input :  IN+"{path}/{sample}.{ext}"
+    output : IN+"{path}/{sample}.{ext}_fastqc_done"
+    shell :"""
+            fastqc -o {IN}{wildcards.path} {input}
+            touch {output}
+           """
 
 rule trim_galore :
-	input : file_R1=lambda w:"{path}/{sample}_R1.fastq.gz",
-			file_R1_qc="{path}/{sample}_R1_fastqc.html",
-			file_R2=lambda w:"{path}/{sample}_R2.fastq.gz",
-			file_R2_qc="{path}/{sample}_R2_fastqc.html"
-	output :R1="{path}/{sample}_R1_trimmed.fastq.gz",
-			R2="{path}/{sample}_R2_trimmed.fastq.gz",
-			report_R1="{path}/{sample}_R1.fastq.gz_trimming_report.txt", # broken : works only file ini is .fastq
-			report_R2="{path}/{sample}_R2.fastq.gz_trimming_report.txt" # broken
-	params : R1 = "{path}/{sample}_R1_val_1.fq.gz",
-			 R2 = "{path}/{sample}_R2_val_2.fq.gz"
-	log :   "{path}/{sample}.log"
-	shell :"""
-	trim_galore  --fastqc --gzip -o {wildcards.path} --paired {input.file_R1} {input.file_R2} > {log} 2>&1
-	mv {params.R1} {output.R1}
-	mv {params.R2} {output.R2}
-	"""
+    input : file_R1="{path}/{sample}_R1.{ext}",
+            file_R1_qc="{path}/{sample}_R1.{ext}_fastqc_done",
+            file_R2="{path}/{sample}_R2.{ext}",
+            file_R2_qc="{path}/{sample}_R2.{ext}_fastqc_done"
+    output :R1="{path}/{sample}_R1_trimmed.{ext}",
+            R2="{path}/{sample}_R2_trimmed.{ext}",
+            report_R1="{path}/{sample}_R1.{ext}_trimming_report.txt", # broken : works only file ini is .fastq
+            report_R2="{path}/{sample}_R2.{ext}_trimming_report.txt" # broken
+    params : R1 = lambda w: "%s/%s_R1_val_1.fq"%(w.path,w.sample)+".gz"*(".gz" in w.ext),
+             R2 = lambda w: "%s/%s_R2_val_2.fq"%(w.path,w.sample)+".gz"*(".gz" in w.ext),
+             option = lambda w:"--gzip"*("gz" in w['ext']),
+    log :   "{path}/{sample}.{ext}.log"
+    shell :"""
+    trim_galore  --fastqc {params.option} -o {wildcards.path} --paired {input.file_R1} {input.file_R2} > {log} 2>&1
+    mv {params.R1} {output.R1}
+    mv {params.R2} {output.R2}
+    """
 
 rule multiqc :
-	input : R1=[replace_extensions(SAMPLE_READS[sample][0]) for sample in SAMPLES],
-			R2=[replace_extensions(SAMPLE_READS[sample][1]) for sample in SAMPLES],
-	output : IN+"/quality_done"
-	shell : """multiqc --interactive -f {IN}/ -o {IN}/
-	touch {output}
-	"""
+    input : R1=[replace_extensions(SAMPLE_READS[sample][0]) for sample in SAMPLES],
+            R2=[replace_extensions(SAMPLE_READS[sample][1]) for sample in SAMPLES],
+    output : IN+"/quality_done"
+    shell : """multiqc --interactive -f {IN}/ -o {IN}/
+    touch {output}
+    """
 
 
