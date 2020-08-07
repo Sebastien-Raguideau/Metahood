@@ -4,7 +4,7 @@ import os
 import argparse
 import itertools
 import numpy as np
-from os.path import basename
+from os.path import basename, dirname
 from scipy.stats import pearsonr
 from collections import Counter, defaultdict
 from Bio.SeqIO.FastaIO import SimpleFastaParser as sfp
@@ -58,7 +58,7 @@ def consensus(mags_m2, mags_c, cluster_def_m2, cluster_def_c, profile_file, cont
         header=next(handle)
         contig_profile = {line.split(",")[0]:np.array(list(map(float,line.rstrip().split(",")[1:]))) for line in handle if line.split(",")[0].split(".")[0] in contigs}
 
-    # deal with splits, we're going to take the means of the splits
+    # we're reading concoct coverage file, it got splited contigs, we're going to take the means of the split's coverage
     contig_profile2 = defaultdict(list)
     for contig,profile in contig_profile.items() :
         contig = contig.split(".")[0]
@@ -89,7 +89,7 @@ def consensus(mags_m2, mags_c, cluster_def_m2, cluster_def_c, profile_file, cont
     mags_to_delete = set(np.array(sorted_mags)[np.where((scg_tables==1).sum(1)< 0.75*36)])
 
     ## choose best representative from smags
-    # define a criterio
+    # define a criterion
     def criterion(mag, sorted_mags, mags_to_delete) :
         if mag in mags_to_delete : 
             return -500
@@ -127,6 +127,12 @@ def consensus(mags_m2, mags_c, cluster_def_m2, cluster_def_c, profile_file, cont
     with open(output,'w') as handle : 
         handle.write("contig_id,0\n")
         handle.write("\n".join(["%s,%s"%(contig,mag[0]) for contig,mag in cluster_def_final.items()])+"\n")
+
+    # output the cluster definition in the same format as input : 
+    with open("%s/mags_in_both_mapping.tsv"%dirname(output),'w') as handle : 
+        handle.write("metabat2\tconcoct\n")
+        handle.writelines("%s\t%s\n"%(*sorted(smag,key=lambda x:int(x[0]=="c")),) for smag in smags)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

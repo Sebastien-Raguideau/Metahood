@@ -12,10 +12,12 @@ from subprocess import Popen, PIPE
 def collate_iterator(cov_files, output):
     get_cov = lambda line : str(float(line.rstrip().split("\t")[4])) # change "0.0000000" to "0.0"
     get_feature = lambda line : line.rstrip().split("\t")[3]
-    samples_names = sorted([".".join(basename(path).split('.')[:-2]) for path in cov_files])
-    List_handle = [open(file) for file in cov_files]
+    sample_to_cov = {".".join(basename(path).split('.')[:-2]):path for path in cov_files}
+    sorted_samples = sorted(sample_to_cov.keys())
+    sorted_cov_files = [sample_to_cov[sample] for sample in sorted_samples]
+    List_handle = [open(file) for file in sorted_cov_files]
     with open(output, "w") as handle:
-        handle.write("\t".join(["cov"]+samples_names)+"\n")
+        handle.write("\t".join(["cov"]+sorted_samples)+"\n")
         handle.writelines("%s\t%s\n"%(get_feature(line[0]),"\t".join(list(map(get_cov, line)))) for line in zip(*List_handle))
     for handle in List_handle:
         handle.close()
@@ -23,12 +25,14 @@ def collate_iterator(cov_files, output):
 
 def collate_in_memory(cov_files, output):
     # we know that all coverage are sorted in the same fashion since they originiate from the same .bed file, then let's drop the dictionary, we still need to store everything in memory, mainly since I do have more than 1024 files.
-    samples_names = sorted([".".join(basename(path).split('.')[:-2]) for path in cov_files])
+    sample_to_cov = {".".join(basename(path).split('.')[:-2]):path for path in cov_files}
+    sorted_samples = sorted(sample_to_cov.keys())
     sorted_feature = [line.rstrip().split("\t")[3] for line in open(cov_files[0])]
-    for file in cov_files:
+    sorted_cov_files = [sample_to_cov[sample] for sample in sorted_samples]
+    for file in sorted_cov_files:
         for index_row, line in enumerate(open(file)):
             sorted_feature[index_row] += "\t"+str(float(line.rstrip().split("\t")[4]))
-    sorted_feature = ["\t".join(["cov"]+samples_names)]+sorted_feature
+    sorted_feature = ["\t".join(["cov"]+sorted_samples)]+sorted_feature
     with open(output, "w") as handle:
         handle.writelines(line+"\n" for line in sorted_feature)
 

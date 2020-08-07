@@ -17,7 +17,7 @@ rule megahit:
              assembly = "../assembly/final.contigs.fa"
     resources:
         memG=int(MAX_MEMG)
-    threads: 70
+    threads: 50
     log:     "{group}/assembly/assembly.log"
     message: "Assembling {wildcards.group} with MegaHIT"
     shell:   """
