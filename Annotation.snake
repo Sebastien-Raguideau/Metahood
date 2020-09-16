@@ -116,7 +116,7 @@ rule Batch_rpsblast:
     output:  "{group}/{path,a.*/Batch.*}.cogs.tsv"
     log:     "{group}/{path}_cog.log"
     params:  db=COG_DB
-    resources: memG=150
+    resources: memG=TASK_MEMORY
     shell:   """
              rpsblast+ -outfmt '6 qseqid sseqid evalue pident length slen qlen' -evalue 0.00001 -query {input} -db {params.db} -out {output} &>log
              """

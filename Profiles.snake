@@ -27,7 +27,7 @@ rule bedtools:
     output:  "{group}/map/{sample}.{type}.cov"
     log:      "{group}/map/{sample}_{type}.log"
     resources:
-        memG=400
+        memG=TASK_MEMORY
     shell:   "bedtools coverage -a {input.bed} -b {input.bam} -mean > {output} 2>{log} "
 
 # ---- collate all files  -----------------------

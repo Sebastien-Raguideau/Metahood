@@ -19,15 +19,13 @@ fill_default_values(config)
 METAHOOD=dirname(abspath(realpath(workflow.snakefile)))
 
 # --------- Setup ----------
-SETUP = config["samples"]["setup"]
+SETUP = 0
 
 # --------- Sample filtering ----------
-FILTER = config["samples"]["filtering"]
-
+FILTER = config["filtering"]
 
 # -------- Assembly --------
 IN = config["data"]
-ASSEMBLER = config["assembly"]["assembler"]
 ASSEMBLER_PARAMS = config["assembly"]["parameters"]
 
 # -------- Ressources --------
@@ -36,6 +34,7 @@ THREADS = config["threads"]
 SCRIPTS = config["scripts"]
 Mem_tot = virtual_memory().total
 MAX_MEMG = int((MAX_MEM_PERCENT*Mem_tot)/10**9)
+TASK_MEMORY = config["task_memory"]
 CONDA_ENV = config["conda_env"]
 CONFIG_PATH = config["CONFIG_PATH"]
 LOCAL_DIR = config["LOCAL_DIR"]

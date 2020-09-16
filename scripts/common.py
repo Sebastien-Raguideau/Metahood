@@ -15,14 +15,15 @@ import re
 
 
 default_values = {
-    "binning":{"concoct":{"contig_size" : 1000,"execution" : 1,"max_bin_nb" : 2000},"metabat2":{"execution" : 0,"contig_size":1500}},
+    "binning":{"concoct":{"contig_size" : 1000,"execution" : 1,"max_bin_nb" : 2000},"metabat2":{"execution" : 1,"contig_size":1500}},
     "mag":["native"],
     "threads":8,
     "assembly":    {"assembler": "megahit","groups": {},"parameters":"" },
     "annotation": {'diamond':{},"cat_db":"","kraken_db":"","kofamscan":{"profiles":"","ko_list":""}},
     "graph":{"List_graphs":{}},
-    "samples":{"setup":0,"filtering":""},
+    "filtering":"",
     "Percent_memory":0.5,
+    "task_memory":200,
     "maganalysis":0,
     "desman":{"execution":0, "nb_haplotypes": 10,"nb_repeat": 5,"min_cov": 1,"scripts":""}
 }
