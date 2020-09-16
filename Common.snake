@@ -19,7 +19,11 @@ fill_default_values(config)
 METAHOOD=dirname(abspath(realpath(workflow.snakefile)))
 
 # --------- Setup ----------
-SETUP=config["samples"]["setup"]
+SETUP = config["samples"]["setup"]
+
+# --------- Sample filtering ----------
+FILTER = config["samples"]["filtering"]
+
 
 # -------- Assembly --------
 IN = config["data"]
@@ -46,6 +50,7 @@ METABAT2_EXECUTION = config["binning"]["metabat2"]["execution"]
 MIN_CONTIG_SIZE_METABAT2=config["binning"]["metabat2"]["contig_size"]
 BINNER=CONCOCT_EXECUTION*["concoct"]+METABAT2_EXECUTION*["metabat2"]
 BINNER+=(len(BINNER)-1)*["consensus"]
+
 # -------- Annotation --------
 ANNOTATION = config["annotation"]
 COG_DB = ANNOTATION["rpsblast"]["cog_database"]
@@ -116,22 +121,22 @@ if Files_nb :
     raise WorkflowError("Samples folder : "+" - ".join(Files_nb)+"  does not have exactly 2 reads files, you may have more or less than 2, files recognised as reads files are the following : .fastq, .fastq.gz, .fq, .fq.gz, .fa, .fa.gz, .fasta, .fasta.gz. You may also want to check the regular expression you used to select samples")
 
 # replace_extension, change file name so that trimmed version is taken for assembly/mapping..etc instead of initials samples
-LEFT_READS={sample:replace_extensions(list_reads[0]) for sample,list_reads in SAMPLE_READS.items()}
-RIGHT_READS={sample:replace_extensions(list_reads[1]) for sample,list_reads in SAMPLE_READS.items()}
+R1={sample:replace_extensions(list_reads[0]) for sample,list_reads in SAMPLE_READS.items()}
+R2={sample:replace_extensions(list_reads[1]) for sample,list_reads in SAMPLE_READS.items()}
 
 # in case all reads are fasta files, skip trimming/fastqc
-if len([read for read in [value for value in LEFT_READS.values()] if get_extension(read) in {".fastq.gz",".fastq",".fq.gz",".fq"}])==0 :
+if len([read for read in [value for value in R1.values()] if get_extension(read) in {".fastq.gz",".fastq",".fq.gz",".fq"}])==0 :
     IS_FASTA=1
     if not os.path.exists("%s/quality_done"%IN) :
         os.system("touch %s/quality_done"%IN)
 
 # Define reads by groups
-GROUP_LEFT_READS={group:[LEFT_READS[basename(sample)] for sample in list_sample] for group,list_sample in GROUPS.items()}
-GROUP_RIGHT_READS={group:[RIGHT_READS[basename(sample)] for sample in list_sample] for group,list_sample in GROUPS.items()}
+GROUP_R1={group:[R1[basename(sample)] for sample in list_sample] for group,list_sample in GROUPS.items()}
+GROUP_R2={group:[R2[basename(sample)] for sample in list_sample] for group,list_sample in GROUPS.items()}
 
 # Add definition to global dict
-LEFT_READS.update(GROUP_LEFT_READS)
-RIGHT_READS.update(GROUP_RIGHT_READS)
+R1.update(GROUP_R1)
+R2.update(GROUP_R2)
 
 
 

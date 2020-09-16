@@ -5,12 +5,12 @@
 
 
 rule megahit:
-    input:   left=lambda w:LEFT_READS[w["group"]],
-             right=lambda w:RIGHT_READS[w["group"]],
+    input:   left=lambda w:R1[w["group"]],
+             right=lambda w:R2[w["group"]],
              sample_processing= IN+"/quality_done"
     output:  "{group}/contigs/contigs.fa"
-    params:  left=lambda w: ",".join(LEFT_READS[w["group"]]),
-             right=lambda w: ",".join(RIGHT_READS[w["group"]]),
+    params:  left=lambda w: ",".join(R1[w["group"]]),
+             right=lambda w: ",".join(R2[w["group"]]),
              dir="{group}/assembly",
              mem=MAX_MEM_PERCENT,
              Additional_params=ASSEMBLER_PARAMS,

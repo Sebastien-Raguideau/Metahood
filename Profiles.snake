@@ -134,12 +134,12 @@ rule mapped_reads:
 
 if IS_FASTA :
     rule reads_qty:
-        input:  R1=lambda w:LEFT_READS[w["sample"]]
+        input:  R1=lambda w:R1[w["sample"]]
         output: IN+"/{sample}/{sample}_readsnb.txt"
         shell: "echo $(( $(zgrep -c '>' {input.R1})*2 )) > {output}"
 else : 
     rule reads_qty:
-        input:  R1=lambda w:LEFT_READS[w["sample"]]
+        input:  R1=lambda w:R1[w["sample"]]
         output: IN+"/{sample}/{sample}_readsnb.txt"
         shell: "echo $(($(zless {input.R1} | wc -l)/2)) > {output}"
 

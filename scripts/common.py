@@ -21,7 +21,7 @@ default_values = {
     "assembly":    {"assembler": "megahit","groups": {},"parameters":"" },
     "annotation": {'diamond':{},"cat_db":"","kraken_db":"","kofamscan":{"profiles":"","ko_list":""}},
     "graph":{"List_graphs":{}},
-    "samples":{"setup":0},
+    "samples":{"setup":0,"filtering":""},
     "Percent_memory":0.5,
     "maganalysis":0,
     "desman":{"execution":0, "nb_haplotypes": 10,"nb_repeat": 5,"min_cov": 1,"scripts":""}
@@ -68,6 +68,8 @@ def gather_paths(path):
                 continue
             if "trimmed" in name : 
                 continue
+            if "Filtered" in name :
+                continue
             yield os.path.join(path, filename)
 
 def detect_reads(dir):
@@ -95,3 +97,17 @@ def samples_yaml():
         info["orientation"] = "fr"
         libs.append(info)
     return yaml.dump(libs, default_style='"', default_flow_style=False)
+
+
+#copied from http://stackoverflow.com/questions/431684/how-do-i-cd-in-python/13197763#13197763
+class cd:
+    """Context manager for changing the current working directory"""
+    def __init__(self, newPath):
+        self.newPath = os.path.expanduser(newPath)
+
+    def __enter__(self):
+        self.savedPath = os.getcwd()
+        os.chdir(self.newPath)
+
+    def __exit__(self, etype, value, traceback):
+        os.chdir(self.savedPath)

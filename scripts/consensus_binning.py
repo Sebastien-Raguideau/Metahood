@@ -126,7 +126,7 @@ def consensus(mags_m2, mags_c, cluster_def_m2, cluster_def_c, profile_file, cont
     # output the cluster definition in the same format as input : 
     with open(output,'w') as handle : 
         handle.write("contig_id,0\n")
-        handle.write("\n".join(["%s,%s"%(contig,mag[0]) for contig,mag in cluster_def_final.items()])+"\n")
+        handle.writelines("%s,%s\n"%(contig,mag[0]) for contig,mag in cluster_def_final.items())
 
     # output the cluster definition in the same format as input : 
     with open("%s/mags_in_both_mapping.tsv"%dirname(output),'w') as handle : 

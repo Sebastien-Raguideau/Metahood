@@ -64,13 +64,13 @@ if __name__ == "__main__":
   parser.add_argument("-E",help="cutoff for Evalue",default=10**-10)
   parser.add_argument("-P",help="cutoff for Percentage IDentity (PID), between 0 and 1",default=0)
   parser.add_argument("-Q",help="Querry Coverage cutoff : Percentage of the Querry the Alignment does cover, between 0 and 1 ",default=0)
-  parser.add_argument("-C",help="Subject Coverage cutoff : Percentage of the Subject the Alignment does cover, between 0 and 1 ",default=0.05)
+  parser.add_argument("-C",help="Subject Coverage cutoff : Percentage of the Subject the Alignment does cover, between 0 and 1 ",default=0.5)
   parser.add_argument("-R",help="Subject pid : Subject Coverage times the percentage identity, between 0 and 1",default=0)
   args = parser.parse_args()
   Rpsblast_ouptut=args.Rpsblast_ouptut
   Database_file=args.cdd_cog_file
   if args.E!=0 :
-    min_Evalue=-np.log10(args.E)
+    min_Evalue=-np.log10(float(args.E))
   else :
     min_Evalue=args.E
   min_Pid=float(args.P)

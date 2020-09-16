@@ -2,13 +2,16 @@
 Percent_memory: 0.5 # maximum quantity of memory the snakemake can take
 threads : 8 # single task nb threads
 # ------ Path to data folder ------ 
+execution_directory: ~/path/to/output/folder/ # path to output folder,   
+# ------ Path to data folder ------ 
 data: ~/path/to/data/folder/ # path to data folder,   
 # ------ Samples ------
-# each sample need to have its own folder, with only 2 fastq files. Also, "fq.gz" are not detected. 
+# each sample need to have its own folder, with only 2 fastq files. File name must have R1 or R2 and end with any of the following extension : .fastq, .fastq.gz, .fq, .fq.gz.
 samples :
   setup : 1 
   file : /mnt/gpfs/seb/Project/temp/Anna/Assemblies/Samples.csv
   folder: /mnt/gpfs/seb/Project/temp/Anna/Data/ # where the samples are going to be stored
+  filtering: /path/to/fasta.file # database for read filtering prior to pipeline
 # ------ Assembly parameters ------
 assembly: 
   assembler: megahit # only option so far, won't change in the near future
