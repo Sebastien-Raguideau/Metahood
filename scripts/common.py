@@ -52,7 +52,7 @@ def fill_default_values(config):
     if local_dir:
         default_values["scripts"] = os.path.join(local_dir, "scripts")
         default_values["scg_data"]= os.path.join(local_dir, "scg_data")
-        default_values["conda_env"]= os.path.join(local_dir, "Conda_envs")
+        default_values["conda_env"]= os.path.join(local_dir, "conda_envs")
     setdefault_recursively(config)
 
 def sample_name(fullname):

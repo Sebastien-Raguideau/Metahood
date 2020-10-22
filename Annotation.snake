@@ -99,7 +99,7 @@ rule CAT_ORF_annotation:
 
 # ------- kraken annotation -----------------------
 rule kraken_uniq:
-	input: ORF2LCA = "{group}/contigs/contigs.fa"
+	input: "{group}/contigs/contigs.fa"
 	output: report = "{group}/annotation/kraken_taxonomy_report.tsv",
 			classif = "{group}/annotation/kraken_contig_taxonomy.tsv"
 	conda : CONDA_ENV+"/kraken.yaml"
