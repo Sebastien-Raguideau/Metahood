@@ -2,7 +2,7 @@
 Metahood is a pipeline entirely based on snakemake. 
 
 **What does the  pipeline do :**
- - sample qualitycheck/trimming/database filtering
+ - read qualitycheck/trimming/filtering
 - assemblies / co-assemblies
 - binning (Concoct/Metabat2)
 - consensus mags and mag coverage profiles
@@ -117,6 +117,15 @@ NOTE that if neither per_sample nor groups is informed, no task will be carried.
 		  * **profile:** path to kofamscan profiles
 		  * **ko_list:** path to kofamscan ko list 
 
+##  Example Dataset:
+Synthetic community as well as config file are available at :
+
+    wget  http://seb.s3.climb.ac.uk/Synth_G45_S03D.tar.gz
+
+After uncompressing, you'll find 2 config file example, one for coassembly, the other (SSA) for Single Sample Assembly.
+In both you'll need to replace respectively "path_to_folder" by the location of uncompressed folder, and "path_to_rpsblast_cog_db" by the location of COG database. 
+
+    Metahood.py --config <config file> --cores <nb threads> -s <snakemake options>
 
 
 
