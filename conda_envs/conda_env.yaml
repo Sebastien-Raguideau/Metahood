@@ -33,3 +33,4 @@ dependencies:
     - diamond
     - hmmer
     - gtdbtk
+    - bedtools
