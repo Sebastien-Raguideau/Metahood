@@ -46,13 +46,13 @@ sed -i 's/int(NK), args.seed, args.threads)/ int(NK), args.seed, args.threads, 5
 **Databases** 
 We rely on COG rpsblast database for MAG quality assessment. 
 
-    wget ftp://ftp.ncbi.nih.gov/pub/mmdb/cdd/little_endian/Cdd_LE.tar.gz
-    tar -xvf Cdd_LE.tar.gz
+    wget ftp://ftp.ncbi.nih.gov/pub/mmdb/cdd/little_endian/Cog_LE.tar.gz
+    tar -xvf Cog_LE.tar.gz
 
 ##  How to run Metahood:
 
     conda activate MetaHood
-    path_to_repos/Metahood/Metahood.py --config <config file> --cores <nb threads> -s <snakemake options> 
+    path_to_repos/Metahood/Metahood.py <config file> --cores <nb threads> -s <snakemake options> 
 
 
  ### Configuration file
