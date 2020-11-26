@@ -20,6 +20,8 @@ rule megahit:
     threads: 50
     log:     "{group}/assembly/assembly.log"
     message: "Assembling {wildcards.group} with MegaHIT"
+    conda : "conda_envs/megahit.yaml"
+    singularity : "builds/megahit.sif"
     shell:   """
              megahit -1 {params.left} -2 {params.right} {params.Additional_params} -t {threads} -m {params.mem} --continue -o {params.dir} -f &> {log}
              ln -s {params.assembly} {output}
