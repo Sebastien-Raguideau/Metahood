@@ -42,7 +42,7 @@ Percent_mem=config["Percent_memory"]
 MEMG=str(int((Percent_mem*Mem_tot)/10**9))
 
 # ------- base parameters used to call snakemake -----------
-base_params = ["snakemake", "--directory", EXEC_DIR, "--cores", str(args.cores), "--config", "LOCAL_DIR=%s"%METAHOOD_DIR,"CONFIG_PATH=%s"%CONFIG_FILE,"EXEC_DIR=%s"%EXEC_DIR,"--configfile="+CONFIG_FILE,"--resources",'memG='+MEMG, "--latency-wait", "120","-k","--use-conda"]
+base_params = ["snakemake", "--directory", EXEC_DIR, "--cores", str(args.cores), "--config", "LOCAL_DIR=%s"%METAHOOD_DIR,"CONFIG_PATH=%s"%CONFIG_FILE,"EXEC_DIR=%s"%EXEC_DIR,"--configfile="+CONFIG_FILE,"--resources",'memG='+MEMG, "--latency-wait", "120","-k"]
 
 # ------- additional parameters -----------
 if args.verbose:
