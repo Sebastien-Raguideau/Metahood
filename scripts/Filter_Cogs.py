@@ -29,7 +29,8 @@ def main(Rpsblast_ouptut,Database_file,min_Evalue,min_Pid,min_Subject_Pid,min_co
             Querry_Annotation=[]
         Current_query=Query
         Full_Subject=Splitline[1]
-        Subject=Dico_Ref_annotation[Full_Subject.split("|")[2]]
+        if Full_Subject.split("|")[2] in Dico_Ref_annotation :
+            Subject=Dico_Ref_annotation[Full_Subject.split("|")[2]]
         # sometimes for really low evalue, float conversion and/or comparison does not work, lets just take the -log10 of the evalue
         if 'e-' in Splitline[2] :
             Evalue=float(Splitline[2].split('e-')[1])-np.log10(float(Splitline[2].split('e-')[0]))
