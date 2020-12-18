@@ -17,6 +17,8 @@ rule map_to_mask:
     output: bam = temp("{IN}/{sample}/Filtered.bam"),
     log: "{IN}/{sample}/mapping.log"
     threads: 10
+    conda : "conda_envs/bwasamtools.yaml"
+    singularity: "builds/bwasamtools.sif"
     shell: """
             bwa mem -t {threads} {FILTER} {input.R1} {input.R2} 2>{log} | samtools view  -b -f 12 -@{threads} - | samtools sort -@{threads} - > {output.bam}
             """

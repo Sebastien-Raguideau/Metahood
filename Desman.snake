@@ -38,6 +38,8 @@ if DESMAN==1:
                 bin_bed = "{group}/desman/{binner}/{bin}/{bin}.bed"
         output: bin_bam = "{group}/desman/{binner}/{bin}/{sample}.{bin}.bam"
         threads: THREADS
+        conda : "conda_envs/bwasamtools.yaml"
+        singularity: "builds/bwasamtools.sif"
         shell: """
         samtools view -b -L {input.bin_bed} {input.global_bam} -@{threads} > {output.bin_bam}
         """
@@ -45,6 +47,8 @@ if DESMAN==1:
     rule index_fasta:
         input: "{path}.fa"
         output: "{path}.fa.fai"
+        conda : "conda_envs/bwasamtools.yaml"
+        singularity: "builds/bwasamtools.sif"
         shell: "samtools faidx {input}"
 
     # -------- get counts on each mags contigs --------

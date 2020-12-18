@@ -28,6 +28,8 @@ rule bedtools:
     log:      "{group}/map/{sample}_{type}.log"
     resources:
         memG=TASK_MEMORY
+    conda : "conda_envs/bedtools.yaml"
+    singularity: "builds/bedtools.sif"
     shell:   "bedtools coverage -a {input.bed} -b {input.bam} -mean > {output} 2>{log} "
 
 # ---- collate all files  -----------------------
@@ -130,6 +132,8 @@ rule mapped_reads:
     input:  bam="{group}/map/{sample}_mapped_sorted.bam"
     output: readnb="{group}/map/{sample}_mapped_read.txt"
     threads:THREADS
+    conda : "conda_envs/bwasamtools.yaml"
+    singularity: "builds/bwasamtools.sif"
     shell: """samtools flagstat {input.bam} -@ {threads} | grep 'paired in sequencing' | cut -f1 -d " " > {output.readnb}""" 
 
 if IS_FASTA :

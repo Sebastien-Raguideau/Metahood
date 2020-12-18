@@ -41,6 +41,8 @@ rule bwa_index:
     resources : memG=100
     params : 100000000000
     message: "Building bwa index for {input}"
+    conda : "conda_envs/bwasamtools.yaml"
+    singularity: "builds/bwasamtools.sif"
     shell:   "bwa index -b {params} {input} &> {log}"
 
 # ---- map reads to the assembly contigs--------------------------------------------------
@@ -52,4 +54,6 @@ rule bwa_mem_to_bam:
     threads: 1000
     log:     "{group}/map/{sample}_map.log"
     message: "bwa mem mapping followed by samtool sorting for {input}"
+    conda : "conda_envs/bwasamtools.yaml"
+    singularity: "builds/bwasamtools.sif"
     shell:   "bwa mem -t {threads} {input.contigs} {input.left} {input.right} 2>{log} | samtools view  -b -F 4 -@{threads} - | samtools sort -@{threads} - > {output}"
