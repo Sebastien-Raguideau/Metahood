@@ -1,0 +1,17 @@
+FROM debian:buster
+
+LABEL maintainer="pricea35@cardiff.ac.uk" \
+software="mafft" \
+about.summary="MAFFT container for Metahood"
+
+ENV mafft_version=7.475
+
+ENV PACKAGES="curl build-essential"
+
+RUN apt-get update \
+&& apt-get install -y $PACKAGES \
+&& curl -fsSL "https://mafft.cbrc.jp/alignment/software/mafft-${mafft_version}-with-extensions-src.tgz" | tar xz \
+&& cd mafft-${mafft_version}-with-extensions/core \
+&& make clean && make && make install \
+&& cd / \
+&& rm -rf mafft-${mafft_version}-with-extensions
