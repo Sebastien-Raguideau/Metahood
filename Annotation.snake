@@ -19,6 +19,8 @@ rule prodigal:
     threads:
         1000
     message:"Parallel prodigal run in {input}"
+    conda : "conda_envs/prodigal.yaml"
+    singularity : "builds/prodigal.sif"
     shell:
         "{SCRIPTS}/Parallel_prodigal.py {threads} {input} -s 100 -o {params.dir} -T {params.dir}/temp_splits"
 
@@ -29,6 +31,8 @@ rule diamond:
 	params : db=lambda w: DIAMOND[w.annotation]["db"],
 	log:     "{filename}_{annotation}_diamond.log"
 	threads:  1000
+        conda : "conda_envs/diamond.yaml"
+        singularity : "builds/diamond.sif"
 	shell :   "diamond blastp --more-sensitive -d {params.db}  -q {input} -p {threads} -o {output} -f6 qseqid sseqid qstart qend qlen sstart send slen length pident evalue bitscore &>{log}"
 
 rule annotation_diamond:
@@ -103,6 +107,7 @@ rule kraken_uniq:
 	output: report = "{group}/annotation/kraken_taxonomy_report.tsv",
 			classif = "{group}/annotation/kraken_contig_taxonomy.tsv"
 	conda : CONDA_ENV+"/kraken.yaml"
+        singularity: "builds/krakenuniq.sif"
 	threads: 1000
 	shell : """
 	krakenuniq --db {KRAKEN_DB} --preload --fasta-input {input} --threads {threads} --report-file {output.report} > {output.classif}
@@ -117,6 +122,8 @@ rule Batch_rpsblast:
     log:     "{group}/{path}_cog.log"
     params:  db=COG_DB
     resources: memG=TASK_MEMORY
+    conda : CONDA_ENV+"/blast.yaml"
+    singularity: "builds/blast.sif"
     shell:   """
              rpsblast+ -outfmt '6 qseqid sseqid evalue pident length slen qlen' -evalue 0.00001 -query {input} -db {params.db} -out {output} &>log
              """
