@@ -1,0 +1,6 @@
+channels:
+ - bioconda
+ - conda-forge
+dependencies:
+ - prodigal==2.6.3
+ - biopython
