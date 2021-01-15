@@ -1,0 +1,15 @@
+FROM debian:buster
+
+LABEL maintainer="pricea35@cardiff.ac.uk" \
+software="ncbi blast+" \
+about.summary="ncbi blast+ container for Metahood"
+
+ENV blast_version=2.10.1
+
+ENV PACKAGES="curl"
+
+RUN apt-get update \
+&& apt-get -y install $PACKAGES \
+&& curl -fsSL ftp://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/${blast_version}/ncbi-blast-${blast_version}+-x64-linux.tar.gz | tar -C /usr/local/bin -xz
+
+ENV PATH ${PATH}:/usr/local/bin/ncbi-blast-${blast_version}/bin

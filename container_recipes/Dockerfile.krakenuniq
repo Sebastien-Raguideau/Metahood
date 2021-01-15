@@ -1,0 +1,17 @@
+FROM debian:buster
+
+LABEL maintainer="pricea35@cardiff.ac.uk" \
+software="krakenuniq" \
+about.summary="krakenuniq container for Metahood"
+
+ENV krakenuniq_version=0.5.8
+
+ENV PACKAGES="curl wget make g++ git zlib1g zlib1g-dev libgomp1"
+
+RUN apt-get update \
+&& apt-get -y install $PACKAGES \
+&& curl -fsSL "https://github.com/fbreitwieser/krakenuniq/archive/v${krakenuniq_version}.tar.gz" | tar xz \
+&& cd krakenuniq-${krakenuniq_version} \
+&& ./install_krakenuniq.sh -j /usr/local/bin \
+&& cd .. && rm -rf krakenuniq
+ 
