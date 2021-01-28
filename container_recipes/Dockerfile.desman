@@ -1,0 +1,20 @@
+FROM debian:buster
+
+LABEL maintainer="pricea35@cardiff.ac.uk" \
+software="desman" \
+about.summary="desman container for Metahood"
+
+ENV desman_version=2.1
+
+ENV PACKAGES="curl build-essential libgsl0-dev" \
+PYTHON="python3 python3-pip python3-setuptools" \
+PYTHON_PACKAGES="cython>=0.19.1 numpy>=1.7.1 scipy>=0.12.0 pandas>=0.11.0"
+
+RUN apt-get update \
+&& apt-get install -y $PACKAGES $PYTHON \
+&& ln -s /usr/bin/python3 /usr/bin/python \
+&& python -m pip install --upgrade pip \
+&& python -m pip install $PYTHON_PACKAGES \
+&& curl -fsSL "https://github.com/chrisquince/DESMAN/archive/v${desman_version}.tar.gz" | tar -xz \
+&& cd DESMAN-${desman_version} \
+&& python setup.py install

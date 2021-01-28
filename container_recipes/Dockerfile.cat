@@ -1,0 +1,27 @@
+FROM debian:buster
+
+LABEL maintainer="pricea35@cardiff.ac.uk" \
+software="CAT" \
+about.summary="CAT container for Metahood"
+
+ENV cat_version=5.2.2 \
+diamond_version=2.0.6 \
+prodigal_version=2.6.3
+
+ENV PACKAGES="curl g++ automake gcc make cmake zlib1g-dev" \
+PYTHON="python3" \
+
+RUN apt-get update \
+&& apt-get install -y $PACKAGES $PYTHON \
+&& curl -fsSL http://github.com/bbuchfink/diamond/archive/v${diamond_version}.tar.gz | tar -xz \
+&& cd diamond-${diamond_version} \
+&& mkdir build && cd build  \
+&& cmake .. \
+&& make && make install \
+&& cd / && rm -r diamond-${diamond_version} \
+&& curl -fsSL "https://github.com/hyattpd/Prodigal/archive/v${prodigal_version}.tar.gz" | tar -xz \
+&& make install -C Prodigal-${prodigal_version} \
+&& rm -rf Prodigal-${prodigal_version} \
+&& curl -fsSL https://github.com/dutilh/CAT/archive/v${cat_version}.tar.gz | tar -xz \
+&& cp -r CAT-${cat_version}/CAT_pack/* /usr/local/bin \
+&& rm -rf CAT-${cat_version} 

@@ -1,0 +1,20 @@
+FROM debian:buster
+
+LABEL maintainer="pricea35@cardiff.ac.uk" \
+software="metabat" \
+about.summary="metabat container for Metahood"
+
+ENV PACKAGES="build-essential git autoconf libboost-all-dev cmake libgomp1 curl libncurses5-dev zlib1g-dev" \
+PYTHON="python3 python3-pip"
+
+RUN apt-get update \
+&& apt-get install -y $PACKAGES $PYTHON \
+&& curl -fsSL https://bitbucket.org/berkeleylab/metabat/get/master.tar.gz | tar -xz \
+&& cd berkeleylab-metabat-* \
+&& mkdir build \
+&& cd build \
+&& cmake -DCMAKE_INSTALL_PREFIX=/usr/local .. \
+&& make \
+&& make install \
+&& cd .. \
+&& rm -rf build
