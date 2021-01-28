@@ -42,6 +42,8 @@ rule concoct:
              Data="{group}/binning/concoct/original_data_gt%d.csv"%MIN_CONTIG_SIZE
     log: "{group}/binning/concoct/log.txt"
     params:  min_contig_size=MIN_CONTIG_SIZE
+    conda : CONDA_ENV + "/concoct.yaml"
+    singularity : "builds/concoct.sif"
     threads: 20
     # I don't want to use checkpoints, (buggy and increase DAG resolution time?) so I'll run the code inside a python run
     run :
@@ -70,6 +72,8 @@ rule refine:
     output: bins="{group}/{path,.*/.*/}clustering_refine.csv",
     params: temp="{group}/{path}refine.temp" 
     log:    temp("{group}/{path,.*/.*/}clustering.log")
+    conda : CONDA_ENV + "/concoct.yaml"
+    singularity : "builds/concoct.sif"
     threads: 20
     shell:  """
             ROOTDIR=$(pwd)

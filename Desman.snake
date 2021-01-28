@@ -135,6 +135,8 @@ if DESMAN==1:
             "{path}/{bin}/Run_{g}_{r}/fit.txt"
         log:
             "{path}/Logs/Run_{g}_{r}/{bin}_{g}_{r}.log"
+        conda : CONDA_ENV + "/desman.yaml"
+        singularity : "builds/desman.sif"
         shell: """
           desman {input.sel_var} -e {input.err} -o $(dirname {output}) -m {MIN_COV_DESMAN} -i 100 -g {wildcards.g} -s {wildcards.r} &> {log}
           """

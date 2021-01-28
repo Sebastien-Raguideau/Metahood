@@ -54,7 +54,8 @@ rule kofamscan:
 	input :  "{filename}.faa"
 	output : "{filename}_kofamscan.out"
 	conda : CONDA_ENV + "/kofamscan.yaml"	
-	params : profiles = KOFAMSCAN["profiles"],
+	singularity : "builds/kofamscan.sif"
+        params : profiles = KOFAMSCAN["profiles"],
 			 ko_list = KOFAMSCAN["ko_list"]
 	threads : 1000
 	shell :   "exec_annotation {input} -o {output} -p {params.profiles} -k {params.ko_list}  --cpu {threads} --tmp-dir $(dirname {input})/tmp"
@@ -88,6 +89,7 @@ rule CAT_annotation:
 	output: ORF2LCA="{group}/annotation/CAT/contigs.contig2classification.txt"
 	params : Dir="{group}/annotation/CAT/contigs"
 	conda : CONDA_ENV+"/cat.yaml"
+        singularity : "builds/cat.sif"
 	threads: 1000
 	shell : """
 	CAT contigs -c {input.contigs}  -d {CAT_DB} -t {CAT_DB} -p {input.faa} -n {threads} --out_prefix {params.Dir} --top 11 --I_know_what_Im_doing --force
@@ -97,6 +99,7 @@ rule CAT_ORF_annotation:
 	input: ORF2LCA="{group}/annotation/CAT/contigs.contig2classification.txt"
 	output: annotation="{group}/annotation/CAT_contigs_taxonomy.tsv"
 	conda : CONDA_ENV+"/cat.yaml"
+        singularity : "builds/cat.sif"
 	shell : """
 	CAT add_names -i {input.ORF2LCA} -o {output.annotation} -t {CAT_DB} --only_official
 	"""

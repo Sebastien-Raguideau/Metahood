@@ -102,7 +102,8 @@ if len(GROUPS)>1 :
         output : cluster = "MAGs/dRep{group}data_tables/Cdb.csv"
         params : mags = lambda w:derep_input(w,1), # snakemake ask for prerun time value but still evaluated at run time, so it works.
                  output = "%s/MAGs/dRep{group}"%EXEC_DIR
-        conda : CONDA_ENV + "/drep.yaml" 
+        conda : CONDA_ENV + "/drep.yaml"
+        singularity : "builds/drep.sif" 
         threads : 50
         shell : """
         cd MAGs/Non_dRep_Mags
@@ -113,7 +114,8 @@ if len(GROUPS)>1 :
     rule gtdb_drep :
         input : "MAGs/dRep/data_tables/Cdb.csv"
         output : "MAGs/gtdb/gtdbtk.ar122.classify.tree"
-        conda : CONDA_ENV + "/gtdbtk.yaml" 
+        conda : CONDA_ENV + "/gtdbtk.yaml"
+        singularity : "builds/gtdbtk.sif" 
         threads : 50
         shell : """
         gtdbtk classify_wf --cpus {threads} --genome_dir MAGs/dRep/dereplicated_genomes/ --out_dir $(dirname {output}) --extension .fa
@@ -123,6 +125,7 @@ else :
         input : "MAGs/bin_analysis/mag_to_assemblies.tsv"
         output : "MAGs/gtdb/gtdbtk.ar122.classify.tree"
         conda : CONDA_ENV + "/gtdbtk.yaml"
+        singularity : "builds/gtdbtk.sif"
         threads : 50
         shell : """
         gtdbtk classify_wf --cpus {threads} --genome_dir MAGs/Non_dRep_Mags/ --out_dir $(dirname {output}) --extension .fa
