@@ -10,9 +10,9 @@ ENV PACKAGES="curl bzip2 cmake gzip g++ libgomp1 make zlib1g-dev python3"
 
 RUN apt-get update \
 && apt-get install -y $PACKAGES \
+&& ln -s /usr/bin/python3 /usr/bin/python \
 && curl -fsSL "https://github.com/voutcn/megahit/archive/v${megahit_version}.tar.gz" | tar xz \
 && cd megahit-${megahit_version} \
 && mkdir build && cd build \
 && cmake .. -DCMAKE_BUILD_TYPE=Release \
 && make -j4 install
-

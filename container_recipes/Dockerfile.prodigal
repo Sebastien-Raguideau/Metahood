@@ -12,6 +12,7 @@ PYTHON_PACKAGES="biopython"
 
 RUN apt-get update \
 && apt-get -y install $PACKAGES $PYTHON \
+&& ln -s /usr/bin/python3 /usr/bin/python \
 && pip3 install $PYTHON_PACKAGES \
 && curl -fsSL "https://github.com/hyattpd/Prodigal/archive/v${prodigal_version}.tar.gz" | tar -xz \
 && make install -C Prodigal-${prodigal_version} \
