@@ -5,6 +5,8 @@ rule create_fastg:
 	input : "{group}/contigs/contigs.fa"
 	output: temp("{group}/graph/contigs.fastg")
 	log : "{group}/graph/fastg.log"
+        conda : CONDA_ENV + "/megahit.yaml"
+        singularity : "builds/megahit.sif"
 	# I need the kmer length, if I put this in params, snakemake will ask for the value to be clear before the start of the pipeline, which is not possible, since we need at least the assembly.
 	# also, if you try to store the value inside kmer_len, it will fail due to set -o. 
 	shell : """
@@ -17,6 +19,8 @@ rule create_gfa:
 	input: "{file}.fastg"
 	output: temp("{file}_bad_name.gfa")
 	log : "{file}.log"
+        conda : CONDA_ENV + "/bandage.yaml"
+        singularity : "builds/bandage.sif"
 	shell : "Bandage reduce {input} {output} 2>{log}"
 
 rule rename_gfa:
