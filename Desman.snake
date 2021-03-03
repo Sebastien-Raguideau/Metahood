@@ -38,8 +38,8 @@ if DESMAN==1:
                 bin_bed = "{group}/desman/{binner}/{bin}/{bin}.bed"
         output: bin_bam = "{group}/desman/{binner}/{bin}/{sample}.{bin}.bam"
         threads: THREADS
-        conda : "conda_envs/bwasamtools.yaml"
-        singularity: "builds/bwasamtools.sif"
+        conda : CONDA_ENV + "/bwasamtools.yaml"
+        singularity : "builds/bwasamtools.sif"
         shell: """
         samtools view -b -L {input.bin_bed} {input.global_bam} -@{threads} > {output.bin_bam}
         """
@@ -47,8 +47,8 @@ if DESMAN==1:
     rule index_fasta:
         input: "{path}.fa"
         output: "{path}.fa.fai"
-        conda : "conda_envs/bwasamtools.yaml"
-        singularity: "builds/bwasamtools.sif"
+        conda : CONDA_ENV + "/bwasamtools.yaml"
+        singularity : "builds/bwasamtools.sif"
         shell: "samtools faidx {input}"
 
     # -------- get counts on each mags contigs --------
@@ -59,6 +59,8 @@ if DESMAN==1:
                 bed = "{group}/desman/{binner}/{bin}/{bin}.bed"
         output: "{group}/desman/{binner}/{bin}/{sample}.cnt.gz"
         log: "{group}/desman/{binner}/{bin}/bam_readcount_{sample}.log"
+        conda : CONDA_ENV + "/bwasamtools.yaml"
+        singularity : "builds/bwasamtools.sif"
         shell: """
             samtools index {input.bam} {input.bam}.bai
             bam-readcount -w 1 -l {input.bed} -f {input.fasta} {input.bam} 2> {log} | gzip > {output}

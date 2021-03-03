@@ -19,7 +19,7 @@ rule prodigal:
     threads:
         1000
     message:"Parallel prodigal run in {input}"
-    conda : "conda_envs/prodigal.yaml"
+    conda : CONDA_ENV + "/prodigal.yaml"
     singularity : "builds/prodigal.sif"
     shell:
         "{SCRIPTS}/Parallel_prodigal.py {threads} {input} -s 100 -o {params.dir} -T {params.dir}/temp_splits"
@@ -31,7 +31,7 @@ rule diamond:
 	params : db=lambda w: DIAMOND[w.annotation]["db"],
 	log:     "{filename}_{annotation}_diamond.log"
 	threads:  1000
-        conda : "conda_envs/diamond.yaml"
+        conda : CONDA_ENV + "/diamond.yaml"
         singularity : "builds/diamond.sif"
 	shell :   "diamond blastp --more-sensitive -d {params.db}  -q {input} -p {threads} -o {output} -f6 qseqid sseqid qstart qend qlen sstart send slen length pident evalue bitscore &>{log}"
 
@@ -88,7 +88,7 @@ rule CAT_annotation:
 		   faa="{group}/annotation/contigs.faa"
 	output: ORF2LCA="{group}/annotation/CAT/contigs.contig2classification.txt"
 	params : Dir="{group}/annotation/CAT/contigs"
-	conda : CONDA_ENV+"/cat.yaml"
+	conda : CONDA_ENV + "/cat.yaml"
         singularity : "builds/cat.sif"
 	threads: 1000
 	shell : """
@@ -98,7 +98,7 @@ rule CAT_annotation:
 rule CAT_ORF_annotation:
 	input: ORF2LCA="{group}/annotation/CAT/contigs.contig2classification.txt"
 	output: annotation="{group}/annotation/CAT_contigs_taxonomy.tsv"
-	conda : CONDA_ENV+"/cat.yaml"
+	conda : CONDA_ENV + "/cat.yaml"
         singularity : "builds/cat.sif"
 	shell : """
 	CAT add_names -i {input.ORF2LCA} -o {output.annotation} -t {CAT_DB} --only_official
@@ -109,7 +109,7 @@ rule kraken_uniq:
 	input: "{group}/contigs/contigs.fa"
 	output: report = "{group}/annotation/kraken_taxonomy_report.tsv",
 			classif = "{group}/annotation/kraken_contig_taxonomy.tsv"
-	conda : CONDA_ENV+"/kraken.yaml"
+	conda : CONDA_ENV + "/kraken.yaml"
         singularity: "builds/krakenuniq.sif"
 	threads: 1000
 	shell : """
@@ -125,7 +125,7 @@ rule Batch_rpsblast:
     log:     "{group}/{path}_cog.log"
     params:  db=COG_DB
     resources: memG=TASK_MEMORY
-    conda : CONDA_ENV+"/blast.yaml"
+    conda : CONDA_ENV + "/blast.yaml"
     singularity: "builds/blast.sif"
     shell:   """
              rpsblast+ -outfmt '6 qseqid sseqid evalue pident length slen qlen' -evalue 0.00001 -query {input} -db {params.db} -out {output} &>log

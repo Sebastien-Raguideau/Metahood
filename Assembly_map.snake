@@ -20,7 +20,7 @@ rule megahit:
     threads: 50
     log:     "{group}/assembly/assembly.log"
     message: "Assembling {wildcards.group} with MegaHIT"
-    conda : "conda_envs/megahit.yaml"
+    conda : CONDA_ENV + "/megahit.yaml"
     singularity : "builds/megahit.sif"
     shell:   """
              megahit -1 {params.left} -2 {params.right} {params.Additional_params} -t {threads} -m {params.mem} --continue -o {params.dir} -f &> {log}
@@ -41,7 +41,7 @@ rule bwa_index:
     resources : memG=100
     params : 100000000000
     message: "Building bwa index for {input}"
-    conda : "conda_envs/bwasamtools.yaml"
+    conda : CONDA_ENV + "/bwasamtools.yaml"
     singularity: "builds/bwasamtools.sif"
     shell:   "bwa index -b {params} {input} &> {log}"
 
@@ -54,6 +54,6 @@ rule bwa_mem_to_bam:
     threads: 1000
     log:     "{group}/map/{sample}_map.log"
     message: "bwa mem mapping followed by samtool sorting for {input}"
-    conda : "conda_envs/bwasamtools.yaml"
+    conda : CONDA_ENV + "/bwasamtools.yaml"
     singularity: "builds/bwasamtools.sif"
     shell:   "bwa mem -t {threads} {input.contigs} {input.left} {input.right} 2>{log} | samtools view  -b -F 4 -@{threads} - | samtools sort -@{threads} - > {output}"

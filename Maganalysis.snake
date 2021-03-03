@@ -185,8 +185,8 @@ rule run_mafft:
             alignement="{path}/Tree/AlignAll/{COG}_all.msa"
     log: "{path}/Tree/AlignAll/mafft_{COG}.log"
     threads:1000
-    conda : "conda_envs/mafft.yaml"
-    singularity: "builds/mafft.sif"
+    conda : CONDA_ENV + "/mafft.yaml"
+    singularity : "builds/mafft.sif"
     shell: """
     cat {input.scg} {input.database_scg} > {output.all_scg}
     mafft --thread {threads} {output.all_scg} > {output.alignement} 2>{log}
@@ -196,8 +196,8 @@ rule run_mafft:
 rule trimal :
     input: "{path}/{COG}_all.msa"
     output: "{path}/{COG}_all_trim.msa"
-    conda : "conda_envs/trimal.yaml"
-    singularity: "builds/trimal.sif"
+    conda : CONDA_ENV + "/trimal.yaml"
+    singularity : "builds/trimal.sif"
     shell: "trimal -in {input} -out {output} -gt 0.9 -cons 60"
 
 # ------- Fastree pre processing -------------
@@ -218,8 +218,8 @@ rule Launch_FastTree:
     input: "{path}/Tree/AlignAll/concat_scg.msa"
     output: "{path}/Tree/Mag_and_refseqs.tree"
     log: "{path}/Tree/AlignAll/SelectR.out"
-    conda : "conda_envs/fasttree.yaml"
-    singularity: "builds/fasttree.sif"
+    conda : CONDA_ENV + "/fasttree.yaml"
+    singularity : "builds/fasttree.sif"
     shell:"""
     FastTreeMP -nt -gtr < {input} 2> {log} > {output}
     """
