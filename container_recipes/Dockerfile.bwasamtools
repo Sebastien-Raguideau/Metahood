@@ -6,9 +6,10 @@ about.summary="bwa and samtools container for Metahood"
 
 ENV bwa_version=0.7.17 \
 samtools_version=1.10 \
-htslib_version=1.10 
+htslib_version=1.10 \
+bamreadcount_version=0.8.0
 
-ENV PACKAGES="curl g++ make zlib1g-dev libncurses-dev libbz2-dev liblzma-dev libcurl4-openssl-dev libfindbin-libs-perl"
+ENV PACKAGES="curl g++ make git-core cmake zlib1g-dev libncurses-dev patch libbz2-dev liblzma-dev libcurl4-openssl-dev libfindbin-libs-perl"
 
 RUN apt-get update \
 && apt-get install -y $PACKAGES \
@@ -18,6 +19,15 @@ RUN apt-get update \
 && curl -fsSL https://github.com/samtools/htslib/archive/${htslib_version}.tar.gz | tar xz \ 
 && curl -fsSL https://github.com/samtools/samtools/archive/${samtools_version}.tar.gz | tar xz \
 && make -C samtools-${samtools_version}  -j HTSDIR=../htslib-${htslib_version} \
-&& make -C samtools-${samtools_version} -j HTSDIR=../htslib-${htslib_version} prefix=/usr/local install
+&& make -C samtools-${samtools_version} -j HTSDIR=../htslib-${htslib_version} prefix=/usr/local install \
+&& curl -fsSL https://github.com/genome/bam-readcount/archive/v${bamreadcount_version}.tar.gz | tar -xz \
+&& cd bam-readcount-${bamreadcount_version} \
+&& mkdir build && cd build \
+&& cmake .. \
+&& make \
+&& mv bin/bam-readcount /usr/local/bin \
+&& cd / \
+&& rm -rf bam-readcount-${bamreadcount_version}
+
 
 ENV PATH ${PATH}:/usr/local/bin/bwa-${bwa_version}

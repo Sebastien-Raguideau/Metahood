@@ -3,3 +3,4 @@ channels:
 dependencies:
   - bwa==0.7.17
   - samtools==1.10
+  - bam-readcount==0.8.0
