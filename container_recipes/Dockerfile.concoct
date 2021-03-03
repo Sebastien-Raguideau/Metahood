@@ -17,4 +17,7 @@ RUN apt-get update \
 && python -m pip install $PYTHON_PACKAGES \
 && curl -fsSL "https://github.com/BinPro/CONCOCT/archive/${concoct_version}.tar.gz" | tar -xz \
 && cd CONCOCT-${concoct_version} \
-&& python setup.py install
+&& python setup.py install \
+&& sed -i 's/values/to_numpy/g' /usr/local/lib/python3.7/dist-packages/concoct-1.1.0-py3.7-linux-x86_64.egg/EGG-INFO/scripts/concoct_refine \
+&& sed -i 's/as_matrix/to_numpy/g' /usr/local/lib/python3.7/dist-packages/concoct-1.1.0-py3.7-linux-x86_64.egg/EGG-INFO/scripts/concoct_refine \
+&& sed -i 's/int(NK), args.seed, args.threads)/ int(NK), args.seed, args.threads, 500)/g' /usr/local/lib/python3.7/dist-packages/concoct-1.1.0-py3.7-linux-x86_64.egg/EGG-INFO/scripts/concoct_refine
