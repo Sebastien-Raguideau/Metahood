@@ -1,0 +1,28 @@
+Bootstrap: docker
+From: debian:buster
+%labels
+maintainer="pricea35@cardiff.ac.uk" 
+software="diamond" 
+about.summary="diamond container for Metahood"
+%post
+
+
+diamond_version=2.0.6
+
+PACKAGES="curl g++ automake cmake zlib1g-dev"
+
+apt-get update \
+&& apt-get install -y $PACKAGES \
+&& curl -fsSL http://github.com/bbuchfink/diamond/archive/v${diamond_version}.tar.gz | tar -xz \
+&& cd diamond-${diamond_version} \
+&& mkdir build && cd build  \
+&& cmake .. \
+&& make && make install \
+&& cd / && rm -r diamond-${diamond_version}
+%environment
+export diamond_version=2.0.6
+export PACKAGES="curl g++ automake cmake zlib1g-dev"
+%runscript
+exec /bin/bash "$@"
+%startscript
+exec /bin/bash "$@"

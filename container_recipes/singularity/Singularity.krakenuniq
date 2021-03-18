@@ -1,0 +1,27 @@
+Bootstrap: docker
+From: debian:buster
+%labels
+maintainer="pricea35@cardiff.ac.uk" 
+software="krakenuniq" 
+about.summary="krakenuniq container for Metahood"
+%post
+
+
+krakenuniq_version=0.5.8
+
+PACKAGES="curl wget make g++ git zlib1g zlib1g-dev libgomp1"
+
+apt-get update \
+&& apt-get -y install $PACKAGES \
+&& curl -fsSL "https://github.com/fbreitwieser/krakenuniq/archive/v${krakenuniq_version}.tar.gz" | tar xz \
+&& cd krakenuniq-${krakenuniq_version} \
+&& ./install_krakenuniq.sh -j /usr/local/bin \
+&& cd .. && rm -rf krakenuniq
+ 
+%environment
+export krakenuniq_version=0.5.8
+export PACKAGES="curl wget make g++ git zlib1g zlib1g-dev libgomp1"
+%runscript
+exec /bin/bash "$@"
+%startscript
+exec /bin/bash "$@"

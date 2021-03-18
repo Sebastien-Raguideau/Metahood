@@ -1,0 +1,25 @@
+Bootstrap: docker
+From: debian:buster
+%labels
+maintainer="pricea35@cardiff.ac.uk" 
+software="fasttree" 
+about.summary="FastTree container for Metahood"
+%post
+
+
+fasttree_version=2.1.10
+
+PACKAGES="curl gcc"
+
+apt-get update \
+&& apt-get install -y $PACKAGES \
+&& curl -fsSL "http://www.microbesonline.org/fasttree/FastTree-${fasttree_version}.c" -o FastTree-${fasttree_version}.c  \
+&& gcc -DOPENMP -fopenmp -O3 -finline-functions -funroll-loops -Wall -o /usr/local/bin/FastTreeMP FastTree-${fasttree_version}.c -lm \
+&& rm FastTree-${fasttree_version}.c
+%environment
+export fasttree_version=2.1.11
+export PACKAGES="curl gcc"
+%runscript
+exec /bin/bash "$@"
+%startscript
+exec /bin/bash "$@"

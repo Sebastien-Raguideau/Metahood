@@ -1,0 +1,30 @@
+Bootstrap: docker
+From: debian:buster
+%labels
+maintainer="pricea35@cardiff.ac.uk" 
+software="metabat" 
+about.summary="metabat container for Metahood"
+%post
+
+
+PACKAGES="build-essential git autoconf libboost-all-dev cmake libgomp1 curl libncurses5-dev zlib1g-dev"
+PYTHON="python3 python3-pip"
+
+apt-get update \
+&& apt-get install -y $PACKAGES $PYTHON \
+&& curl -fsSL https://bitbucket.org/berkeleylab/metabat/get/master.tar.gz | tar -xz \
+&& cd berkeleylab-metabat-* \
+&& mkdir build \
+&& cd build \
+&& cmake -DCMAKE_INSTALL_PREFIX=/usr/local .. \
+&& make \
+&& make install \
+&& cd .. \
+&& rm -rf build
+%environment
+export PACKAGES="build-essential git autoconf libboost-all-dev cmake libgomp1 curl libncurses5-dev zlib1g-dev"
+export PYTHON="python3 python3-pip"
+%runscript
+exec /bin/bash "$@"
+%startscript
+exec /bin/bash "$@"

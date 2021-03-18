@@ -1,0 +1,27 @@
+Bootstrap: docker
+From: debian:buster
+%labels
+maintainer="pricea35@cardiff.ac.uk" 
+software="ncbi blast+" 
+about.summary="ncbi blast+ container for Metahood"
+%post
+
+
+blast_version=2.10.1
+
+PACKAGES="curl"
+
+apt-get update \
+&& apt-get -y install $PACKAGES \
+&& curl -fsSL ftp://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/${blast_version}/ncbi-blast-${blast_version}+-x64-linux.tar.gz | tar -C /usr/local/bin -xz \
+&& ln -s /usr/local/bin/ncbi-blast-2.10.1+/bin/rpsblast /usr/local/bin/ncbi-blast-2.10.1+/bin/rpsblast+
+
+PATH=${PATH}:/usr/local/bin/ncbi-blast-${blast_version}+/bin
+%environment
+export blast_version=2.10.1
+export PACKAGES="curl"
+export PATH=${PATH}:/usr/local/bin/ncbi-blast-${blast_version}+/bin
+%runscript
+exec /bin/bash "$@"
+%startscript
+exec /bin/bash "$@"

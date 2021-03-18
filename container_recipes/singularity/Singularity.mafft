@@ -1,0 +1,27 @@
+Bootstrap: docker
+From: debian:buster
+%labels
+maintainer="pricea35@cardiff.ac.uk" 
+software="mafft" 
+about.summary="MAFFT container for Metahood"
+%post
+
+
+mafft_version=7.475
+
+PACKAGES="curl build-essential"
+
+apt-get update \
+&& apt-get install -y $PACKAGES \
+&& curl -fsSL "https://mafft.cbrc.jp/alignment/software/mafft-${mafft_version}-with-extensions-src.tgz" | tar xz \
+&& cd mafft-${mafft_version}-with-extensions/core \
+&& make clean && make && make install \
+&& cd / \
+&& rm -rf mafft-${mafft_version}-with-extensions
+%environment
+export mafft_version=7.475
+export PACKAGES="curl build-essential"
+%runscript
+exec /bin/bash "$@"
+%startscript
+exec /bin/bash "$@"

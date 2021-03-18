@@ -1,0 +1,30 @@
+Bootstrap: docker
+From: debian:buster
+%labels
+maintainer="pricea35@cardiff.ac.uk" 
+software="bedtools" 
+about.summary="bedtools container for Metahood"
+%post
+
+
+bedtools_version=2.29.2
+
+PACKAGES="build-essential curl gcc bzip2 libz-dev libbz2-dev liblzma-dev"
+PYTHON="python3 python3-pip python3-dev"
+
+apt-get update \
+&& apt-get -y install $PACKAGES $PYTHON \
+&& ln -s /usr/bin/python3 /usr/bin/python \
+&& curl -fsSL https://github.com/arq5x/bedtools2/releases/download/v${bedtools_version}/bedtools-${bedtools_version}.tar.gz | tar -C /usr/local/bin -xz \
+&& make -C /usr/local/bin/bedtools2
+
+PATH=${PATH}:/usr/local/bin/bedtools2/bin
+%environment
+export bedtools_version=2.29.2
+export PACKAGES="build-essential curl gcc bzip2 libz-dev libbz2-dev liblzma-dev"
+export PYTHON="python3 python3-pip python3-dev"
+export PATH=${PATH}:/usr/local/bin/bedtools2/bin
+%runscript
+exec /bin/bash "$@"
+%startscript
+exec /bin/bash "$@"

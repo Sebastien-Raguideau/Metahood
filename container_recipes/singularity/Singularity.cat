@@ -1,0 +1,39 @@
+Bootstrap: docker
+From: debian:buster
+%labels
+maintainer="pricea35@cardiff.ac.uk" 
+software="CAT" 
+about.summary="CAT container for Metahood"
+%post
+
+
+cat_version=5.2.2
+diamond_version=2.0.6
+prodigal_version=2.6.3
+
+PACKAGES="curl g++ automake gcc make cmake zlib1g-dev"
+PYTHON="python3"
+apt-get update \
+&& apt-get install -y $PACKAGES $PYTHON \
+&& curl -fsSL http://github.com/bbuchfink/diamond/archive/v${diamond_version}.tar.gz | tar -xz \
+&& cd diamond-${diamond_version} \
+&& mkdir build && cd build  \
+&& cmake .. \
+&& make && make install \
+&& cd / && rm -r diamond-${diamond_version} \
+&& curl -fsSL "https://github.com/hyattpd/Prodigal/archive/v${prodigal_version}.tar.gz" | tar -xz \
+&& make install -C Prodigal-${prodigal_version} \
+&& rm -rf Prodigal-${prodigal_version} \
+&& curl -fsSL https://github.com/dutilh/CAT/archive/v${cat_version}.tar.gz | tar -xz \
+&& cp -r CAT-${cat_version}/CAT_pack/* /usr/local/bin \
+&& rm -rf CAT-${cat_version}
+%environment
+export cat_version=5.2.2
+export diamond_version=2.0.6
+export prodigal_version=2.6.3
+export PACKAGES="curl g++ automake gcc make cmake zlib1g-dev"
+export PYTHON="python3"
+%runscript
+exec /bin/bash "$@"
+%startscript
+exec /bin/bash "$@"

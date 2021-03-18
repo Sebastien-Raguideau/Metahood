@@ -1,0 +1,32 @@
+Bootstrap: docker
+From: debian:buster
+%labels
+maintainer="pricea35@cardiff.ac.uk" 
+software="desman" 
+about.summary="desman container for Metahood"
+%post
+
+
+desman_version=2.1
+
+PACKAGES="curl build-essential libgsl0-dev"
+PYTHON="python3 python3-pip python3-setuptools"
+PYTHON_PACKAGES="cython>=0.19.1 numpy>=1.7.1 scipy>=0.12.0 pandas>=0.11.0"
+
+apt-get update \
+&& apt-get install -y $PACKAGES $PYTHON \
+&& ln -s /usr/bin/python3 /usr/bin/python \
+&& python -m pip install --upgrade pip \
+&& python -m pip install $PYTHON_PACKAGES \
+&& curl -fsSL "https://github.com/chrisquince/DESMAN/archive/v${desman_version}.tar.gz" | tar -xz \
+&& cd DESMAN-${desman_version} \
+&& python setup.py install
+%environment
+export desman_version=2.1
+export PACKAGES="curl build-essential libgsl0-dev"
+export PYTHON="python3 python3-pip python3-setuptools"
+export PYTHON_PACKAGES="cython>=0.19.1 numpy>=1.7.1 scipy>=0.12.0 pandas>=0.11.0"
+%runscript
+exec /bin/bash "$@"
+%startscript
+exec /bin/bash "$@"

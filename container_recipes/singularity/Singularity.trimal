@@ -1,0 +1,28 @@
+Bootstrap: docker
+From: debian:buster
+%labels
+maintainer="pricea35@cardiff.ac.uk" 
+software="trimal" 
+about.summary="Trimal container for Metahood"
+%post
+
+
+trimal_version=1.4.1
+
+PACKAGES="curl build-essential"
+
+apt-get update \
+&& apt-get install -y $PACKAGES \
+&& curl -fsSL "https://github.com/scapella/trimal/archive/v${trimal_version}.tar.gz" | tar xz \
+&& cd trimal-${trimal_version}/source \
+&& make \
+&& cp trimal /usr/local/bin \
+&& cd / \
+&& rm -rf trimal-${trimal_version}
+%environment
+export trimal_version=1.4.1
+export PACKAGES="curl build-essential"
+%runscript
+exec /bin/bash "$@"
+%startscript
+exec /bin/bash "$@"

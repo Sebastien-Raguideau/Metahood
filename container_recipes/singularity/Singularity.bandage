@@ -1,0 +1,29 @@
+Bootstrap: docker
+From: debian:buster
+%labels
+maintainer="pricea35@cardiff.ac.uk" 
+software="bandage" 
+about.summary="bandage container for Metahood"
+%post
+
+
+bandage_version=0.8.1
+
+PACKAGES="curl build-essential qtbase5-dev libqt5svg5-dev"
+apt-get update \
+&& apt-get install -y $PACKAGES \
+&& curl -fsSL https://github.com/rrwick/Bandage/archive/v${bandage_version}.tar.gz | tar -xz \
+&& cd Bandage-${bandage_version} \
+&& export QT_SELECT=5 \
+&& qmake 'QMAKE_CFLAGS_ISYSTEM=-I' Bandage.pro \
+&& make \
+&& make install \
+&& cd .. \
+&& rm -rf Bandage-${bandage_version}
+%environment
+export bandage_version=0.8.1
+export PACKAGES="curl build-essential qtbase5-dev libqt5svg5-dev"
+%runscript
+exec /bin/bash "$@"
+%startscript
+exec /bin/bash "$@"

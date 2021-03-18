@@ -1,0 +1,38 @@
+Bootstrap: docker
+From: debian:buster
+%labels
+maintainer="pricea35@cardiff.ac.uk" 
+software="trim_galore" 
+about.summary="Trim_galore container for Metahood"
+%post
+
+
+fastqc_version=0.11.9
+trimgalore_version=0.6.5
+
+PACKAGES="curl openjdk-11-jre-headless python3.7 python3-cutadapt cutadapt unzip libfindbin-libs-perl pigz"
+
+apt-get update \
+&& apt-get install -y $PACKAGES
+
+curl -fsSL "https://www.bioinformatics.babraham.ac.uk/projects/fastqc/fastqc_v${fastqc_version}.zip" \
+&& unzip fastqc_v${fastqc_version}.zip \
+&& chmod +x FastQC/fastqc \
+&& mv FastQC /usr/local/bin \
+&& rm -r fastqc*
+
+PATH=${PATH}:/usr/local/bin/FastQC/
+
+curl -fsSL "https://github.com/FelixKrueger/TrimGalore/archive/${trimgalore_version}.tar.gz" | tar xz \
+&& mv TrimGalore-${trimgalore_version}/trim_galore /usr/local/bin \
+&& rm -r TrimGalore*
+
+%environment
+export fastqc_version=0.11.9
+export trimgalore_version=0.6.5
+export PACKAGES="curl openjdk-11-jre-headless python3.7 python3-cutadapt cutadapt unzip libfindbin-libs-perl pigz"
+export PATH=${PATH}:/usr/local/bin/FastQC/
+%runscript
+exec /bin/bash "$@"
+%startscript
+exec /bin/bash "$@"

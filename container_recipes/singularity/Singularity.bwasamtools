@@ -1,0 +1,47 @@
+Bootstrap: docker
+From: debian:buster
+%labels
+maintainer="pricea35@cardiff.ac.uk" 
+software="bwa and samtools" 
+about.summary="bwa and samtools container for Metahood"
+%post
+
+
+bwa_version=0.7.17
+samtools_version=1.10
+htslib_version=1.10
+bamreadcount_version=0.8.0
+
+PACKAGES="curl g++ make git-core cmake zlib1g-dev libncurses-dev patch libbz2-dev liblzma-dev libcurl4-openssl-dev libfindbin-libs-perl"
+
+apt-get update \
+&& apt-get install -y $PACKAGES \
+&& curl -fsSL https://github.com/lh3/bwa/archive/v${bwa_version}.tar.gz | tar -C /usr/local/bin -xz \
+&& make -C /usr/local/bin/bwa-${bwa_version} \
+&& chmod +x /usr/local/bin/bwa-${bwa_version}/bwa \
+&& curl -fsSL https://github.com/samtools/htslib/archive/${htslib_version}.tar.gz | tar xz \
+&& curl -fsSL https://github.com/samtools/samtools/archive/${samtools_version}.tar.gz | tar xz \
+&& make -C samtools-${samtools_version}  -j HTSDIR=../htslib-${htslib_version} \
+&& make -C samtools-${samtools_version} -j HTSDIR=../htslib-${htslib_version} prefix=/usr/local install \
+&& curl -fsSL https://github.com/genome/bam-readcount/archive/v${bamreadcount_version}.tar.gz | tar -xz \
+&& cd bam-readcount-${bamreadcount_version} \
+&& mkdir build && cd build \
+&& cmake .. \
+&& make \
+&& mv bin/bam-readcount /usr/local/bin \
+&& cd / \
+&& rm -rf bam-readcount-${bamreadcount_version}
+
+
+PATH=${PATH}:/usr/local/bin/bwa-${bwa_version}
+%environment
+export bwa_version=0.7.17
+export samtools_version=1.10
+export htslib_version=1.10
+export bamreadcount_version=0.8.0
+export PACKAGES="curl g++ make git-core cmake zlib1g-dev libncurses-dev patch libbz2-dev liblzma-dev libcurl4-openssl-dev libfindbin-libs-perl"
+export PATH=${PATH}:/usr/local/bin/bwa-${bwa_version}
+%runscript
+exec /bin/bash "$@"
+%startscript
+exec /bin/bash "$@"

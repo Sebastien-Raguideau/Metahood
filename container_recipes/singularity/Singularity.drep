@@ -1,0 +1,43 @@
+Bootstrap: docker
+From: debian:buster
+%labels
+maintainer="pricea35@cardiff.ac.uk" 
+software="dRep" 
+about.summary="dRep container for Metahood"
+%post
+
+
+drep_version=3.0.0
+mummer_version=3.23
+mash_version=2.2
+
+PACKAGES="curl build-essential zlib1g-dev unzip csh perl"
+PYTHON="python3 python3-pip python3-setuptools"
+
+apt-get update \
+&& apt-get install -y $PACKAGES $PYTHON \
+&& curl -fsSL "http://downloads.sourceforge.net/project/mummer/mummer/${mummer_version}/MUMmer${mummer_version}.tar.gz" | tar -xz -C /usr/local/bin \
+&& cd /usr/local/bin/MUMmer${mummer_version} \
+&& make check \
+&& make CPPFLAGS="-O3 -DSIXTYFOURBITS" \
+&& cd .. \
+&& ln -s MUMmer${mummer_version} MUMmer \
+&& curl -fsSL "https://github.com/marbl/Mash/releases/download/v${mash_version}/mash-Linux64-v${mash_version}.tar" | tar -x \
+&& mv mash-Linux64-v${mash_version}/mash /usr/local/bin \
+&& rm -r mash-Linux* \
+&& ln -s /usr/bin/python3 /usr/bin/python \
+&& python -m pip install --upgrade pip \
+&& python -m pip install drep==${drep_version}
+
+PATH=${PATH}:/usr/local/bin/MUMmer
+%environment
+export drep_version=3.0.0
+export mummer_version=3.23
+export mash_version=2.2
+export PACKAGES="curl build-essential zlib1g-dev unzip csh perl"
+export PYTHON="python3 python3-pip python3-setuptools"
+export PATH=${PATH}:/usr/local/bin/MUMmer
+%runscript
+exec /bin/bash "$@"
+%startscript
+exec /bin/bash "$@"

@@ -1,0 +1,64 @@
+Bootstrap: docker
+From: debian:buster
+%labels
+maintainer="pricea35@cardiff.ac.uk" 
+software="gtdbtk" 
+about.summary="gtdbtk container for Metahood"
+%post
+
+
+gtdbtk_version=1.4.0
+prodigal_version=2.6.3
+hmmer_version=3.3.2
+pplacer_version=1.1.alpha19
+fastani_version=1.32
+fasttree_version=2.1.10
+mash_version=2.2
+
+PACKAGES="curl wget build-essential cmake zlib1g-dev unzip"
+PYTHON="python3 python3-pip python3-setuptools"
+PYTHON_PACKAGES="dendropy>=4.1.0 numpy>=1.9.0 tqdm>=4.31.0 gtdbtk==1.4.0"
+
+apt-get update \
+&& apt-get install -y $PACKAGES $PYTHON \
+&& curl -fsSL "https://github.com/hyattpd/Prodigal/archive/v${prodigal_version}.tar.gz" | tar -xz \
+&& make install -C Prodigal-${prodigal_version} \
+&& curl -fsSL http://eddylab.org/software/hmmer/hmmer-${hmmer_version}.tar.gz | tar -xz \
+&& cd hmmer-${hmmer_version} \
+&& ./configure \
+&& make \
+&& make install \
+&& cd .. \
+&& rm -rf hmmer-${hmmer_version} \
+&& wget https://github.com/matsen/pplacer/releases/download/v${pplacer_version}/pplacer-linux-v${pplacer_version}.zip \
+&& unzip pplacer-linux-v${pplacer_version}.zip  \
+&& mv pplacer-Linux-v${pplacer_version}/* /usr/local/bin \
+&& rm pplacer-linux-v${pplacer_version}.zip \
+&& wget https://github.com/ParBLiSS/FastANI/releases/download/v${fastani_version}/fastANI-Linux64-v${fastani_version}.zip \
+&& unzip fastANI-Linux64-v${fastani_version}.zip -d /usr/local/bin \
+&& rm fastANI-Linux64-v${fastani_version}.zip \
+&& curl -fsSL "http://www.microbesonline.org/fasttree/FastTree-${fasttree_version}.c" -o FastTree-${fasttree_version}.c  \
+&& gcc -DOPENMP -fopenmp -O3 -finline-functions -funroll-loops -Wall -o /usr/local/bin/FastTreeMP FastTree-${fasttree_version}.c -lm \
+&& rm FastTree-${fasttree_version}.c \
+&& curl -fsSL "https://github.com/marbl/Mash/releases/download/v${mash_version}/mash-Linux64-v${mash_version}.tar" | tar -x \
+&& mv mash-Linux64-v${mash_version}/mash /usr/local/bin \
+&& rm -r mash-Linux* \
+&& ln -s /usr/bin/python3 /usr/bin/python \
+&& python -m pip install --upgrade pip \
+&& python -m pip install gtdbtk==${gtdbtk_version} $PYTHON_PACKAGES
+
+%environment
+export gtdbtk_version=1.4.0
+export prodigal_version=2.6.3
+export hmmer_version=3.3.2
+export pplacer_version=1.1.alpha19
+export fastani_version=1.32
+export fasttree_version=2.1.10
+export mash_version=2.2
+export PACKAGES="curl wget build-essential cmake zlib1g-dev unzip"
+export PYTHON="python3 python3-pip python3-setuptools"
+export PYTHON_PACKAGES="dendropy>=4.1.0 numpy>=1.9.0 tqdm>=4.31.0 gtdbtk==1.4.0"
+%runscript
+exec /bin/bash "$@"
+%startscript
+exec /bin/bash "$@"

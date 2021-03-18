@@ -1,0 +1,31 @@
+Bootstrap: docker
+From: debian:buster
+%labels
+maintainer="pricea35@cardiff.ac.uk" 
+software="prodigal" 
+about.summary="prodigal and biopython container for Metahood"
+%post
+
+
+prodigal_version=2.6.3
+
+PACKAGES="gcc make curl"
+PYTHON="python3 python3-pip"
+PYTHON_PACKAGES="biopython"
+
+apt-get update \
+&& apt-get -y install $PACKAGES $PYTHON \
+&& ln -s /usr/bin/python3 /usr/bin/python \
+&& pip3 install $PYTHON_PACKAGES \
+&& curl -fsSL "https://github.com/hyattpd/Prodigal/archive/v${prodigal_version}.tar.gz" | tar -xz \
+&& make install -C Prodigal-${prodigal_version} \
+&& rm -r Prodigal-${prodigal_version}
+%environment
+export prodigal_version=2.6.3
+export PACKAGES="gcc make curl"
+export PYTHON="python3 python3-pip"
+export PYTHON_PACKAGES="biopython"
+%runscript
+exec /bin/bash "$@"
+%startscript
+exec /bin/bash "$@"
