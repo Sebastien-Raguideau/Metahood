@@ -29,6 +29,8 @@ if DESMAN==1:
     rule contigs_bed:
         input: "{path}/{bin}/{bin}.fa"
         output: "{path}/{bin}/{bin}.bed"
+        conda : CONDA_ENV + "/pythonenv.yaml"
+        singularity : "builds/pythonenv.sif"
         shell: "{SCRIPTS}/WriteBed.py {input} > {output}"
 
 
