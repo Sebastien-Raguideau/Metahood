@@ -1,5 +1,5 @@
 include: "Common.snake"
-from Bio.SeqIO.FastaIO import SimpleFastaParser as sfp
+#from Bio.SeqIO.FastaIO import SimpleFastaParser as sfp
 from os.path import basename 
 import glob
 import os
@@ -70,6 +70,8 @@ if DESMAN==1:
     rule bed_orfs:
         input:   gff="{path}/contigs.gff"
         output:  bed="{path}/orf.bed"
+        conda : CONDA_ENV + "/pythonenv.yaml"
+        singularity : "builds/pythonenv.sif"
         shell : "{SCRIPTS}/Gff_to_bed.py {input.gff} {output.bed}"
 
     # -------- get a bed file for SCG   --------
@@ -77,34 +79,19 @@ if DESMAN==1:
         input:  orfs_bed = "{group}/annotation/orf.bed",
                 scg_file = "{group}/annotation/contigs_SCG.fna"
         output: scg_bed =  "{group}/desman/SCG.bed"
-        run:
-            seq_names = {name.split()[0] for name, seq in sfp(open(input.scg_file))}
-            with open(output.scg_bed, 'w') as scg_bed:
-                for line in open(input.orfs_bed):
-                    if line.split()[3] in seq_names:
-                        scg_bed.write(line)
-
+        conda : CONDA_ENV + "/pythonenv.yaml"
+        singularity : "builds/pythonenv.sif"
+        shell: "{SCRIPTS}/scg_bed.py -b {input.orfs_bed} -f {input.scg_file} -o {output.scg_bed}"
+            
     # -------- get SCG coordinates   --------
     rule build_scg_coordinates_for_ExtractCountFreqGenes:
         input:  scg_bed = "{group}/desman/SCG.bed",
                 bin_definition = "{group}/binning/{binner}/clustering_concoct.csv",
                 scg_file = "{group}/annotation/contigs_SCG.fna"
         output: coordinates = "{group}/desman/{binner}/{bin}/scg_coordinates.tsv"
-        run:
-            # contigs specific to the bin
-            set_contigs={line.rstrip().split(",")[0] for line in open(input["bin_definition"]) if (line.rstrip().split(",")[1]==wildcards.bin.replace("Bin_",""))}
-            # NODE_11_length_160076_cov_189.092050_50 COG0552 strand=+
-            # Cog annotation of orfs in header of the file 
-            dict_scg = {header.split(" ")[0]: header.split(" ") for header, seq in sfp(open(input.scg_file))}
-            with open(output.coordinates, "w") as handle :
-                for line in open(input.scg_bed):
-                    contig, start, end, orf = line.rstrip().split("\t")
-                    if contig in set_contigs:
-                        cog, strand = dict_scg[orf][1:]
-                        cog, strand = dict_scg[orf][1:]
-                        strand = str((strand == "strand=+")*1-(strand == "strand=-")*1)
-                        contig = "_".join(orf.split("_")[:-1])
-                        handle.write(",".join([cog, contig, start, end, orf, strand])+"\n")
+        conda : CONDA_ENV + "/pythonenv.yaml"
+        singularity : "builds/pythonenv.sif"
+        shell: "{SCRIPTS}/build_scg_coords.py -b {input.scg_bed} -d {input.bin_definition} -f {input.scg_file} -o {output.coordinates} -w {wildcards.bin}"
 
     rule extract_counts:
         input:  counts=lambda w:["/".join([w.group,'desman',w.binner,w.bin,basename(sample)+".cnt.gz"]) for sample in GROUPS[w.group]],

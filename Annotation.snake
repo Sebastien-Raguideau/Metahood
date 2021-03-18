@@ -38,6 +38,8 @@ rule diamond:
 rule annotation_diamond:
 	input :  "{group}/annotation/{filename}_{annotation}.m8"
 	output : "{group}/annotation/{filename}_{annotation}_best_hits.tsv"
+        conda : CONDA_ENV + "/pythonenv.yaml"
+        singularity : "builds/pythonenv.sif"
 	params : annotation=lambda w: DIAMOND[w.annotation]["annotation"],
 			 Bitscore=lambda w: DIAMOND[w.annotation]["filter"][0],
 			 Evalue=lambda w: DIAMOND[w.annotation]["filter"][1],
@@ -136,6 +138,8 @@ rule parse_cogs_annotation:
     input:   Batch=expand("{{group}}/annotation/temp_splits/Batch_{nb}.cogs.tsv",nb=range(100))
     output:  cog="{group}/annotation/contigs_cogs_best_hits.tsv",
              cat=temp("{group}/annotation/contigs_Cog.out")
+    conda : CONDA_ENV + "/pythonenv.yaml"
+    singularity : "builds/pythonenv.sif"
     shell:   """
              cat {input} > {output.cat}   
              {SCRIPTS}/Filter_Cogs.py {output.cat} --cdd_cog_file {SCG_DATA}/cdd_to_cog.tsv  > {output.cog}

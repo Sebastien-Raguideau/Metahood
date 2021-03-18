@@ -1,22 +1,21 @@
-from Bio.SeqIO.FastaIO import SimpleFastaParser as SFP
+#from Bio.SeqIO.FastaIO import SimpleFastaParser as SFP
 from os.path import dirname,basename,join
-import gzip
+#import gzip
 
 # ---- generate contig bed   ----------------------------------------------------
 rule bogus_bed:
     input:   contig="{group}/contigs/contigs.fa"
     output:  bed="{group}/annotation/contigs.bed"
-    run :
-        handle=open(output['bed'],"w")
-        for header,seq in SFP(open(input["contig"])) :
-            name=header.split(" ")[0]
-            handle.write("\t".join([name,"0",str(len(seq)),name+"\n"]))
-        handle.close()
+    conda : CONDA_ENV + "/pythonenv.yaml"
+    singularity : "builds/pythonenv.sif"
+    shell : "{SCRIPTS}/bogus_bed.py -i {input.contig} -o {output.bed}"
 
 # ---- generate orfs bed   ----------------------------------------------------
 rule bed_orfs:
     input:   gff="{path}/contigs.gff"
     output:  bed="{path}/orf.bed"
+    conda : CONDA_ENV + "/pythonenv.yaml"
+    singularity : "builds/pythonenv.sif"
     shell : "{SCRIPTS}/Gff_to_bed.py {input.gff} {output.bed}"
 
 
@@ -36,12 +35,16 @@ rule bedtools:
 rule coverage:
     input:   lambda w : [w.group+"/map/"+sample.split('/')[-1]+".{type}.cov" for sample in  GROUPS[w.group]]
     output:  "{group}/profile/coverage_{type}.tsv"
+    conda : CONDA_ENV + "/pythonenv.yaml"
+    singularity : "builds/pythonenv.sif"
     shell : "{SCRIPTS}/collate_coverage.py -o {output} -l {input} "
 
 # ---- generate a mapping of annotation to orfs  -----------------------
 rule map_annotation_to_orfs:
     input:   "{path}/contigs_{annotation}_best_hits.tsv"
     output:  "{path}/map_{annotation}_to_orfs.tsv"
+    conda : CONDA_ENV + "/pythonenv.yaml"
+    singularity : "builds/pythonenv.sif"
     shell:  """{SCRIPTS}/Annotation_listcontig.py {input} {output} """
 
 # ---- generate annotation profile  -----------------------
@@ -49,6 +52,8 @@ rule generate_profile:
     input:  cov="{group}/profile/coverage_orf.tsv",
             map="{group}/annotation/map_{annotation}_to_orfs.tsv"
     output: "{group}/profile/cov_{annotation}.tsv"
+    conda : CONDA_ENV + "/pythonenv.yaml"
+    singularity : "builds/pythonenv.sif"
     shell:  "{SCRIPTS}/Extract_gene_profile.py {input.map} {input.cov} {output}"
 
 # ----------------------------------------------------------
@@ -60,21 +65,10 @@ if IS_FASTA :
     rule nb_bases_fasta:
         input: lambda w : [fastq_file for sample in  GROUPS[w.group] for fastq_file in SAMPLE_READS[basename(sample)]]
         output: temp("{group}/profile/nucleotides.tsv")
-        run: 
-            dict_sample_nb=defaultdict(list)
-            for file in input:
-                sample=basename(dirname(file))
-                if file.endswith(".gz") :
-                    handle = gzip.open(file,"rt")
-                else :
-                    handle = open(file)
-                nb = sum([len(seq) for header,seq in sfp(handle)])
-                dict_sample_nb[sample].append(nb)
-            dict_sample_nb={sample:str(sum(list_nb)) for sample,list_nb in dict_sample_nb.items()}
-            with open(output[0],"w") as handle:
-                handle.write("Normalisation\t"+"\t".join(dict_sample_nb.keys())+"\n")
-                handle.write("Nb_nucleotides\t"+"\t".join(dict_sample_nb.values())+"\n")
-            handle.close()
+        conda : CONDA_ENV + "/pythonenv.yaml"
+        singularity : "builds/pythonenv.sif"
+        script: "{SCRIPTS}/nb_bases_fasta.py {input} {output}"
+            
 else :
     rule nb_bases:
         input: lambda w : [fastq_file+"_trimming_report.txt" for sample in  GROUPS[w.group] for fastq_file in SAMPLE_READS[basename(sample)]]

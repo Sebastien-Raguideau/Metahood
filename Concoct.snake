@@ -1,7 +1,7 @@
 import os.path
-import numpy as np
+#import numpy as np
 from collections import Counter
-from Bio.SeqIO.FastaIO import SimpleFastaParser as sfp
+#from Bio.SeqIO.FastaIO import SimpleFastaParser as sfp
 
 
 # ---- get the bed file for the cut up contigs-------------------------------------------
@@ -12,6 +12,8 @@ rule cut_contigs:
             Contig_bed="{group}/annotation/contigs_C10K.bed"
     priority: 50
     message:"Use orfs annotation to cut contigs"
+    conda : CONDA_ENV + "/pythonenv.yaml"
+    singularity : "builds/pythonenv.sif"
     shell:  """{SCRIPTS}/Use_orf_to_cut.py {input.fa} {input.gff} {output.contig} {output.Contig_bed}"""
 
 
@@ -21,6 +23,8 @@ rule extract_SCG_sequences:
             gff="{filename}.gff",
             fna="{filename}.fna"
     output: "{filename}_SCG.fna"
+    conda : CONDA_ENV + "/pythonenv.yaml"
+    singularity : "builds/pythonenv.sif"
     shell:  "{SCRIPTS}/Extract_SCG.py {input.fna} {input.annotation} {SCG_DATA}/scg_cogs_min0.97_max1.03_unique_genera.txt {input.gff}>{output}"
 
 # --------- Concoct ------------------------------------------------------------------------
@@ -59,6 +63,8 @@ rule SCG_table:
              orf_bed="{group}/annotation/orf.bed",
              split_bed="{group}/annotation/contigs_C10K.bed"
     output : "{group}/binning/{binner}/{name}_SCG_table.csv"
+    conda : CONDA_ENV + "/pythonenv.yaml"
+    singularity : "builds/pythonenv.sif"
     shell  : "{SCRIPTS}/SCG_in_Bins.py {input.bins} {input.SCG} {input.orf_bed} {input.split_bed} -t {output}"
 
 
@@ -90,6 +96,8 @@ rule merge_contigs:
              table ="{path}refine_SCG_table.csv" 
     output:  "{path}clustering_concoct.csv"
     log:     "{path}clustering_consensus.log"
+    conda : CONDA_ENV + "/pythonenv.yaml"
+    singularity : "builds/pythonenv.sif"
     shell:   "{SCRIPTS}/Consensus.py {input.refine} >{output} 2>{log}"
 
 # --------- estimate the number of mag ------------------------------------------------------------
@@ -119,6 +127,8 @@ rule output_bins:
     input:   contigs="{group}/contigs/contigs.fa",
              clustering="{group}/binning/{binner}/clustering_{binner}.csv"
     output:  "{group}/binning/{binner}/bins/done"
+    conda : CONDA_ENV + "/pythonenv.yaml"
+    singularity : "builds/pythonenv.sif"
     shell :"""
     {SCRIPTS}/Split_fasta_by_bin.py {input.clustering} $(dirname {output}) --fasta {input.contigs}
     touch {output}
@@ -136,6 +146,8 @@ rule get_consensus_binning :
             contig_profiles = "{group}/binning/concoct/original_data_gt%s.csv"%MIN_CONTIG_SIZE,
             contig_bed = "{group}/annotation/contigs.bed"
     output : "{group}/binning/consensus/clustering_consensus.csv"
+    conda : CONDA_ENV + "/pythonenv.yaml"
+    singularity : "builds/pythonenv.sif"
     shell :"""
     {SCRIPTS}/consensus_binning.py -c_bin_def {input.c_bin_def} -m_bin_def {input.m_bin_def} -c_mag_list {input.c_mag_list} -m_mag_list {input.m_mag_list} -scg {input.scg} -contig_profiles {input.contig_profiles} -contig_bed {input.contig_bed} -o {output}
     """
