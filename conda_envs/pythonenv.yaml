@@ -1,0 +1,9 @@
+channels:
+  - anaconda
+  - conda-forge
+dependencies:
+  - numpy
+  - scipy
+  - ete3
+  - biopython
+  - pyyaml
