@@ -1,5 +1,5 @@
 channels:
  - bioconda
 dependencies:
- - cat
- - diamond=0.9.24
+ - cat==5.2.2
+ - diamond==2.0.6
