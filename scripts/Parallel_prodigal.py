@@ -59,6 +59,7 @@ def main(Fasta_file,Temp_location,Number_task,Splits,output_directory) :
 	Handle_fna=open(CWD+"/"+output_directory+"/"+Fasta_File_name.replace(".fa",".fna"),"w")
 	Handle_gff=open(CWD+"/"+output_directory+"/"+Fasta_File_name.replace(".fa",".gff"),"w")
 	Handle_gff.write(open("Batch_0.gff").readline())
+	time.sleep(300)
 	for nb_batch in range(Splits) :
 		Handle_faa.write(open("Batch_"+str(nb_batch)+".faa").read())
 		Handle_fna.write(open("Batch_"+str(nb_batch)+".fna").read())
