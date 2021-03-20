@@ -7,3 +7,4 @@ dependencies:
   - ete3
   - biopython
   - pyyaml
+  - bc
