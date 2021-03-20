@@ -97,28 +97,12 @@ rule median_SCG_cov:
     input:  cov="{group}/profile/cov_cogs.tsv",
             nuc="{group}/profile/nucleotides.tsv"
     output: "{group}/profile/Normalisation.tsv"
-    run: 
-        set_SCG = {cog.rstrip() for cog in open(SCG_DATA+"/scg_cogs_min0.97_max1.03_unique_genera.txt")}
-        List_profile = []
-        # compute median of SCG       
-        with open(input.cov) as handle:
-            samples = next(handle).rstrip().split("\t")[1:]
-            for index,line in enumerate(handle):
-                split_line = line.rstrip().split("\t")
-                cog = split_line[0]
-                if cog in set_SCG:
-                    List_profile.append([float(element) for element in split_line[1:]])
-        scg_norm=np.median(List_profile, axis=0)
-        # get previous normalisation
-        with open(input.nuc) as handle:
-            samples_local=next(handle).rstrip().split("\t")[1:]
-            nuc_norm=next(handle).rstrip().split("\t")[1:]
-        sample_to_norm={sample:nuc_norm[index] for index,sample in enumerate(samples_local)}
-        with open(output[0],"w") as handle:
-            handle.write("Normalisation\t"+"\t".join(samples)+"\n")
-            handle.write("Nucleotides\t"+"\t".join([sample_to_norm[sample] for sample in samples])+"\n")
-            handle.write("median_scg\t"+"\t".join(map(str,scg_norm))+"\n")
-
+    params: scgdata=SCG_DATA
+    conda: CONDA_ENV + "/pythonenv.yaml"
+    singularity: "builds/pythonenv.sif"
+    shell : """
+    {SCRIPTS}/median_scg.py -c {input.cov} -n {input.nuc} -o {output} -s {params.scgdata}
+    """
 
 # ---- percent maped info  -----------------------
 
@@ -145,6 +129,8 @@ rule get_percent:
     input: mapped=lambda w:[w.group+"/map/"+sample.split('/')[-1]+"_mapped_read.txt" for sample in  GROUPS[w.group]],
            total=lambda w:[IN+"/"+sample.split('/')[-1]+"/"+sample.split('/')[-1]+"_readsnb.txt" for sample in  GROUPS[w.group]]
     output:  "{group}/profile/mapping_percent.tsv"
+    conda : CONDA_ENV + "/pythonenv.yaml"
+    singularity : "builds/pythonenv.sif"
     shell: """
             for path in {input.mapped}
             do
@@ -159,26 +145,6 @@ rule get_percent:
 
 
 # ---- mags infos  ----------------------
-def get_cluster_def(file,mags):
-    cluster_def=defaultdict(list)
-    contig_to_cluster={}
-    for line in open(file):
-        contig,cluster=line.rstrip().split(",")
-        if cluster in mags:
-            cluster_def[cluster].append(contig)
-            contig_to_cluster[contig]=cluster
-    return cluster_def,contig_to_cluster
-
-def get_contig_cov(file,contigs):
-    contig_cov={}
-    with open(file) as handle :
-        header=next(handle)
-        for line in handle:
-            splitline=line.rstrip().split("\t")
-            contig=splitline[0]
-            if contig in contigs:
-                contig_cov[contig]=np.array(list(map(float,splitline[1:])))
-    return header,contig_cov
 
 rule mag_coverage:
     input: mags="{group}/binning/{binner}/{binner}_MAG_list.txt",
@@ -188,51 +154,8 @@ rule mag_coverage:
            nb_nuc="{group}/profile/Normalisation.tsv"
     output: mag_cov="{group}/profile/mag_{binner}_coverage.tsv",
             mag_map="{group}/profile/mag_{binner}_percent_mapped.tsv"
-    run:
-        # get the sets of bins, considered mags
-        mags={line.rstrip() for line in open(input["mags"])}
-        # get cluster definition
-        cluster_def,contig_to_cluster=get_cluster_def(input["cluster"],mags)
-        # get contigs coverage
-        header,contig_cov=get_contig_cov(input["cov"],contig_to_cluster)
-        # get contigs lengths
-        contig_len={line.rstrip().split('\t')[0]:float(line.rstrip().split('\t')[2]) for line in open(input["len"]) if line.rstrip().split('\t')[0] in contig_to_cluster}
-        # get nb reads :
-        with open(input["nb_nuc"]) as handle:
-            header_norm = next(handle).rstrip().split("\t")[1:]
-            samples = header.rstrip().split('\t')[1:]
-            nuc_nb=list(map(float,next(handle).rstrip().split("\t")[1:]))
-            if samples != header_norm :
-                reorder = [header_norm.index(elmt) for elmt in samples]
-                header_norm = np.array(header_norm)[reorder]
-                nuc_nb = np.array(nuc_nb)[reorder]
-            assert samples == header_norm,"error, header are differents : \n%s\n%s"%(samples, header_norm)
-
-        # get mag nucleotides
-        handle_cov=open(output["mag_cov"],"w")
-        handle_map=open(output["mag_map"],"w")
-        handle_map.write("mag\t"+"\t".join(samples)+"\n")
-        handle_cov.write("mag\t"+"\t".join(samples)+"\n")
-        count = 0
-        for cluster,list_contigs in cluster_def.items():
-            if cluster =="0":
-                print("Bin_%s\t"%cluster,count)
-            tot_len=0
-            tot_nuc=np.zeros(len(samples))
-            for contig in list_contigs:
-                if contig=="contig_id":
-                    continue
-                tot_len+=contig_len[contig]
-                tot_nuc+=contig_cov[contig]*contig_len[contig]
-            handle_cov.write("Bin_%s\t"%cluster+"\t".join(list(map(str,tot_nuc/tot_len)))+"\n")
-            handle_map.write("Bin_%s\t"%cluster+"\t".join(list(map(str,tot_nuc/nuc_nb)))+"\n")
-            count+=1
-        handle_cov.close()
-        handle_map.close()
-
-
-
-
-
-
-
+    conda : CONDA_ENV + "/pythonenv.yaml"
+    singularity : "builds/pythonenv.sif"
+    shell:"""
+    {SCRIPTS}/mag_coverage.py -m {input.mags} -c {input.cluster} -t {input.cov} -l {input.len} -n {input.nb_nuc} -v {output.mag_cov} -p {output.mag_map}
+    """
