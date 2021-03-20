@@ -48,7 +48,7 @@ def main(gff_file,Annotation_file,SCG_file,faa_file,bed_file) :
         Handle.close()
     for header,seq in SimpleFastaParser(open(faa_file)) :
         header=header.split(" ")[0]
-        if header in Dico_orfs_cogs :
+        if header in Dico_orf_strand :
             print(">"+header+" "+Dico_orf_strand[header][0]+" strand="+Dico_orf_strand[header][1]+"\n"+seq)
 
 

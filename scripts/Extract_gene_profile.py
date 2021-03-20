@@ -25,7 +25,7 @@ def Best_solution_yet(Coverage_profile,Indexed_coverage_profile,Set_genes) :
 		Nb_genes=len(Sorted_index)
 		List_reduced=[getline(Coverage_profile, line_nb) for line_nb in Sorted_index]
 		Dico_gene_profile={line.rstrip().split('\t')[0]:line for line in List_reduced}
-	except IOError :
+	except :
 		Handle=open(Coverage_profile)
 		Header=next(Handle)
 		Dico_gene_index={}
