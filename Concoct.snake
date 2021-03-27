@@ -82,6 +82,13 @@ rule refine:
     singularity : "builds/concoct.sif"
     threads: 20
     shell:  """
+            CPATH=`which concoct_refine`
+            if [ -w $CPATH ]
+            then
+              sed -i 's/values/to_numpy/g' $CPATH
+              sed -i 's/as_matrix/to_numpy/g' $CPATH
+              sed -i 's/int(NK), args.seed, args.threads)/ int(NK), args.seed, args.threads, 500)/g' $CPATH
+            fi
             ROOTDIR=$(pwd)
             sed '1d' {input.bins}  > {params}
             cd {wildcards.group}/binning/concoct/
