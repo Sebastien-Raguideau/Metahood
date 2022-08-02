@@ -149,7 +149,7 @@ rule Mags_SCG:
     input: mag_list="{group}/binning/{binner}/{binner}_MAG_list.txt",
            cluster_definition="{group}/binning/{binner}/clustering_{binner}.csv",
            cog_annotation='{group}/annotation/contigs_SCG.fna'
-    output: expand("{{group}}/MagAnalysis/{{binner}}/Tree/SCGs/{COG}.fna",COG=LIST_COGS)
+    output: expand("{{group}}/MagAnalysis/{{binner}}/Tree/SCGs/{COG}.fna",COG=SCG)
     params: "{group}/MagAnalysis/{binner}/Tree/SCGs/"
     conda : CONDA_ENV + "/pythonenv.yaml"
     singularity : "builds/pythonenv.sif"
@@ -160,7 +160,7 @@ rule Mags_SCG:
 # ------- if needed extract refference cogs -------------------
 rule extract_ref_SCGs:
     input:SCG_DATA+"/All_COGs.tar.gz"
-    output: expand(SCG_DATA+"/All_{COG}.ffn",COG=LIST_COGS)
+    output: expand(SCG_DATA+"/All_{COG}.ffn",COG=SCG)
     shell:"tar -xf {input} -C {SCG_DATA}/ "
 
 # ------- Start allignment -------------------
@@ -188,8 +188,8 @@ rule trimal :
 
 # ------- Fastree pre processing -------------
 rule generate_data_for_fastree:
-    input: trimed = expand("{{path}}/{cog}_all_trim.msa", cog = LIST_COGS),
-           alignement = expand("{{path}}/{cog}_all.msa", cog = LIST_COGS)
+    input: trimed = expand("{{path}}/{cog}_all_trim.msa", cog = SCG),
+           alignement = expand("{{path}}/{cog}_all.msa", cog = SCG)
     output: gfa = "{path}/concat_scg.msa",
             names = "{path}/Names.txt",
             temp = temp("{path}/temp_combine_genes.tmp")

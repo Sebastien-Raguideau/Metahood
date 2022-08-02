@@ -26,144 +26,123 @@ rule prodigal:
 
 # ---- diamond annotation  ----------------------------------------------------------------
 rule diamond:
-	input :  "{filename}.faa"
-	output : "{filename}_{annotation}.m8"
-	params : db=lambda w: DIAMOND[w.annotation]["db"],
-	log:     "{filename}_{annotation}_diamond.log"
-	threads:  1000
-        conda : CONDA_ENV + "/diamond.yaml"
-        singularity : "builds/diamond.sif"
-	shell :   "diamond blastp --more-sensitive -d {params.db}  -q {input} -p {threads} -o {output} -f6 qseqid sseqid qstart qend qlen sstart send slen length pident evalue bitscore &>{log}"
+    input :  "{filename}.faa"
+    output : "{filename}_{annotation}.m8"
+    params : db=lambda w: DIAMOND[w.annotation]["db"],
+    log:     "{filename}_{annotation}_diamond.log"
+    threads:  1000
+    conda : CONDA_ENV + "/diamond.yaml"
+    singularity : "builds/diamond.sif"
+    shell :   "diamond blastp --more-sensitive -d {params.db}  -q {input} -p {threads} -o {output} -f6 qseqid sseqid qstart qend qlen sstart send slen length pident evalue bitscore &>{log}"
 
 rule annotation_diamond:
-	input :  "{group}/annotation/{filename}_{annotation}.m8"
-	output : "{group}/annotation/{filename}_{annotation}_best_hits.tsv"
-        conda : CONDA_ENV + "/pythonenv.yaml"
-        singularity : "builds/pythonenv.sif"
-	params : annotation=lambda w: DIAMOND[w.annotation]["annotation"],
-			 Bitscore=lambda w: DIAMOND[w.annotation]["filter"][0],
-			 Evalue=lambda w: DIAMOND[w.annotation]["filter"][1],
-			 PID=lambda w: DIAMOND[w.annotation]["filter"][2],
-			 subject_pid=lambda w: DIAMOND[w.annotation]["filter"][3],
-			 subject_coverage=lambda w: DIAMOND[w.annotation]["filter"][4],
-			 querry_coverage=lambda w: DIAMOND[w.annotation]["filter"][5],
-	shell :   "{SCRIPTS}/M8_Filtering.py {input} -D {params.annotation} -B {params.Bitscore} -E {params.Evalue} -P {params.PID} -R {params.subject_pid} -C {params.subject_coverage} -Q {params.querry_coverage}  >{output}"
+    input :  "{group}/annotation/{filename}_{annotation}.m8"
+    output : "{group}/annotation/{filename}_{annotation}_best_hits.tsv"
+    conda : CONDA_ENV + "/pythonenv.yaml"
+    singularity : "builds/pythonenv.sif"
+    params : annotation=lambda w: DIAMOND[w.annotation]["annotation"],
+             Bitscore=lambda w: DIAMOND[w.annotation]["filter"][0],
+             Evalue=lambda w: DIAMOND[w.annotation]["filter"][1],
+             PID=lambda w: DIAMOND[w.annotation]["filter"][2],
+             subject_pid=lambda w: DIAMOND[w.annotation]["filter"][3],
+             subject_coverage=lambda w: DIAMOND[w.annotation]["filter"][4],
+             querry_coverage=lambda w: DIAMOND[w.annotation]["filter"][5],
+    shell :   "{SCRIPTS}/M8_Filtering.py {input} -D {params.annotation} -B {params.Bitscore} -E {params.Evalue} -P {params.PID} -R {params.subject_pid} -C {params.subject_coverage} -Q {params.querry_coverage}  >{output}"
 
 
 # ---- kegg own annotation pipeline  --------------------
 
 rule kofamscan:
-	input :  "{filename}.faa"
-	output : "{filename}_kofamscan.out"
-	conda : CONDA_ENV + "/kofamscan.yaml"	
-	singularity : "builds/kofamscan.sif"
-        params : profiles = KOFAMSCAN["profiles"],
-			 ko_list = KOFAMSCAN["ko_list"]
-	threads : 1000
-	shell :   "exec_annotation {input} -o {output} -p {params.profiles} -k {params.ko_list}  --cpu {threads} --tmp-dir $(dirname {input})/tmp"
+    input :  "{filename}.faa"
+    output : "{filename}_kofamscan.out"
+    conda : CONDA_ENV + "/kofamscan.yaml"    
+    singularity : "builds/kofamscan.sif"
+    params : profiles = KOFAMSCAN["profiles"],
+             ko_list = KOFAMSCAN["ko_list"]
+    threads : 1000
+    shell :   "exec_annotation {input} -o {output} -p {params.profiles} -k {params.ko_list}  --cpu {threads} --tmp-dir $(dirname {input})/tmp"
 
 rule annotation_kofamscan :
-	input : file = "{filename}_kofamscan.out"
-	output : out = "{filename}_KEGG_best_hits.tsv"
-	run : 
-		with open(input['file']) as handle :
-			orf_to_ko={}
-			for line in handle :
-				if line[0] != "*" :
-					continue
-				splitline = line.rstrip().split()[1:6] + [" ".join(line.rstrip().split()[6:])]
-				if splitline[0] in orf_to_ko :
-					orf_to_ko[splitline[0]] = min([orf_to_ko[splitline[0]],splitline],key = lambda x:float(x[4]))
-				else : 
-					orf_to_ko[splitline[0]]=splitline
-		with open(output["out"],"w") as handle_w :
-			handle_w.write('\t'.join(['orf',"KO","threshold","score","KO definition"])+"\n")
-			for line in orf_to_ko.values() : 
-				handle_w.write("\t".join(line)+"\n")
+    input : file = "{filename}_kofamscan.out"
+    output : out = "{filename}_KEGG_best_hits.tsv"
+    run : 
+        with open(input['file']) as handle :
+            orf_to_ko={}
+            for line in handle :
+                if line[0] != "*" :
+                    continue
+                splitline = line.rstrip().split()[1:6] + [" ".join(line.rstrip().split()[6:])]
+                if splitline[0] in orf_to_ko :
+                    orf_to_ko[splitline[0]] = min([orf_to_ko[splitline[0]],splitline],key = lambda x:float(x[4]))
+                else : 
+                    orf_to_ko[splitline[0]]=splitline
+        with open(output["out"],"w") as handle_w :
+            handle_w.write('\t'.join(['orf',"KO","threshold","score","KO definition"])+"\n")
+            for line in orf_to_ko.values() : 
+                handle_w.write("\t".join(line)+"\n")
 
 
 
 # ------ taxonomic annotation  --------------------
 
 rule CAT_annotation:
-	input: contigs="{group}/contigs/contigs.fa",
-		   faa="{group}/annotation/contigs.faa"
-	output: ORF2LCA="{group}/annotation/CAT/contigs.contig2classification.txt"
-	params : Dir="{group}/annotation/CAT/contigs"
-	conda : CONDA_ENV + "/cat.yaml"
-        singularity : "builds/cat.sif"
-	threads: 1000
-	shell : """
-	CAT contigs -c {input.contigs}  -d {CAT_DB} -t {CAT_DB} -p {input.faa} -n {threads} --out_prefix {params.Dir} --top 11 --I_know_what_Im_doing --force
-	"""
+    input: contigs="{group}/contigs/contigs.fa",
+           faa="{group}/annotation/contigs.faa"
+    output: ORF2LCA="{group}/annotation/CAT/contigs.contig2classification.txt"
+    params : Dir="{group}/annotation/CAT/contigs"
+    conda : CONDA_ENV + "/cat.yaml"
+    singularity : "builds/cat.sif"
+    threads: 1000
+    shell : """
+    CAT contigs -c {input.contigs}  -d {CAT_DB} -t {CAT_DB} -p {input.faa} -n {threads} --out_prefix {params.Dir} --top 11 --I_know_what_Im_doing --force
+    """
 
 rule CAT_ORF_annotation:
-	input: ORF2LCA="{group}/annotation/CAT/contigs.contig2classification.txt"
-	output: annotation="{group}/annotation/CAT_contigs_taxonomy.tsv"
-	conda : CONDA_ENV + "/cat.yaml"
-        singularity : "builds/cat.sif"
-	shell : """
-	CAT add_names -i {input.ORF2LCA} -o {output.annotation} -t {CAT_DB} --only_official
-	"""
+    input: ORF2LCA="{group}/annotation/CAT/contigs.contig2classification.txt"
+    output: annotation="{group}/annotation/CAT_contigs_taxonomy.tsv"
+    conda : CONDA_ENV + "/cat.yaml"
+    singularity : "builds/cat.sif"
+    shell : """
+    CAT add_names -i {input.ORF2LCA} -o {output.annotation} -t {CAT_DB} --only_official
+    """
 
 # ------- kraken annotation -----------------------
 rule kraken_uniq:
-	input: "{group}/contigs/contigs.fa"
-	output: report = "{group}/annotation/kraken_taxonomy_report.tsv",
-			classif = "{group}/annotation/kraken_contig_taxonomy.tsv"
-	conda : CONDA_ENV + "/kraken.yaml"
-        singularity: "builds/krakenuniq.sif"
-	threads: 1000
-	shell : """
-	krakenuniq --db {KRAKEN_DB} --preload --fasta-input {input} --threads {threads} --report-file {output.report} > {output.classif}
-	"""
+    input: "{group}/contigs/contigs.fa"
+    output: report = "{group}/annotation/kraken_taxonomy_report.tsv",
+            classif = "{group}/annotation/kraken_contig_taxonomy.tsv"
+    conda : CONDA_ENV + "/kraken.yaml"
+    singularity: "builds/krakenuniq.sif"
+    threads: 1000
+    shell : """
+    krakenuniq --db {KRAKEN_DB} --preload --fasta-input {input} --threads {threads} --report-file {output.report} > {output.classif}
+    """
 
 
 # ------------------------------------------ COG Annotation -------------------------------
-# ------- rpsblast on previous batchs 
-rule Batch_rpsblast:
-    input:   "{group}/{path}.faa"
-    output:  "{group}/{path,a.*/Batch.*}.cogs.tsv"
-    log:     "{group}/{path}_cog.log"
-    params:  db=COG_DB
-    resources: memG=TASK_MEMORY
-    conda : CONDA_ENV + "/blast.yaml"
-    singularity: "builds/blast.sif"
-    shell:   """
-             rpsblast+ -outfmt '6 qseqid sseqid evalue pident length slen qlen' -evalue 0.00001 -query {input} -db {params.db} -out {output} &>log
-             """
+# use hmmsearch to annotate pfam markers
+rule hmmsearch:
+    input: "{path}.faa"
+    output:"{path}_hmm.out"
+    conda : "%s/checkm.yaml"%CONDA_ENV
+    singularity: "builds/checkm.sif"
+    log: "{path}_hmm.log"
+    shell: """
+    if [ ! -s {input} ]
+    then
+        touch {output}
+    else
+        hmmsearch --cut_tc --cpu 1 -o /dev/null --noali --domtblout {output} {SCG_HMM} {input} >{log} 2>&1 
+    fi
+    """
 
-#------- select best hit and use criterion : min 5% coverage, min 1e-10 evalue--------------
-rule parse_cogs_annotation:
-    input:   Batch=expand("{{group}}/annotation/temp_splits/Batch_{nb}.cogs.tsv",nb=range(100))
-    output:  cog="{group}/annotation/contigs_cogs_best_hits.tsv",
-             cat=temp("{group}/annotation/contigs_Cog.out")
-    conda : CONDA_ENV + "/pythonenv.yaml"
+#------- select best hit --------------
+# TODO add a criterion on al length
+rule parse_hmmsearch_annotation:
+    input: Batch=expand("{{path}}/temp_splits/Batch_{nb}_hmm.out",nb=range(100))
+    output: cat=temp("{path}/contigs_hmm.out"),
+            cog="{path}/contigs_cogs_best_hits.tsv"
+    conda : "%s/pythonenv.yaml"%CONDA_ENV
     singularity : "builds/pythonenv.sif"
-    shell:   """
-             cat {input} > {output.cat}   
-             {SCRIPTS}/Filter_Cogs.py {output.cat} --cdd_cog_file {SCG_DATA}/cdd_to_cog.tsv  > {output.cog}
-             """
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# rule HMM:
-# 	input :  "{filename}.faa"
-# 	output : "{filename}_pfam.m8"
-# 	params : lambda w: ANNOTATION[w.annotation]
-# 	log:     "{filename}_diamond.log"
-# 	thread:  1000
-# 	rule :   "diamond blastp -d {params}  -q {input} -p {thread} -o {output} -f6 qseqid sseqid qstart qend qlen sstart send slen length pident evalue bitscore &>{log}"
-
+    shell: """cat {input}> {output.cat}
+             {SCRIPTS}/Filter_scg_hmm.py {output.cat} --cog_hmm {SCG_DATA}/scg_hmm_selected.txt {output.cog}"""

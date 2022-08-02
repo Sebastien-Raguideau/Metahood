@@ -52,18 +52,23 @@ BINNER+=(len(BINNER)-1)*["consensus"]
 
 # -------- Annotation --------
 ANNOTATION = config["annotation"]
-COG_DB = ANNOTATION["rpsblast"]["cog_database"]
+CHECKM_DB = ANNOTATION["checkm"]
+
+# SCG 
 SCG_DATA = config["scg_data"]
+SCG_HMM = "%s/hmms/checkm.hmm"%CHECKM_DB
+SCG = {line.rstrip().split("\t")[0] for line in open("%s/scg_hmm_selected.txt"%SCG_DATA) if line.rstrip().split("\t")[2]=="fine"}
+
 DIAMOND = ANNOTATION["diamond"]
 CAT_DB = ANNOTATION["cat_db"]
 KRAKEN_DB = ANNOTATION["kraken_db"] 
 KOFAMSCAN = ANNOTATION['kofamscan']
-BEST_HITS = ["KEGG"]*(KOFAMSCAN["profiles"]!="")+["cogs"]+[annotation for annotation in DIAMOND]
-assert len(BEST_HITS)==len(set(BEST_HITS)), "diamond annotation use either KEGG or cog as keyword, this is ambiguous as one of these is already done otherwise."
+BEST_HITS = ["KEGG"]*(KOFAMSCAN["profiles"]!="")+[annotation for annotation in DIAMOND]
+assert len(BEST_HITS)==len(set(BEST_HITS)), "diamond annotation use KEGG as keyword, this is ambiguous as one of these is already done otherwise."
 
 # -------- MAG analysis ------
 MAG_ANALYSIS=config["maganalysis"]
-LIST_COGS=[line.rstrip() for line in open(SCG_DATA+"/scg_cogs_min0.97_max1.03_unique_genera.txt")]
+HMM = {"cpr43":"%s/cpr_43_markers.hmm"%SCG_DATA, "ar76":"%s/meren_ar76.hmm"%SCG_DATA, "bac71":"%s/meren_bac71.hmm"%SCG_DATA}
 
 # -------- DESMAN ------
 DESMAN=config["desman"]["execution"]
@@ -112,7 +117,7 @@ if Empty_group :
 
 # -------- Files associated with each samples --------
 # Each sample should have its own folder with fasta/fastq files in it
-SAMPLES= {sample.split("/")[-1] for list_sample in GROUPS.values() for sample in list_sample}
+SAMPLES= {basename(sample) for list_sample in GROUPS.values() for sample in list_sample}
 SAMPLE_READS = dict(map(lambda sample: (sample, detect_reads(os.path.join(IN, sample))), SAMPLES))
 
 Files_nb = [sample for sample,list_file in SAMPLE_READS.items() if len(list_file)!=2]
@@ -120,8 +125,8 @@ if Files_nb :
     raise WorkflowError("Samples folder : "+" - ".join(Files_nb)+"  does not have exactly 2 reads files, you may have more or less than 2, files recognised as reads files are the following : .fastq, .fastq.gz, .fq, .fq.gz, .fa, .fa.gz, .fasta, .fasta.gz. You may also want to check the regular expression you used to select samples")
 
 # replace_extension, change file name so that trimmed version is taken for assembly/mapping..etc instead of initials samples
-R1={sample:replace_extensions(list_reads[0]) for sample,list_reads in SAMPLE_READS.items()}
-R2={sample:replace_extensions(list_reads[1]) for sample,list_reads in SAMPLE_READS.items()}
+R1={sample:replace_extensions(list_reads[0],FILTER) for sample,list_reads in SAMPLE_READS.items()}
+R2={sample:replace_extensions(list_reads[1],FILTER) for sample,list_reads in SAMPLE_READS.items()}
 
 # in case all reads are fasta files, skip trimming/fastqc
 if len([read for read in [value for value in R1.values()] if get_extension(read) in {".fastq.gz",".fastq",".fq.gz",".fq"}])==0 :

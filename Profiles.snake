@@ -18,6 +18,13 @@ rule bed_orfs:
     singularity : "builds/pythonenv.sif"
     shell : "{SCRIPTS}/Gff_to_bed.py {input.gff} {output.bed}"
 
+rule sort_bed:
+    input: "{path}/contigs_C10K_temp.bed"
+    output: "{path}/contigs_C10K.bed"
+    conda : "%s/pythonenv.yaml"%CONDA_ENV
+    singularity : "builds/pythonenv.sif"
+    shell: "{SCRIPTS}/sort_bed.py {input} {ASMBL} {output}"
+
 
 # ---- use bedtool to compute coverage  ----------------------------------------------------
 rule bedtools:
@@ -25,11 +32,9 @@ rule bedtools:
              bed="{group}/annotation/{type}.bed"
     output:  "{group}/map/{sample}.{type}.cov"
     log:      "{group}/map/{sample}_{type}.log"
-    resources:
-        memG=TASK_MEMORY
     conda : CONDA_ENV + "/bedtools.yaml"
     singularity : "builds/bedtools.sif"
-    shell:   "bedtools coverage -a {input.bed} -b {input.bam} -mean > {output} 2>{log} "
+    shell:   "bedtools coverage -a {input.bed} -b {input.bam} -mean -sorted> {output} 2>{log} "
 
 # ---- collate all files  -----------------------
 rule coverage:
@@ -59,6 +64,11 @@ rule generate_profile:
 # ----------------------------------------------------------
 # ---- generate Normalisation file  -----------------------
 # ----------------------------------------------------------
+def filtered(file,FILTER):
+    if FILTER:
+        file = "%s/Filtered_%s"%(dirname(file),basename(file))
+    return(file)
+
 
 # ---- generate nb nucleotides by sample  -----------------------
 if IS_FASTA : 
@@ -71,7 +81,7 @@ if IS_FASTA :
             
 else :
     rule nb_bases:
-        input: lambda w : [fastq_file+"_trimming_report.txt" for sample in  GROUPS[w.group] for fastq_file in SAMPLE_READS[basename(sample)]]
+        input: lambda w : [filtered(fastq_file,FILTER)+"_trimming_report.txt" for sample in  GROUPS[w.group] for fastq_file in SAMPLE_READS[basename(sample)]]
         output: temp("{group}/profile/nucleotides.tsv")
         run: 
             dict_sample_nb=defaultdict(list)
@@ -123,7 +133,7 @@ else :
     rule reads_qty:
         input:  R1=lambda w:R1[w["sample"]]
         output: IN+"/{sample}/{sample}_readsnb.txt"
-        shell: "echo $(($(zless {input.R1} | wc -l)/2)) > {output}"
+        shell: "echo $(($(zcat {input.R1} | wc -l)/2)) > {output}"
 
 rule get_percent:
     input: mapped=lambda w:[w.group+"/map/"+sample.split('/')[-1]+"_mapped_read.txt" for sample in  GROUPS[w.group]],

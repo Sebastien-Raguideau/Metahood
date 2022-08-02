@@ -1,0 +1,36 @@
+COG0016	PheS	Phenylalanyl-tRNA_synthetase_alpha_subunit	PF01409	tRNA synthetases class II core domain (F)
+COG0060	RpsL	Ribosomal_protein_S12	PF00164.20	Ribosomal_protein_S12/S23
+COG0184	RpsO	Ribosomal_protein_S15P/S13E	PF00312.17	Ribosomal_protein_S15
+COG0049	RpsG	Ribosomal_protein_S7	PF00177.16	Ribosomal_protein_S7p/S5e
+COG0088	RplD	Ribosomal_protein_L4	PF00573.17	Ribosomal_protein_L4/L1_family
+COG0092	RpsC	Ribosomal_protein_S3	PF00189	Ribosomal protein S3, C-terminal domain
+COG0094	RplE	Ribosomal_protein_L5	PF00281.14	Ribosomal_protein_L5
+COG0197	RplP	Ribosomal_protein_L16/L10AE	PF00252.13	Ribosomal_protein_L16p/L10e
+COG0201	SecY	Preprotein_translocase_subunit_SecY	PF00344	SecY
+COG0532	InfB	Translation_initiation_factor_IF-2,_a_GTPase	PF11987	Translation-initiation factor 2
+COG0048	RpsL	Ribosomal_protein_S12	PF00164.20	Ribosomal_protein_S12/S23
+COG0052	RpsB	Ribosomal_protein_S2	PF00318.15	Ribosomal_protein_S2
+COG0080	RplK	Ribosomal_protein_L11	PF03946.9	Ribosomal_protein_L11,_N-terminal_domain
+COG0081	RplA	Ribosomal_protein_L1	PF00687.16	Ribosomal_protein_L1p/L10e_family_
+COG0087	RplC	Ribosomal_protein_L3	PF00297.17	Ribosomal_protein_L3
+COG0090	RplB	Ribosomal_protein_L2	PF00181.18	Ribosomal_Proteins_L2,_RNA_binding_domain
+COG0093	RplN	Ribosomal_protein_L14	PF00238.14	Ribosomal_protein_L14p/L23e
+COG0096	RpsH	Ribosomal_protein_S8	PF00410.14	Ribosomal_protein_S8
+COG0097	RplF	Ribosomal_protein_L6P/L9E	PF00347.18	Ribosomal_protein_L6
+COG0103	RpsI	Ribosomal_protein_S9	PF00380.14	Ribosomal_protein_S9/S16
+COG0256	RplR	Ribosomal_protein_L18	PF00861.17	Ribosomal_L18_of_archaea,_bacteria,_mitoch._and_chloroplas
+COG0051	RpsJ	Ribosomal_protein_S10	PF00338.17	Ribosomal_protein_S10p/S20e
+COG0072	PheT	Phenylalanyl-tRNA_synthetase_beta_subunit_PF03483.12	B3/B4_tRNA-binding_domain
+COG0089	RplW	Ribosomal_protein_L23	PF00276.15	Ribosomal_protein_L23
+COG0091	RplV	Ribosomal_protein_L22	PF00237.14	Ribosomal_protein_L22p/L17e
+COG0100	RpsK	Ribosomal_protein_S11	PF00411.14	Ribosomal_protein_S11
+COG0102	RplM	Ribosomal_protein_L13	PF00572.13	Ribosomal_protein_L13
+COG0185	RpsS	Ribosomal_protein_S19	PF00203.16	Ribosomal_protein_S19
+COG0200	RplO	Ribosomal_protein_L15	PF00828.14	Ribosomal_proteins_50S-L15,_50S-L18e,_60S-L27A
+COG0244	RplJ	Ribosomal_protein_L10	PF00466.15_Ribosomal_protein_L10
+COG0186	RpsQ	Ribosomal_protein_S17	PF00366	Ribosomal_protein_S17
+COG0198	RplX	Ribosomal_protein_L24	PF17136	Ribosomal proteins 50S L24/mitochondrial 39S L24
+COG0541	Ffh	Signal_recognition_particle_GTPase	TIGR00959	SRP54-type protein, GTPase domain
+COG0552	FtsY	Signal_recognition_particle_GTPase	TIGR00064	signal recognition particle-docking protein FtsY
+COG0504	PyrG	CTP_synthase_(UTP-ammonia_lyase)	PF00117.23	Glutamine_amidotransferase_class-I
+COG0130	TruB	tRNA_U55_pseudouridine_synthase_TruB,_may_also_work_on_U342_of_tmRNA	PF01509.13	TruB_family_pseudouridylate_synthase

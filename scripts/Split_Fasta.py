@@ -6,7 +6,7 @@ import numpy as np
 import argparse
 import os 
 
-def main(fasta_file,nb_chunks,output) :
+def split_fasta(fasta_file,nb_chunks,output) :
     Sorted_Names=[]
     Dico_genome_seq={}
     Dico_genome_len={}
@@ -20,7 +20,7 @@ def main(fasta_file,nb_chunks,output) :
     # Start of loop
     num=0
     extension="."+fasta_file.split(".")[-1]
-    fasta_path=output+"/"+fasta_file.split('/')[-1].split(".")[0]
+    fasta_path=output+"/Batch"
     Current_filename=lambda x:fasta_path+"_"+str(x)+extension
     Handle=open(Current_filename(num),"w")
     Temp_length=0
@@ -48,4 +48,4 @@ if __name__ == "__main__":
         output=output[:-1]
     if output=="Split_" :
         output+=".".join(fasta_file.split(".")[:-1])
-    main(fasta_file,n,output)
+    split_fasta(fasta_file,n,output)

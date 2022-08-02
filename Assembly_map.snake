@@ -2,8 +2,6 @@
 # ---- Assembly ----------------------------------------------------------------
 
 # Assemble with MegaHIT
-
-
 rule megahit:
     input:   left=lambda w:R1[w["group"]],
              right=lambda w:R2[w["group"]],
@@ -15,8 +13,6 @@ rule megahit:
              mem=MAX_MEM_PERCENT,
              Additional_params=ASSEMBLER_PARAMS,
              assembly = "../assembly/final.contigs.fa"
-    resources:
-        memG=int(MAX_MEMG)
     threads: 50
     log:     "{group}/assembly/assembly.log"
     message: "Assembling {wildcards.group} with MegaHIT"
@@ -27,10 +23,6 @@ rule megahit:
              ln -s {params.assembly} {output}
              """
 
-# rule contig_folder:
-#     input: "{group}/assembly/final.contigs.fa"
-#     output: "{group}/contigs/contigs.fa"
-#     shell: "mv {input} {output}"
 
 # ---- bwa index file  -------------------------------------------
 
@@ -49,7 +41,7 @@ rule bwa_index:
 rule bwa_mem_to_bam:
     input:   index="{group}/contigs/index.done",
              contigs="{group}/contigs/contigs.fa",
-             left=lambda w:SAMPLE_READS[w.sample][0], right=lambda w:SAMPLE_READS[w.sample][1]
+             left=lambda w:replace_extensions(SAMPLE_READS[w.sample][0],FILTER), right=lambda w:replace_extensions(SAMPLE_READS[w.sample][1],FILTER)
     output:  "{group}/map/{sample}_mapped_sorted.bam"
     threads: 1000
     log:     "{group}/map/{sample}_map.log"

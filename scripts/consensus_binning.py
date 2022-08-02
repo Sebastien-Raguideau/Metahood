@@ -9,8 +9,27 @@ from scipy.stats import pearsonr
 from collections import Counter, defaultdict
 from Bio.SeqIO.FastaIO import SimpleFastaParser as sfp
 
+# --------- basic algo -----------
+# 1) focus on mags only, don't try to patch together incomplete bins or overly contaminated bins
+# --> find contigs common between the 2 set of mags from the 2 assemblies
+# 2) divide contigs in 2 situations:
+#     2a) linked mags are the same thing/organism, just binning is different
+#     2b) linked mags are different but got common contigs by chance
+# ==> do they share at least 50% of their SCG. 50% is chosen because in the worst situation, to be MAG they need 75% completion with 0% contamination. In this case and unless they would still share 50% of their scgs. And we are assured that with that threshold we are not missing any pairing, while over 50% we could. Taking under 50% would also be meaningless since genuine non chimeric MAGs share at least 50%. Chimeric MAG: a bin falling in the MAG category from complementarity of multiple scg sets.
+# 3) deal with contigs from case 2b), look at contigs coverage and mean cov of mags, assign contig to mag with least euclidian distance
+# 4) Reassess quality, it is possible one of this bin lost it's scgs and droped from MAG to bin.
+# 5) Deal with 2a) now that all other ambiguous contigs are sorted. compare pair of mags from both assembly and decide which is best from Completion -5*contamination criterion. 
+# --> when this is done there is no more contig ambiguity even if some contigs may have been dropped.
 
-def consensus(mags_m2, mags_c, cluster_def_m2, cluster_def_c, profile_file, contig_to_len, contigs_to_scg,output):
+# --------- more complexe situation -----------
+# what happens if at 2a), it's more than 2 mags sharing at least 50% of their scg?
+# what configuration may happens? 
+# --> simple configuration, is 1 contaminated with 25% additional SCG sharing 50% of those with 2 non contaminated.
+# --> worst case scenario everything is at a contamination of 25% and share 50% contigs with 2 mags from the other binner. Themselves with 25% contamination, sharing 50% of scg with 2 mags from the other binner.... 
+# ----> solution just get a score per mag and remove iteratively the worst mag until no linkage remain.
+# ----> there is a risk you will loose SCG and organism this way
+
+def consensus(cluster_def_m2, cluster_def_c, profile_file, contig_to_len, contigs_to_scg,output):
     # shared contigs amongs mags : 
     common_contigs =set(cluster_def_m2.keys())&set(cluster_def_c.keys())
     mag_shared = defaultdict(lambda :defaultdict(list))
@@ -28,11 +47,14 @@ def consensus(mags_m2, mags_c, cluster_def_m2, cluster_def_c, profile_file, cont
     # get mags found by both binner, let's call them  smags for shared mags : mag share more than 50%SCG 
     temp_smags = {mag:{linked_mag:nb_scg for linked_mag,nb_scg in linked_mag_scg.items() if nb_scg>0.5*36 }for mag,linked_mag_scg in mag_shared_scg.items()}
     smags = set()
+    non_binary_relationship = set()
     for mag,linked_mag_scg in temp_smags.items() : 
         if linked_mag_scg=={} :
             continue
-        assert(len(linked_mag_scg)==1),"more than one potential unique association between mags from concoct and metabat2 : mag = %s, linked_mags = %s"%(mag,linked_mag) 
-        smags|={tuple(sorted((mag,list(linked_mag_scg.keys())[0])))}
+        if len(linked_mag_scg)>1:
+            non_binary_relationship|={tuple(sorted([mag]+list(linked_mag_scg.keys())))}
+        smags|={tuple(sorted((mag,mag_linked))) for mag_linked in linked_mag_scg.keys()}
+
 
     # define list of ambiguous contigs shared between mags, for which an assignment is needed 
     # ignored pair in smags
@@ -54,14 +76,24 @@ def consensus(mags_m2, mags_c, cluster_def_m2, cluster_def_c, profile_file, cont
         cluster_to_contigs['c%s'%nb].append(contig)
     ambiguous_mags = {mag for mags in contig_to_mags.values() for mag in mags}
     contigs = {contig for mag in ambiguous_mags for contig in cluster_to_contigs[mag]}
-    with open(profile_file) as handle :
-        header=next(handle)
-        contig_profile = {line.split(",")[0]:np.array(list(map(float,line.rstrip().split(",")[1:]))) for line in handle if line.split(",")[0].split(".")[0] in contigs}
+    nb_dot = Counter([len(contig.split(".")) for contig in contigs])
+    assert len(nb_dot)<=1,'nb of "." seems to be inconsistant in contigs names, this is an issue as there is no way to know how to recognise a split contig from concoct from a regular contigs.%s'%nb_dot.items()
+    if len(nb_dot)==1:
+        nb_dot=list(nb_dot.keys())[0]
+        with open(profile_file) as handle :
+            header=next(handle)
+            contig_profile = {line.split(",")[0]:np.array(list(map(float,line.rstrip().split(",")[1:]))) for line in handle if ".".join(line.split(",")[0].split(".")[:nb_dot]) in contigs}
+    else:
+        with open(profile_file) as handle :
+            header=next(handle)
+            contig_profile = {line.split(",")[0]:np.array(list(map(float,line.rstrip().split(",")[1:]))) for line in handle if line.split(",")[0] in contigs}
+
 
     # we're reading concoct coverage file, it got splited contigs, we're going to take the means of the split's coverage
     contig_profile2 = defaultdict(list)
     for contig,profile in contig_profile.items() :
-        contig = contig.split(".")[0]
+        if nb_dot!=0:
+            contig = ".".join(contig.split(".")[:nb_dot])
         contig_profile2[contig].append(profile)
     contig_profile = {contig:np.array(profile).mean(0) for contig,profile in contig_profile2.items()}
 
@@ -86,7 +118,7 @@ def consensus(mags_m2, mags_c, cluster_def_m2, cluster_def_c, profile_file, cont
                 for scg in contigs_to_scg[contig] :
                     scg_tables[index,cogs.index(scg)]+=1
     # ignore any mag  under the threshold : of at least 75% of mags in a unique copy
-    mags_to_delete = set(np.array(sorted_mags)[np.where((scg_tables==1).sum(1)< 0.75*36)])
+    mags_to_delete = set(np.array(sorted_mags)[np.where((scg_tables==1).sum(1)<(0.75*36))])
 
     ## choose best representative from smags
     # define a criterion
@@ -108,10 +140,18 @@ def consensus(mags_m2, mags_c, cluster_def_m2, cluster_def_c, profile_file, cont
         else :
             return [mag1,mag2][score1<score2]
     # get the list of mag to ignore :
-    for mag1,mag2 in smags : 
-        best_mag = get_best_mag(mag1, mag2, sorted_mags, mags_to_delete, contig_to_len, cluster_to_contigs)
-        # delete the one which is not the best.... next time let's make it even more convoluted 
-        mags_to_delete|={[mag1,mag2][mag1==best_mag]}
+    for mag1,mag2 in smags :
+        if not {mag1,mag2}&set(itertools.chain(*non_binary_relationship)):
+            best_mag = get_best_mag(mag1, mag2, sorted_mags, mags_to_delete, contig_to_len, cluster_to_contigs)
+            # delete the one which is not the best.... next time let's make it even more convoluted 
+            mags_to_delete|={[mag1,mag2][mag1==best_mag]}
+
+    # deal with non binary relationship: remove the worst of the serie, and then again....
+    smags_remaining = lambda mtd:{el for el in smags if not mtd&set(el)}
+    while smags_remaining(mags_to_delete):
+        for case in non_binary_relationship:
+            scores = [criterion(mag, sorted_mags, mags_to_delete) for mag in case]
+            mags_to_delete |={case[min(range(len(scores)), key=scores.__getitem__)]}
 
     # create the final cluster definition 
     cluster_to_contigs_final = {mag:contigs for mag,contigs in cluster_to_contigs.items() if mag not in mags_to_delete}
@@ -168,7 +208,7 @@ if __name__ == "__main__":
     output = args.o
 
     #main 
-    consensus(mags_m2, mags_c, cluster_def_m2, cluster_def_c, profile_file, contig_to_len, contigs_to_scg, output)
+    consensus(cluster_def_m2, cluster_def_c, profile_file, contig_to_len, contigs_to_scg, output)
 
 
 

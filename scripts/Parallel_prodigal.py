@@ -1,99 +1,92 @@
 #!/usr/bin/env python
 import os 
+from os.path import realpath,abspath,basename
 from Bio.SeqIO.FastaIO import *
+from multiprocessing import Pool
 from subprocess import Popen, PIPE
 import argparse
 import time 
 
-# must change batch strategy to count number of characters not number of fasta entry. Otherwise it can be pretty stupid if part of entries are significantly bigger than others.
+def split_fasta(fasta_file,Temp_location,nb_chunks) :
+    Sorted_Names=[]
+    Dico_genome_seq={}
+    Dico_genome_len={}
+    for header,seq in SimpleFastaParser(open(fasta_file)) :
+        Sorted_Names.append(header)
+        Dico_genome_seq[header]=seq
+        Dico_genome_len[header]=len(seq)
+    Total_length=sum(Dico_genome_len.values())
+    Chunk_size=Total_length/float(nb_chunks)
+    os.system("mkdir -p "+Temp_location)
+    # Start of loop
+    num=0
+    fasta_path = "%s/Batch"%Temp_location
+    Current_filename=lambda x:"%s_%s"%(fasta_path,str(x))
+    Handle=open(Current_filename(num),"w")
+    Temp_length=0
+    for header in Sorted_Names :
+        if Temp_length>Chunk_size :
+            Temp_length=0
+            num+=1
+            Handle.close()
+            Handle=open(Current_filename(num),"w")
+        Seq=Dico_genome_seq[header]
+        Temp_length+=len(Seq)
+        Handle.write(">"+header+"\n"+Seq+"\n")
+    Handle.close()
+    for n in range(num,nb_chunks):
+    	with open(Current_filename(n),"w"):
+    		continue
 
-def Cant_launch_new_task(Number_task):
-	# return false when new task can be launched
-	process = Popen(['ps aux|grep '+os.getlogin()+'|grep " [p]rodigal" | wc -l '], stdout=PIPE, stderr=PIPE,shell=True)
-	NB = int(process.communicate()[0].rstrip())
-	return NB>=Number_task
+def prodigal(file):
+    process = Popen(["prodigal -i %s -a %s.faa -d %s.fna -f gff -p meta -o %s.gff > %s_prodigal.out 2>&1"%(file,file,file,file,file)], stdout=PIPE, stderr=PIPE,shell=True)
+    return process.communicate()
 
-def main(Fasta_file,Temp_location,Number_task,Splits,output_directory) :
-	process = Popen(['grep -c ">" ' +Fasta_file ], stdout=PIPE, stderr=PIPE,shell=True)
-	nb_line = int(process.communicate()[0].split()[0])
-	os.system("mkdir -p " + Temp_location)
-	Nb_line_batch=nb_line/float(Splits)
-	Batch_num=0
-	## Divide the initial fasta file in batchs and launch prodigal
-	CWD=os.getcwd()
-	Fasta_Directory="/".join(Fasta_file.split("/")[:-1])
-	if Fasta_Directory :
-		os.chdir(Fasta_Directory)
-		AFD=os.getcwd()+"/"+Fasta_file.split("/")[-1]
-		os.chdir(CWD)
-	else :
-		AFD=CWD+"/"+Fasta_file.split("/")[-1]
-	os.chdir(Temp_location)
-	file_name="Batch_0"
-	Handle=open(file_name,"w")
-	for (index,(header,seq)) in enumerate(SimpleFastaParser(open(AFD))) :
-		if index > Nb_line_batch*(Batch_num+1) :
-			if Batch_num==Splits-1 :
-				Handle.write(">"+header+"\n"+seq+"\n")	
-			else :
-				Handle.write(">"+header+"\n"+seq+"\n")
-				Handle.close()
-				while Cant_launch_new_task(Number_task) :
-					time.sleep(10)
-				os.system("prodigal -i "+file_name+" -a "+file_name+".faa -d "+file_name+".fna -f gff -p meta -o "+file_name+".gff > "+file_name+"_prodigal.out 2>&1 &" )
-				Batch_num+=1
-				file_name="Batch_"+str(Batch_num)
-				Handle=open("Batch_"+str(Batch_num),"w")
-		else :
-			Handle.write(">"+header+"\n"+seq+"\n")
-	Handle.close()
-	os.system("nohup prodigal -i "+file_name+" -a "+file_name+".faa -d "+file_name+".fna -f gff -p meta -o "+file_name+".gff > "+file_name+"_prodigal.out 2>&1 &" )
-	process = Popen(['ps aux|grep '+os.getlogin()+'|grep " [p]rodigal" | wc -l '], stdout=PIPE, stderr=PIPE,shell=True)
-	nb_prodigal_batch = int(process.communicate()[0].rstrip())
-	while nb_prodigal_batch!=0 :
-		time.sleep(60)
-		process = Popen(['ps aux|grep '+os.getlogin()+'|grep "[p]rodigal" | grep -v Parallel_prodigal.py | wc -l'], stdout=PIPE, stderr=PIPE,shell=True)
-		nb_prodigal_batch = int(process.communicate()[0].rstrip())
-	Fasta_File_name=Fasta_file.split("/")[-1]
-	Handle_faa=open(CWD+"/"+output_directory+"/"+Fasta_File_name.replace(".fa",".faa"),"w")
-	Handle_fna=open(CWD+"/"+output_directory+"/"+Fasta_File_name.replace(".fa",".fna"),"w")
-	Handle_gff=open(CWD+"/"+output_directory+"/"+Fasta_File_name.replace(".fa",".gff"),"w")
-	Handle_gff.write(open("Batch_0.gff").readline())
-	time.sleep(300)
-	for nb_batch in range(Splits) :
-		Handle_faa.write(open("Batch_"+str(nb_batch)+".faa").read())
-		Handle_fna.write(open("Batch_"+str(nb_batch)+".fna").read())
-		tmp=open("Batch_"+str(nb_batch)+".gff")
-		_=tmp.readline()
-		Handle_gff.write(tmp.read())
-	Handle_faa.close()
-	Handle_fna.close()
-	Handle_gff.close()
-	os.chdir(CWD)
-	time.sleep(10)
-	# os.system("rm -rf "+Temp_location[:-1]+"/*.gff" )
-	# os.system("rm -rf "+Temp_location[:-1]+"/*.fna" )
-	# os.system("rm -rf "+Temp_location[:-1]+"/*.out" )
+
+def main(fasta_file,Temp_location,threads,nb_chunks,output_path) :
+
+    # split fasta file in temp_split/Batch
+    split_fasta(fasta_file,Temp_location,nb_chunks)
+
+    # list files
+    files = [realpath("%s/Batch_%s"%(Temp_location,nb)) for nb in range(nb_chunks)]
+
+    # parrallelize stuf
+    pool = Pool(threads)
+    result = pool.map(prodigal,files)
+
+    # gather batch in unique files 
+    new_name  = "%s/%s"%(output_path,".".join(basename(fasta_file).split('.')[:-1]))
+    with open(("%s.faa"%new_name),"w") as h_faa, open(("%s.fna"%new_name),"w") as h_fna, open(("%s.gff"%new_name),"w") as h_gff:
+        h_gff.write(open("%s/Batch_0.gff"%Temp_location).readline())
+        for index in range(nb_chunks) :
+            h_faa.write(open("%s/Batch_%s.faa"%(Temp_location,index)).read())
+            h_fna.write(open("%s/Batch_%s.fna"%(Temp_location,index)).read())
+            tmp=open("%s/Batch_%s.gff"%(Temp_location,index))
+            _=tmp.readline()
+            h_gff.write(tmp.read())
+
+    time.sleep(10)
 
 
 if __name__ == "__main__":
-	parser = argparse.ArgumentParser()
-	parser.add_argument("n", help="Number of prodigal tasks")
-	parser.add_argument("-s", help="Number of splits, default is same as number of tasks")
-	parser.add_argument("-T", help="Temp file location ",default="./Split_Annotation")
-	parser.add_argument("f", help="Fasta_file")
-	parser.add_argument("-o", help="output Directory",default='./')
-	args = parser.parse_args()
-	Fasta_file=args.f
-	Number_task=int(args.n)
-	Temp_location=args.T
-	Temp_location=Temp_location+(not Temp_location[-1]=="/")*"/"
-	if args.s :
-		Splits=int(args.s)
-	else:
-		Splits=Number_task
-	output_directory=args.o
-	main(Fasta_file,Temp_location,Number_task,Splits,output_directory)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("n", help="Number of prodigal tasks")
+    parser.add_argument("-s", help="Number of chunks, default is same as number of tasks")
+    parser.add_argument("-T", help="Temp file location ",default="./split_annotation")
+    parser.add_argument("f", help="fasta_file")
+    parser.add_argument("-o", help="output Directory",default='./')
+    args = parser.parse_args()
+    fasta_file=args.f
+    threads=int(args.n)
+    Temp_location=args.T
+    Temp_location=Temp_location+(not Temp_location[-1]=="/")*"/"
+    if args.s :
+        nb_chunks=int(args.s)
+    else:
+        nb_chunks=threads
+    output_path=args.o
+    main(fasta_file,Temp_location,threads,nb_chunks,output_path)
 
 
 

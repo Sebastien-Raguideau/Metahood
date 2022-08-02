@@ -49,7 +49,7 @@ def get_gff_dico(Chunk_size,Gff_file):
 	for Seq_data,Model,ORF_list in prodigal_gff_parser(Handle) :
 		Seq_len=int(Seq_data.split(";")[1].split("=")[1])
 		for ORF in ORF_list :
-			(seqid,source,type,start,end,score,strand,phase,attributes)=ORF.split()
+			(seqid,source,type,start,end,score,strand,phase,attributes)=ORF.split("\t")
 			Dico_contigs[seqid]=Seq_len
 			start=int(start)-1
 			end=int(end)-1

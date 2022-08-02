@@ -9,7 +9,7 @@ rule cut_contigs:
     input:  fa="{group}/contigs/contigs.fa",
             gff="{group}/annotation/contigs.gff"
     output: contig="{group}/contigs/contigs_C10K.fa",
-            Contig_bed="{group}/annotation/contigs_C10K.bed"
+            Contig_bed=temp("{group}/annotation/contigs_C10K.bed")
     priority: 50
     message:"Use orfs annotation to cut contigs"
     conda : CONDA_ENV + "/pythonenv.yaml"
@@ -17,7 +17,7 @@ rule cut_contigs:
     shell:  """{SCRIPTS}/Use_orf_to_cut.py {input.fa} {input.gff} {output.contig} {output.Contig_bed}"""
 
 
-# ------- extract scg ------------------------------------------------------------------------
+#------- extract scg ------------------------------------------------------------------------
 rule extract_SCG_sequences:
     input:  annotation="{filename}_cogs_best_hits.tsv",
             gff="{filename}.gff",
@@ -27,7 +27,7 @@ rule extract_SCG_sequences:
     singularity : "builds/pythonenv.sif"
     shell:  "{SCRIPTS}/Extract_SCG.py {input.fna} {input.annotation} {SCG_DATA}/scg_cogs_min0.97_max1.03_unique_genera.txt {input.gff}>{output}"
 
-# --------- Concoct ------------------------------------------------------------------------
+#--------- Concoct ------------------------------------------------------------------------
 #def get_initial_number_of_bins(wildcards):
 #    SCF_faa_handle=open(checkpoints.extract_SCG_sequences.get(filename=wildcards.group+"/annotation/contigs").output[0])
 #    nb_bin=int(2*np.median(list(Counter([header.split(" ")[1] for header,seq in SimpleFastaParser(SCF_faa_handle)]).values())))
@@ -56,7 +56,7 @@ rule concoct:
             concoct --coverage_file {input.cov} -i 1000 --composition_file {input.fasta} -b {wildcards.group}/binning/concoct -c $string -l {params.min_contig_size} -t {threads}
             """ 
 
-# --------- Get SCG table out of clustering --------------------------------------------------
+#--------- Get SCG table out of clustering --------------------------------------------------
 rule SCG_table:
     input  : bins="{group}/binning/{binner}/clustering_{name}.csv",
              SCG="{group}/annotation/contigs_SCG.fna",
@@ -68,7 +68,7 @@ rule SCG_table:
     shell  : "{SCRIPTS}/SCG_in_Bins.py {input.bins} {input.SCG} {input.orf_bed} {input.split_bed} -t {output}"
 
 
-# --------- Concoct refine -------------------------------------------------------------------
+#--------- Concoct refine -------------------------------------------------------------------
 
 rule refine:
     input:  bins="{group}/{path}clustering_gt%d.csv"%MIN_CONTIG_SIZE,
@@ -97,7 +97,7 @@ rule refine:
             cd $ROOTDIR
             """
 
-# --------- merge back contigs -------------------------------------------------------------------
+#--------- merge back contigs -------------------------------------------------------------------
 rule merge_contigs:
     input:   refine="{path}clustering_refine.csv",
              table ="{path}refine_SCG_table.csv" 
@@ -107,7 +107,7 @@ rule merge_contigs:
     singularity : "builds/pythonenv.sif"
     shell:   "{SCRIPTS}/Consensus.py {input.refine} >{output} 2>{log}"
 
-# --------- estimate the number of mag ------------------------------------------------------------
+#--------- estimate the number of mag ------------------------------------------------------------
 
 rule output_number_of_mag:
     input:   table="{path}/{binner}_SCG_table.csv"
@@ -128,7 +128,7 @@ rule output_number_of_mag:
                 handle_nb.write(str(nb)+"\n")
                 handle_list.write("\n".join([nb for nb in mags]))
 
-# --------- produce a contig file for each bins be they good or not (metabat2 style) ---------------
+#--------- produce a contig file for each bins be they good or not (metabat2 style) ---------------
 ruleorder : metabat2>output_bins
 rule output_bins:
     input:   contigs="{group}/contigs/contigs.fa",
@@ -141,7 +141,7 @@ rule output_bins:
     touch {output}
     """
 
-# --------- create a consensus binning between concoct and metabat2 ----------------
+#--------- create a consensus binning between concoct and metabat2 ----------------
 
 rule get_consensus_binning :
     # only support 2 binner as of now
@@ -159,4 +159,42 @@ rule get_consensus_binning :
     {SCRIPTS}/consensus_binning.py -c_bin_def {input.c_bin_def} -m_bin_def {input.m_bin_def} -c_mag_list {input.c_mag_list} -m_mag_list {input.m_mag_list} -scg {input.scg} -contig_profiles {input.contig_profiles} -contig_bed {input.contig_bed} -o {output}
     """
 
+
+#--------- Meren marker + CPR markers ----------------
+# use checkm on meren hmm markers, super fast/easy
+rule checkm_analyse :
+    # only support 2 binner as of now
+    input : done = "{group}/binning/{binner}/quality/bins_aa/done"
+    output : "{group}/binning/{binner}/quality/{type}/storage/bin_stats.analyze.tsv"
+    params : folder = "{group}/binning/{binner}/quality/{type}",
+             tmp = "{group}/binning/{binner}/quality/{type}/tmp",
+             hmm = lambda w:HMM[w.type]
+    threads: 50
+    conda : "%s/checkm.yaml"%CONDA_ENV
+    singularity : "builds/checkm.sif"
+    shell :"""
+           mkdir -p {params.folder}/tmp/
+           checkm analyze {params.hmm} $(dirname {input}) {params.folder} -g -x .faa --tmpdir {params.tmp} -t {threads}
+           """  
+
+rule checkm_quality_assessment :
+    # only support 2 binner as of now
+    input : done = "{group}/binning/{binner}/quality/{type}/storage/bin_stats.analyze.tsv"
+    output : "{group}/binning/{binner}/quality/checkm_{type}.tsv"
+    params : folder = "{group}/binning/{binner}/quality/{type}",
+             tmp = "{group}/binning/{binner}/quality/{type}/tmp",
+             hmm = lambda w:HMM[w.type]
+    threads: 50
+    conda : "%s/checkm.yaml"%CONDA_ENV
+    singularity : "builds/checkm.sif"
+    shell :"""
+           checkm qa {params.hmm} {params.folder} --tmpdir {params.tmp} -f {output} --tab_table -t {threads} -o 2
+           """  
+
+rule experimental_quality :
+    input: marker = expand("{{group}}/binning/{{binner}}/quality/checkm_{type}.tsv",type=["cpr43","ar76","bac71"])
+    output: out = "{group}/binning/{binner}/quality/quality_test.tsv"
+    conda : CONDA_ENV + "/pythonenv.yaml"
+    singularity : "builds/pythonenv.sif"
+    shell:"{SCRIPTS}/experimental_quality.py {output.out} {input.marker}"
 

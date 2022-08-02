@@ -8,7 +8,7 @@ except:
 
 from collections import defaultdict
 from subprocess import Popen, PIPE
-from os.path import basename
+from os.path import basename, dirname
 import os
 import os.path
 import re
@@ -81,7 +81,9 @@ def get_extension(file) :
         if file.endswith(ext):
             return ext 
 
-def replace_extensions(sample):
+def replace_extensions(sample,FILTER):
+    if FILTER:
+        sample = "%s/Filtered_%s"%(dirname(sample),basename(sample))
     ext = get_extension(sample)
     if ext in {".fastq.gz",".fastq",".fq.gz",".fq"} :
         return sample.replace(ext,"_trimmed%s"%ext)

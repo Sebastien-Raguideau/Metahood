@@ -7,13 +7,24 @@ from os.path import basename
 wildcard_constraints:
     ext = "(fastq.gz|fq.gz|fastq|fq)",
     IN = IN,
-    prefix = ".*", # this is a trick so that the wildcard don't try to match folders/prefix, this speed up dag resolution as, in this case we have too many wildcards, making it less identifyable.
-    suffix = ".*",
-    sample = ".*"
+    prefix = ".+", # this is a trick so that the wildcard don't try to match folders/prefix, this speed up dag resolution as in this case we have too many wildcards, making it less identifyable.
+    # unclear why previous negative lookahead does not work anymore
+    #    suffix = "^(?!.*_trimmed).*|.{0}",
+    suffix = ".*(?<!_trimmed)|.{0}",
+    sample = ".+"
+
+rule bwa_index2:
+    input: "{file}"
+    output: "{file}.sa"
+    conda : "%s/bwasamtools.yaml"%CONDA_ENV
+    singularity : "builds/bwasamtools.sif"
+    shell: "bwa index {input}"
+
 
 rule map_to_mask:
     input: R1 = lambda w:SAMPLE_READS[w.sample][0],
-           R2 = lambda w:SAMPLE_READS[w.sample][1]
+           R2 = lambda w:SAMPLE_READS[w.sample][1],
+           index = "%s.sa"%FILTER
     output: bam = temp("{IN}/{sample}/Filtered.bam"),
     log: "{IN}/{sample}/mapping.log"
     threads: 10
@@ -49,8 +60,8 @@ if FILTER:
                 file_R1_qc="{IN}/{sample}/Filtered_{prefix}R1{suffix}.{ext}_fastqc_done",
                 file_R2="{IN}/{sample}/Filtered_{prefix}R2{suffix}.{ext}",
                 file_R2_qc="{IN}/{sample}/Filtered_{prefix}R2{suffix}.{ext}_fastqc_done"
-        output :R1="{IN}/{sample}/{prefix}R1{suffix}_trimmed.{ext}",
-                R2="{IN}/{sample}/{prefix}R2{suffix}_trimmed.{ext}",
+        output :R1="{IN}/{sample}/Filtered_{prefix}R1{suffix}_trimmed.{ext}",
+                R2="{IN}/{sample}/Filtered_{prefix}R2{suffix}_trimmed.{ext}",
                 report_R1="{IN}/{sample}/Filtered_{prefix}R1{suffix}.{ext}_trimming_report.txt",
                 report_R2="{IN}/{sample}/Filtered_{prefix}R2{suffix}.{ext}_trimming_report.txt"
         params : R1 = lambda w: "%s/%s/Filtered_%sR1%s_val_1.fq"%(IN,w.sample,w.prefix,w.suffix)+".gz"*(".gz" in w.ext),
@@ -87,8 +98,8 @@ else:
         """    
 
 rule multiqc :
-    input : R1=[replace_extensions(SAMPLE_READS[sample][0]) for sample in SAMPLES],
-            R2=[replace_extensions(SAMPLE_READS[sample][1]) for sample in SAMPLES],
+    input : R1=[replace_extensions(SAMPLE_READS[sample][0],FILTER) for sample in SAMPLES],
+            R2=[replace_extensions(SAMPLE_READS[sample][1],FILTER) for sample in SAMPLES],
     output : IN+"/quality_done"
     conda : CONDA_ENV + "/multiqc.yaml"
     singularity : "builds/multiqc.sif"
