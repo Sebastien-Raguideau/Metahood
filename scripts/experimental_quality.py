@@ -5,10 +5,10 @@ from os.path import basename
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('output', help='output file', required=True)
-    parser.add_argument('markers', nargs='+', help='checkm marker outputs', required=True)
+    parser.add_argument('output', help='output file')
+    parser.add_argument('markers', nargs='+', help='checkm marker outputs')
     args = parser.parse_args()
-    MARKERS = args.marker
+    MARKERS = args.markers
     OUTPUT = args.output
 
     header = next(open(MARKERS[0]))

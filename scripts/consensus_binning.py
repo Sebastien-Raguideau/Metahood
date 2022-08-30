@@ -29,7 +29,7 @@ from Bio.SeqIO.FastaIO import SimpleFastaParser as sfp
 # ----> solution just get a score per mag and remove iteratively the worst mag until no linkage remain.
 # ----> there is a risk you will loose SCG and organism this way
 
-def consensus(cluster_def_m2, cluster_def_c, profile_file, contig_to_len, contigs_to_scg,output):
+def consensus(cluster_def_m2, cluster_def_c, profile_file, contig_to_len, contigs_to_scg, nb_scg, output):
     # shared contigs amongs mags : 
     common_contigs =set(cluster_def_m2.keys())&set(cluster_def_c.keys())
     mag_shared = defaultdict(lambda :defaultdict(list))
@@ -45,7 +45,7 @@ def consensus(cluster_def_m2, cluster_def_c, profile_file, contig_to_len, contig
     mag_shared_scg = {mag:{linked_mag:sum([contigs_to_scgnb[contig] for contig in contigs]) for linked_mag,contigs in linked_mag_contigs.items()} for mag,linked_mag_contigs in mag_shared.items()}
 
     # get mags found by both binner, let's call them  smags for shared mags : mag share more than 50%SCG 
-    temp_smags = {mag:{linked_mag:nb_scg for linked_mag,nb_scg in linked_mag_scg.items() if nb_scg>0.5*36 }for mag,linked_mag_scg in mag_shared_scg.items()}
+    temp_smags = {mag:{linked_mag:nb_scg for linked_mag,nb_scg in linked_mag_scg.items() if nb_scg>0.5*nb_scg }for mag,linked_mag_scg in mag_shared_scg.items()}
     smags = set()
     non_binary_relationship = set()
     for mag,linked_mag_scg in temp_smags.items() : 
@@ -118,15 +118,15 @@ def consensus(cluster_def_m2, cluster_def_c, profile_file, contig_to_len, contig
                 for scg in contigs_to_scg[contig] :
                     scg_tables[index,cogs.index(scg)]+=1
     # ignore any mag  under the threshold : of at least 75% of mags in a unique copy
-    mags_to_delete = set(np.array(sorted_mags)[np.where((scg_tables==1).sum(1)<(0.75*36))])
+    mags_to_delete = set(np.array(sorted_mags)[np.where((scg_tables==1).sum(1)<(0.75*nb_scg))])
 
     ## choose best representative from smags
     # define a criterion
     def criterion(mag, sorted_mags, mags_to_delete) :
         if mag in mags_to_delete : 
             return -500
-        contamination = sum(scg_tables[sorted_mags.index(mag),:]>1)/36.
-        completion = 1-sum(scg_tables[sorted_mags.index(mag),:]==0)/36.
+        contamination = sum(scg_tables[sorted_mags.index(mag),:]>1)/nb_scg.
+        completion = 1-sum(scg_tables[sorted_mags.index(mag),:]==0)/nb_scg.
         score = completion - 5*contamination
         return score
     def get_best_mag(mag1, mag2, sorted_mags, mags_to_delete, contig_to_len, cluster_to_contigs) :
@@ -200,15 +200,17 @@ if __name__ == "__main__":
     contig_to_len = {line.rstrip().split("\t")[0]:int(line.rstrip().split("\t")[2]) for line in open(args.contig_bed)}
     # get contig SCG
     contigs_to_scg = defaultdict(list)
+    scgs = {}
     for header,seq in sfp(open(args.scg)) :
         orf,cog,strand = header.rstrip().split(" ")
         contig = "_".join(orf.split('_')[:-1])
         contigs_to_scg[contig].append(cog)
+        scgs.add(cog)
     # output 
     output = args.o
 
     #main 
-    consensus(cluster_def_m2, cluster_def_c, profile_file, contig_to_len, contigs_to_scg, output)
+    consensus(cluster_def_m2, cluster_def_c, profile_file, contig_to_len, contigs_to_scg, len(scgs), output)
 
 
 

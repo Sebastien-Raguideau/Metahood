@@ -9,7 +9,7 @@ rule cut_contigs:
     input:  fa="{group}/contigs/contigs.fa",
             gff="{group}/annotation/contigs.gff"
     output: contig="{group}/contigs/contigs_C10K.fa",
-            Contig_bed=temp("{group}/annotation/contigs_C10K.bed")
+            Contig_bed=temp("{group}/annotation/contigs_C10K.bedtemp")
     priority: 50
     message:"Use orfs annotation to cut contigs"
     conda : CONDA_ENV + "/pythonenv.yaml"
@@ -122,7 +122,7 @@ rule output_number_of_mag:
                     if index==0:
                         continue
                     split_line=line.rstrip().split(',')
-                    if sum([element=="1" for element in split_line[1:]])>=(0.75*36) :
+                    if sum([element=="1" for element in split_line[1:]])>=(0.75*len(SCG)) :
                         nb+=1
                         mags.append(split_line[0])
                 handle_nb.write(str(nb)+"\n")
@@ -159,10 +159,22 @@ rule get_consensus_binning :
     {SCRIPTS}/consensus_binning.py -c_bin_def {input.c_bin_def} -m_bin_def {input.m_bin_def} -c_mag_list {input.c_mag_list} -m_mag_list {input.m_mag_list} -scg {input.scg} -contig_profiles {input.contig_profiles} -contig_bed {input.contig_bed} -o {output}
     """
 
+#--------- run checkm as an other mag assessment option ----------------
+rule output_bins_faa:
+    input:   contigs="{group}/annotation/contigs.faa",
+             clustering="{group}/binning/{binner}/clustering_{binner}.csv"
+    output:  "{group}/binning/{binner}/quality/bins_aa/done"
+    conda : CONDA_ENV + "/pythonenv.yaml"
+    singularity : "builds/pythonenv.sif"
+    shell :"""
+    {SCRIPTS}/Split_fasta_by_bin.py {input.clustering} $(dirname {output}) --fasta {input.contigs}
+    touch {output}
+    """
+
 
 #--------- Meren marker + CPR markers ----------------
 # use checkm on meren hmm markers, super fast/easy
-rule checkm_analyse :
+rule checkm_analyse:
     # only support 2 binner as of now
     input : done = "{group}/binning/{binner}/quality/bins_aa/done"
     output : "{group}/binning/{binner}/quality/{type}/storage/bin_stats.analyze.tsv"

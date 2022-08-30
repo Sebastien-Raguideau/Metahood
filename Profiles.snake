@@ -5,7 +5,7 @@ from os.path import dirname,basename,join
 # ---- generate contig bed   ----------------------------------------------------
 rule bogus_bed:
     input:   contig="{group}/contigs/contigs.fa"
-    output:  bed="{group}/annotation/contigs.bed"
+    output:  bed=temp("{group}/annotation/contigs.bedtemp")
     conda : CONDA_ENV + "/pythonenv.yaml"
     singularity : "builds/pythonenv.sif"
     shell : "{SCRIPTS}/bogus_bed.py -i {input.contig} -o {output.bed}"
@@ -13,28 +13,31 @@ rule bogus_bed:
 # ---- generate orfs bed   ----------------------------------------------------
 rule bed_orfs:
     input:   gff="{path}/contigs.gff"
-    output:  bed="{path}/orf.bed"
+    output:  bed=temp("{path}/orf.bedtemp")
     conda : CONDA_ENV + "/pythonenv.yaml"
     singularity : "builds/pythonenv.sif"
     shell : "{SCRIPTS}/Gff_to_bed.py {input.gff} {output.bed}"
 
 rule sort_bed:
-    input: "{path}/contigs_C10K_temp.bed"
-    output: "{path}/contigs_C10K.bed"
+    input: bed = "{path}/annotation/{type}.bedtemp",
+           cont = "{path}/contigs/contigs.fa"
+    output: bed = "{path}/annotation/{type}.bed",
+            gfile = temp("{path}/annotation/{type}_bedtools_target_definition.tsv")
     conda : "%s/pythonenv.yaml"%CONDA_ENV
     singularity : "builds/pythonenv.sif"
-    shell: "{SCRIPTS}/sort_bed.py {input} {ASMBL} {output}"
+    shell: "{SCRIPTS}/sort_bed.py {input.bed} {input.fa} {output} -g {output.gfile}"
 
 
 # ---- use bedtool to compute coverage  ----------------------------------------------------
 rule bedtools:
-    input:   bam="{group}/map/{sample}_mapped_sorted.bam",
-             bed="{group}/annotation/{type}.bed"
+    input:   bam = "{group}/map/{sample}_mapped_sorted.bam",
+             bed = "{group}/annotation/{type}.bed",
+             genome = "{group}/annotation/{type}_bedtools_target_definition.tsv"
     output:  "{group}/map/{sample}.{type}.cov"
     log:      "{group}/map/{sample}_{type}.log"
     conda : CONDA_ENV + "/bedtools.yaml"
     singularity : "builds/bedtools.sif"
-    shell:   "bedtools coverage -a {input.bed} -b {input.bam} -mean -sorted> {output} 2>{log} "
+    shell:   "bedtools coverage -a {input.bed} -b {input.bam} -g {input.genome} -mean -sorted> {output} 2>{log} "
 
 # ---- collate all files  -----------------------
 rule coverage:
