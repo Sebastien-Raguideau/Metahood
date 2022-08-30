@@ -46,8 +46,6 @@ annotation: # support only diamond for now
       # min_Bitscore , max_Evalue , min_Pid , min_subject_pid , min_coverage , min_Query_coverage
       filter: [0,1e-5,0.8,0,0.2,0.8]
       color: "#ff0000" # orf graph
-  rpsblast:
-    cog_database: /home/sebr/seb/Database/rpsblast_cog_db/Cog
   cat_db: /mnt/gpfs/seb/Database/NR_Cat
   kraken_db: /mnt/gpfs/seb/Database/Kraken_Standard
   kofamscan: 
