@@ -125,8 +125,8 @@ def consensus(cluster_def_m2, cluster_def_c, profile_file, contig_to_len, contig
     def criterion(mag, sorted_mags, mags_to_delete) :
         if mag in mags_to_delete : 
             return -500
-        contamination = sum(scg_tables[sorted_mags.index(mag),:]>1)/nb_scg.
-        completion = 1-sum(scg_tables[sorted_mags.index(mag),:]==0)/nb_scg.
+        contamination = sum(scg_tables[sorted_mags.index(mag),:]>1)/nb_scg
+        completion = 1-sum(scg_tables[sorted_mags.index(mag),:]==0)/nb_scg
         score = completion - 5*contamination
         return score
     def get_best_mag(mag1, mag2, sorted_mags, mags_to_delete, contig_to_len, cluster_to_contigs) :
@@ -200,7 +200,7 @@ if __name__ == "__main__":
     contig_to_len = {line.rstrip().split("\t")[0]:int(line.rstrip().split("\t")[2]) for line in open(args.contig_bed)}
     # get contig SCG
     contigs_to_scg = defaultdict(list)
-    scgs = {}
+    scgs = set()
     for header,seq in sfp(open(args.scg)) :
         orf,cog,strand = header.rstrip().split(" ")
         contig = "_".join(orf.split('_')[:-1])
@@ -210,7 +210,7 @@ if __name__ == "__main__":
     output = args.o
 
     #main 
-    consensus(cluster_def_m2, cluster_def_c, profile_file, contig_to_len, contigs_to_scg, len(scgs), output)
+    consensus(cluster_def_m2, cluster_def_c, profile_file, contig_to_len, contigs_to_scg, float(len(scgs)), output)
 
 
 

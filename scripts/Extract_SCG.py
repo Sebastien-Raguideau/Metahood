@@ -37,9 +37,11 @@ def prodigal_gff_parser(Handle) :
 
 
 def main(gff_file,Annotation_file,SCG_file,faa_file,bed_file) :
-    get_orf_name=lambda ORF:ORF.split('\t')[0]+"_"+ORF.split('\t')[8].split(';')[0].split("_")[1]
+    get_orf_name = lambda ORF:ORF.split('\t')[0]+"_"+ORF.split('\t')[8].split(';')[0].split("_")[1]
     Set_scg={line.rstrip() for line in open(SCG_file)}
-    Dico_orfs_cogs={"_".join(line.split("\t")[0].split("_")[:-1])+"_"+line.split("\t")[0].split("_")[-1]:line.split("\t")[1] for line in open(Annotation_file) if line.split("\t")[1] in Set_scg}
+    
+    Dico_orfs_cogs={"_".join(line.split("\t")[0].split("_")[:-1])+"_"+line.split("\t")[0].split("_")[-1]:line.rstrip().split("\t")[1] for line in open(Annotation_file) if line.rstrip().split("\t")[1] in Set_scg}
+
     Bed_like=[[get_orf_name(ORF),ORF.split('\t')[3],ORF.split('\t')[4],Dico_orfs_cogs[get_orf_name(ORF)],ORF.split('\t')[6]] for _,_,ORF_list in prodigal_gff_parser(open(gff_file)) for ORF in ORF_list if get_orf_name(ORF) in Dico_orfs_cogs]
     Dico_orf_strand={line[0]:[line[3],line[-1]] for line in Bed_like}
     if bed_file :

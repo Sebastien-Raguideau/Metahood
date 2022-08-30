@@ -20,7 +20,7 @@ def main(contig_file,bed_file,out_file,genome_file):
         handle.writelines("%s\n"%line for line in new_lines)
     if genome_file:
         with open(genome_file,"w") as handle:
-            handle.writelines("%s\t%s\n"%(index_contig[index],contigs[index_contig[index]][1]) for index in range(len(index_contig)))
+            handle.writelines("%s\t%s\n"%(index_contig[index],contig_index[index_contig[index]][1]) for index in range(len(index_contig)))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
