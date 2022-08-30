@@ -25,7 +25,7 @@ rule sort_bed:
             gfile = temp("{path}/annotation/{type}_bedtools_target_definition.tsv")
     conda : "%s/pythonenv.yaml"%CONDA_ENV
     singularity : "builds/pythonenv.sif"
-    shell: "{SCRIPTS}/sort_bed.py {input.bed} {input.fa} {output} -g {output.gfile}"
+    shell: "{SCRIPTS}/sort_bed.py {input.bed} {input.cont} {output} -g {output.gfile}"
 
 
 # ---- use bedtool to compute coverage  ----------------------------------------------------
