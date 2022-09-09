@@ -44,15 +44,16 @@ jobs:
         id: image_name
         run: |
           echo -n ::set-output name=IMAGE_NAME::
-          NAME=$(echo ${{ matrix.dockerfile }} | awk -F '[.]' '{print $2}')
+          NAME=$(echo ${{ matrix.dockerfile }} | awk -F '[.-]' '{print $2}')
           echo "${NAME}"
           
       - name: Get image tags
         id: image_tags
         run: |
           echo -n ::set-output name=IMAGE_TAGS::
-          TAGS='latest'
-          echo "${TAGS}"
+          TAGS=$(echo ${{ matrix.dockerfile }} | awk -F '[-]' '{print $2}')
+          TAGS+=('latest')
+          ( IFS=$','; echo "${TAGS[*]}" )
           
       - name: Build and publish image to Quay
         uses: docker/build-push-action@v1
