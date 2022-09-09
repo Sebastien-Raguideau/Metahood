@@ -4,7 +4,7 @@ LABEL maintainer="pricea35@cardiff.ac.uk" \
 software="dRep" \
 about.summary="dRep container for Metahood"
 
-ENV drep_version=3.0.0
+ENV drep_version=3.0.0 \
 mummer_version=3.23 \
 mash_version=2.2
 
