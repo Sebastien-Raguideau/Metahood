@@ -9,7 +9,7 @@ diamond_version=2.0.6 \
 prodigal_version=2.6.3
 
 ENV PACKAGES="curl g++ automake gcc make cmake zlib1g-dev" \
-PYTHON="python3" \
+PYTHON="python3"
 
 RUN apt-get update \
 && apt-get install -y $PACKAGES $PYTHON \
