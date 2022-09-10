@@ -7,7 +7,7 @@ about.summary="Trim_galore container for Metahood"
 ENV fastqc_version=0.11.9 \
 trimgalore_version=0.6.5
 
-ENV PACKAGES="curl openjdk-11-jre-headless python3.7 python3-cutadapt cutadapt unzip libfindbin-libs-perl pigz"
+ENV PACKAGES="curl openjdk-11-jre-headless python3 python3-cutadapt cutadapt unzip libfindbin-libs-perl pigz"
 
 RUN apt-get update \
 && apt-get install -y $PACKAGES
