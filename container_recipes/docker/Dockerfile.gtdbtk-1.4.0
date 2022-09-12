@@ -10,7 +10,8 @@ hmmer_version=3.3.2 \
 pplacer_version=1.1.alpha19 \
 fastani_version=1.32 \
 fasttree_version=2.1.10 \
-mash_version=2.2
+mash_version=2.2 \
+checkm-genome_version=1.2.0
 
 ENV PACKAGES="curl wget build-essential cmake zlib1g-dev unzip" \
 PYTHON="python3 python3-pip python3-setuptools" \
@@ -42,5 +43,5 @@ RUN apt-get update \
 && rm -r mash-Linux* \
 && ln -s /usr/bin/python3 /usr/bin/python \
 && python -m pip install --upgrade pip \
-&& python -m pip install gtdbtk==${gtdbtk_version} $PYTHON_PACKAGES
+&& python -m pip install gtdbtk==${gtdbtk_version} checkm-genome==${checkm-genome_version} $PYTHON_PACKAGES
 
