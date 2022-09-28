@@ -17,7 +17,7 @@ rule bwa_index2:
     input: "{file}"
     output: "{file}.sa"
     conda : "%s/bwasamtools.yaml"%CONDA_ENV
-    singularity : "builds/bwasamtools.sif"
+    singularity : "docker://quay.io/annacprice/bwasamtools:1.10"
     shell: "bwa index {input}"
 
 
@@ -29,7 +29,7 @@ rule map_to_mask:
     log: "{IN}/{sample}/mapping.log"
     threads: 10
     conda : CONDA_ENV + "/bwasamtools.yaml"
-    singularity : "builds/bwasamtools.sif"
+    singularity : "docker://quay.io/annacprice/bwasamtools:1.10"
     shell: """
             bwa mem -t {threads} {FILTER} {input.R1} {input.R2} 2>{log} | samtools view  -b -f 12 -@{threads} - | samtools sort -@{threads} - > {output.bam}
             """
@@ -49,7 +49,7 @@ rule fastqc :
     input :  "{IN}/{sample}/{prefix}.{ext}"
     output : "{IN}/{sample}/{prefix}.{ext}_fastqc_done"
     conda : CONDA_ENV + "/fastqc.yaml"
-    singularity : "builds/fastqc.sif"
+    singularity : "docker://quay.io/annacprice/fastqc:0.11.9"
     shell :"""
             fastqc -o {IN}/{wildcards.sample} {input}
             touch {output}
@@ -69,8 +69,8 @@ if FILTER:
                  option = lambda w:"--gzip"*("gz" in w['ext']),
         log :   "{IN}/{sample}/{prefix}.{suffix}.{ext}.log"
         conda : CONDA_ENV + "/trim_galore.yaml"
-        singularity : "builds/trim_galore.sif"
         threads: 8
+        singularity : "docker://quay.io/annacprice/trimgalore:0.6.5"
         shell : """
         trim_galore -j {threads} --fastqc {params.option} -o $(dirname {output.R1}) --paired {input.file_R1} {input.file_R2} > {log} 2>&1
         mv {params.R1} {output.R1}
@@ -91,8 +91,8 @@ else:
                  option = lambda w:"--gzip"*("gz" in w['ext']),
         log :   "{IN}/{sample}/{prefix}.{suffix}.{ext}.log"
         conda : CONDA_ENV + "/trim_galore.yaml"
-        singularity : "builds/trim_galore.sif"
         threads: 8
+        singularity : "docker://quay.io/annacprice/trimgalore:0.6.5"
         shell :"""
         trim_galore -j {threads} --fastqc {params.option} -o $(dirname {output.R1}) --paired {input.file_R1} {input.file_R2} > {log} 2>&1
         mv {params.R1} {output.R1}
@@ -104,7 +104,7 @@ rule multiqc :
             R2=[replace_extensions(SAMPLE_READS[sample][1],FILTER) for sample in SAMPLES],
     output : IN+"/quality_done"
     conda : CONDA_ENV + "/multiqc.yaml"
-    singularity : "builds/multiqc.sif"
+    singularity : "docker://quay.io/annacprice/multiqc:1.9"
     shell : """multiqc --interactive -f {IN}/ -o {IN}/
     touch {output}
     """

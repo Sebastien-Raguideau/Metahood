@@ -5,7 +5,7 @@ rule generate_depth :
     output: "{group}/map/depth.txt"
     log : "{group}/map/depth.log"
     conda : CONDA_ENV + "/metabat2.yaml"
-    singularity : "builds/metabat2.sif"
+    singularity : "docker://quay.io/annacprice/metabat2:2.15"
     shell: "jgi_summarize_bam_contig_depths --outputDepth {output} {input} &>{log}" 
 
 rule metabat2 :
@@ -15,7 +15,7 @@ rule metabat2 :
     params: out="{group}/binning/metabat2/bins/bin",
             min_contig_size=max(1500,MIN_CONTIG_SIZE_METABAT2) # metabat2 does not bin anything smaller than 1500
     conda : CONDA_ENV + "/metabat2.yaml"
-    singularity : "builds/metabat2.sif"
+    singularity : "docker://quay.io/annacprice/metabat2:2.15"
     threads : 20
     shell: """metabat2 -i {input.contig} -a {input.depth} -t {threads} -o {params.out} -m {params.min_contig_size}
             touch {output}
@@ -35,7 +35,7 @@ rule post_processing :
     input: "{group}/binning/metabat2/bins/name_done"
     output:"{group}/binning/metabat2/clustering_metabat2.csv"
     conda : CONDA_ENV + "/pythonenv.yaml"
-    singularity : "builds/pythonenv.sif"
+    singularity : "docker://quay.io/annacprice/pythonenv:3.9"
     shell: """
            {SCRIPTS}/post_processing.py -o {output} -w {wildcards.group}
     """

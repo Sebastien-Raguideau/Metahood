@@ -6,7 +6,7 @@ rule create_fastg:
 	output: temp("{group}/graph/contigs.fastg")
 	log : "{group}/graph/fastg.log"
         conda : CONDA_ENV + "/megahit.yaml"
-        singularity : "builds/megahit.sif"
+        singularity : "docker://quay.io/annacprice/megahit:1.2.9"
 	# I need the kmer length, if I put this in params, snakemake will ask for the value to be clear before the start of the pipeline, which is not possible, since we need at least the assembly.
 	# also, if you try to store the value inside kmer_len, it will fail due to set -o. 
 	shell : """
@@ -20,7 +20,7 @@ rule create_gfa:
 	output: temp("{file}_bad_name.gfa")
 	log : "{file}.log"
         conda : CONDA_ENV + "/bandage.yaml"
-        singularity : "builds/bandage.sif"
+        singularity : "docker://quay.io/annacprice/bandage:0.8.1"
 	shell : "Bandage reduce {input} {output} 2>{log}"
 
 rule rename_gfa:
@@ -28,7 +28,7 @@ rule rename_gfa:
 		   fa="{group}/contigs/contigs.fa"
 	output: "{group}/graph/contigs.gfa"
         conda : CONDA_ENV + "/pythonenv.yaml"
-        singularity : "builds/pythonenv.sif"
+        singularity : "docker://quay.io/annacprice/pythonenv:3.9"
 	shell : "{SCRIPTS}/Rename_gfa.py {input.gfa} {input.fa} {output}"
 
 rule subgraph:
@@ -36,7 +36,7 @@ rule subgraph:
 		   annotation="{group}/annotation/contigs_{DB}_best_hits.tsv"
 	output:"{group}/graph/contigs.{DB}.gfa"
         conda : CONDA_ENV + "/pythonenv.yaml"
-        singularity : "builds/pythonenv.sif"
+        singularity : "docker://quay.io/annacprice/pythonenv:3.9"
 	shell:"{SCRIPTS}/Graph_selection.py {input.annotation} {input.gfa} component -o {output}"
 
 rule subgraph_contiguous:
@@ -44,7 +44,7 @@ rule subgraph_contiguous:
 		   annotation="{group}/annotation/contigs_{DB}_best_hits.tsv"
 	output:"{group}/graph/{name}.{DB}_contiguous.gfa"
         conda : CONDA_ENV + "/pythonenv.yaml"
-        singularity : "builds/pythonenv.sif"
+        singularity : "docker://quay.io/annacprice/pythonenv:3.9"
 	shell:"{SCRIPTS}/Graph_selection.py {input.annotation} {input.gfa} contiguous -o {output}"
 
 rule orf_graph:
@@ -52,7 +52,7 @@ rule orf_graph:
 		   bed="{group}/annotation/orf.bed"
 	output:"{group}/graph/{name}_ORF.gfa"
         conda : CONDA_ENV + "/pythonenv.yaml"
-        singularity : "builds/pythonenv.sif"
+        singularity : "docker://quay.io/annacprice/pythonenv:3.9"
 	shell:"{SCRIPTS}/Build_ORF_graph.py {input.bed} {input.gfa} {output}"
 
 rule graph_annotation:

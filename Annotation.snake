@@ -20,7 +20,7 @@ rule prodigal:
         1000
     message:"Parallel prodigal run in {input}"
     conda : CONDA_ENV + "/prodigal.yaml"
-    singularity : "builds/prodigal.sif"
+    singularity : "docker://quay.io/annacprice/prodigal:2.6.3"
     shell:
         "{SCRIPTS}/Parallel_prodigal.py {threads} {input} -s 100 -o {params.dir} -T {params.dir}/temp_splits"
 
@@ -32,14 +32,14 @@ rule diamond:
     log:     "{filename}_{annotation}_diamond.log"
     threads:  1000
     conda : CONDA_ENV + "/diamond.yaml"
-    singularity : "builds/diamond.sif"
+    singularity : "docker://quay.io/annacprice/diamond:2.0.6"
     shell :   "diamond blastp --more-sensitive -d {params.db}  -q {input} -p {threads} -o {output} -f6 qseqid sseqid qstart qend qlen sstart send slen length pident evalue bitscore &>{log}"
 
 rule annotation_diamond:
     input :  "{group}/annotation/{filename}_{annotation}.m8"
     output : "{group}/annotation/{filename}_{annotation}_best_hits.tsv"
     conda : CONDA_ENV + "/pythonenv.yaml"
-    singularity : "builds/pythonenv.sif"
+    singularity : "docker://quay.io/annacprice/pythonenv:3.9"
     params : annotation=lambda w: DIAMOND[w.annotation]["annotation"],
              Bitscore=lambda w: DIAMOND[w.annotation]["filter"][0],
              Evalue=lambda w: DIAMOND[w.annotation]["filter"][1],
@@ -48,6 +48,7 @@ rule annotation_diamond:
              subject_coverage=lambda w: DIAMOND[w.annotation]["filter"][4],
              querry_coverage=lambda w: DIAMOND[w.annotation]["filter"][5],
     shell :   "{SCRIPTS}/M8_Filtering.py {input} -D {params.annotation} -B {params.Bitscore} -E {params.Evalue} -P {params.PID} -R {params.subject_pid} -C {params.subject_coverage} -Q {params.querry_coverage}  >{output}"
+
 
 
 # ---- KO annotation taken from enrichm  --------------------
@@ -102,7 +103,7 @@ rule CAT_annotation:
     output: ORF2LCA="{group}/annotation/CAT/contigs.contig2classification.txt"
     params : Dir="{group}/annotation/CAT/contigs"
     conda : CONDA_ENV + "/cat.yaml"
-    singularity : "builds/cat.sif"
+    singularity : "docker://quay.io/annacprice/cat:5.2.2"
     threads: 1000
     shell : """
     CAT contigs -c {input.contigs}  -d {CAT_DB} -t {CAT_DB} -p {input.faa} -n {threads} --out_prefix {params.Dir} --top 11 --I_know_what_Im_doing --force
@@ -112,7 +113,7 @@ rule CAT_ORF_annotation:
     input: ORF2LCA="{group}/annotation/CAT/contigs.contig2classification.txt"
     output: annotation="{group}/annotation/CAT_contigs_taxonomy.tsv"
     conda : CONDA_ENV + "/cat.yaml"
-    singularity : "builds/cat.sif"
+    singularity : "docker://quay.io/annacprice/cat:5.2.2"
     shell : """
     CAT add_names -i {input.ORF2LCA} -o {output.annotation} -t {CAT_DB} --only_official
     """
@@ -123,7 +124,7 @@ rule kraken_uniq:
     output: report = "{group}/annotation/kraken_taxonomy_report.tsv",
             classif = "{group}/annotation/kraken_contig_taxonomy.tsv"
     conda : CONDA_ENV + "/kraken.yaml"
-    singularity: "builds/krakenuniq.sif"
+    singularity: "docker://quay.io/annacprice/krakenuniq:0.5.8"
     threads: 1000
     shell : """
     krakenuniq --db {KRAKEN_DB} --preload --fasta-input {input} --threads {threads} --report-file {output.report} > {output.classif}
@@ -136,7 +137,7 @@ rule hmmsearch:
     input: "{path}.faa"
     output:"{path}_hmm.out"
     conda : "%s/checkm.yaml"%CONDA_ENV
-    singularity: "builds/checkm.sif"
+    singularity: "docker://quay.io/annacprice/gtdbtk:1.4.0"
     log: "{path}_hmm.log"
     shell: """
     if [ ! -s {input} ]
@@ -154,6 +155,6 @@ rule parse_hmmsearch_annotation:
     output: cat=temp("{path}/contigs_hmm.out"),
             cog="{path}/contigs_cogs_best_hits.tsv"
     conda : "%s/pythonenv.yaml"%CONDA_ENV
-    singularity : "builds/pythonenv.sif"
+    singularity : "docker://quay.io/annacprice/pythonenv:3.9"
     shell: """cat {input}> {output.cat}
              {SCRIPTS}/Filter_scg_hmm.py {output.cat} --cog_hmm {SCG_DATA}/scg_hmm_selected.txt {output.cog}"""

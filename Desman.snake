@@ -30,7 +30,7 @@ if DESMAN==1:
         input: "{path}/{bin}/{bin}.fa"
         output: "{path}/{bin}/{bin}.bed"
         conda : CONDA_ENV + "/pythonenv.yaml"
-        singularity : "builds/pythonenv.sif"
+        singularity : "docker://quay.io/annacprice/pythonenv:3.9"
         shell: "{SCRIPTS}/WriteBed.py {input} > {output}"
 
 
@@ -41,7 +41,7 @@ if DESMAN==1:
         output: bin_bam = "{group}/desman/{binner}/{bin}/{sample}.{bin}.bam"
         threads: THREADS
         conda : CONDA_ENV + "/bwasamtools.yaml"
-        singularity : "builds/bwasamtools.sif"
+        singularity : "docker://quay.io/annacprice/bwasamtools:1.10"
         shell: """
         samtools view -b -L {input.bin_bed} {input.global_bam} -@{threads} > {output.bin_bam}
         """
@@ -50,7 +50,7 @@ if DESMAN==1:
         input: "{path}.fa"
         output: "{path}.fa.fai"
         conda : CONDA_ENV + "/bwasamtools.yaml"
-        singularity : "builds/bwasamtools.sif"
+        singularity : "docker://quay.io/annacprice/bwasamtools:1.10"
         shell: "samtools faidx {input}"
 
     # -------- get counts on each mags contigs --------
@@ -62,7 +62,7 @@ if DESMAN==1:
         output: "{group}/desman/{binner}/{bin}/{sample}.cnt.gz"
         log: "{group}/desman/{binner}/{bin}/bam_readcount_{sample}.log"
         conda : CONDA_ENV + "/bwasamtools.yaml"
-        singularity : "builds/bwasamtools.sif"
+        singularity : "docker://quay.io/annacprice/bwasamtools:1.10"
         shell: """
             samtools index {input.bam} {input.bam}.bai
             bam-readcount -w 1 -l {input.bed} -f {input.fasta} {input.bam} 2> {log} | gzip > {output}
@@ -73,7 +73,7 @@ if DESMAN==1:
         input:   gff="{path}/contigs.gff"
         output:  bed="{path}/orf.bed"
         conda : CONDA_ENV + "/pythonenv.yaml"
-        singularity : "builds/pythonenv.sif"
+        singularity : "docker://quay.io/annacprice/pythonenv:3.9"
         shell : "{SCRIPTS}/Gff_to_bed.py {input.gff} {output.bed}"
 
     # -------- get a bed file for SCG   --------
@@ -82,7 +82,7 @@ if DESMAN==1:
                 scg_file = "{group}/annotation/contigs_SCG.fna"
         output: scg_bed =  "{group}/desman/SCG.bed"
         conda : CONDA_ENV + "/pythonenv.yaml"
-        singularity : "builds/pythonenv.sif"
+        singularity : "docker://quay.io/annacprice/pythonenv:3.9"
         shell: "{SCRIPTS}/scg_bed.py -b {input.orfs_bed} -f {input.scg_file} -o {output.scg_bed}"
             
     # -------- get SCG coordinates   --------
@@ -92,7 +92,7 @@ if DESMAN==1:
                 scg_file = "{group}/annotation/contigs_SCG.fna"
         output: coordinates = "{group}/desman/{binner}/{bin}/scg_coordinates.tsv"
         conda : CONDA_ENV + "/pythonenv.yaml"
-        singularity : "builds/pythonenv.sif"
+        singularity : "docker://quay.io/annacprice/pythonenv:3.9"
         shell: "{SCRIPTS}/build_scg_coords.py -b {input.scg_bed} -d {input.bin_definition} -f {input.scg_file} -o {output.coordinates} -w {wildcards.bin}"
 
     rule extract_counts:
@@ -127,7 +127,7 @@ if DESMAN==1:
         log:
             "{path}/Logs/Run_{g}_{r}/{bin}_{g}_{r}.log"
         conda : CONDA_ENV + "/desman.yaml"
-        singularity : "builds/desman.sif"
+        singularity : "docker://quay.io/annacprice/desman:2.1"
         shell: """
           desman {input.sel_var} -e {input.err} -o $(dirname {output}) -m {MIN_COV_DESMAN} -i 100 -g {wildcards.g} -s {wildcards.r} &> {log}
           """

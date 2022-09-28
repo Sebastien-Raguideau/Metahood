@@ -27,7 +27,7 @@ checkpoint regroup_mags :
     params : output_dir = 'MAGs/Non_dRep_Mags',
              mag_groups=GROUPS
     conda : CONDA_ENV + "/pythonenv.yaml"
-    singularity : "builds/pythonenv.sif"
+    singularity : "docker://quay.io/annacprice/pythonenv:3.9"
     shell : """
     mkdir -p {params.output_dir}
     {SCRIPTS}/regroup_mags.py -g {params.mag_groups} -o {params.output_dir}
@@ -87,7 +87,7 @@ if len(GROUPS)>1 :
         params : mags = lambda w:derep_input(w,1), # snakemake ask for prerun time value but still evaluated at run time, so it works.
                  output = "%s/MAGs/dRep{group}"%EXEC_DIR
         conda : CONDA_ENV + "/drep.yaml"
-        singularity : "builds/drep.sif" 
+        singularity : "docker://quay.io/annacprice/drep:3.0.0"
         threads : 50
         shell : """
         cd MAGs/Non_dRep_Mags
@@ -99,7 +99,7 @@ if len(GROUPS)>1 :
         input : "MAGs/dRep/data_tables/Cdb.csv"
         output : "MAGs/gtdb/gtdbtk.ar122.classify.tree"
         conda : CONDA_ENV + "/gtdbtk.yaml"
-        singularity : "builds/gtdbtk.sif" 
+        singularity : "docker://quay.io/annacprice/gtdbtk:1.4.0"
         threads : 50
         shell : """
         gtdbtk classify_wf --cpus {threads} --genome_dir MAGs/dRep/dereplicated_genomes/ --out_dir $(dirname {output}) --extension .fa
@@ -109,7 +109,7 @@ else :
         input : "MAGs/bin_analysis/mag_to_assemblies.tsv"
         output : "MAGs/gtdb/gtdbtk.ar122.classify.tree"
         conda : CONDA_ENV + "/gtdbtk.yaml"
-        singularity : "builds/gtdbtk.sif"
+        singularity : "docker://quay.io/annacprice/gtdbtk:1.4.0"
         threads : 50
         shell : """
         gtdbtk classify_wf --cpus {threads} --genome_dir MAGs/Non_dRep_Mags/ --out_dir $(dirname {output}) --extension .fa
@@ -152,7 +152,7 @@ rule Mags_SCG:
     output: expand("{{group}}/MagAnalysis/{{binner}}/Tree/SCGs/{COG}.fna",COG=SCG)
     params: "{group}/MagAnalysis/{binner}/Tree/SCGs/"
     conda : CONDA_ENV + "/pythonenv.yaml"
-    singularity : "builds/pythonenv.sif"
+    singularity : "docker://quay.io/annacprice/pythonenv:3.9"
     shell: """
     {SCRIPTS}/Get_MAG_SCG.py {input.cog_annotation} {input.cluster_definition} {input.mag_list} {SCG_DATA}/scg_cogs_min0.97_max1.03_unique_genera.txt {params}
     """
@@ -172,7 +172,7 @@ rule run_mafft:
     log: "{path}/Tree/AlignAll/mafft_{COG}.log"
     threads:1000
     conda : CONDA_ENV + "/mafft.yaml"
-    singularity : "builds/mafft.sif"
+    singularity : "docker://quay.io/annacprice/mafft:7.475"
     shell: """
     cat {input.scg} {input.database_scg} > {output.all_scg}
     mafft --thread {threads} {output.all_scg} > {output.alignement} 2>{log}
@@ -183,7 +183,7 @@ rule trimal :
     input: "{path}/{COG}_all.msa"
     output: "{path}/{COG}_all_trim.msa"
     conda : CONDA_ENV + "/trimal.yaml"
-    singularity : "builds/trimal.sif"
+    singularity : "docker://quay.io/annacprice/trimal:1.4.1"
     shell: "trimal -in {input} -out {output} -gt 0.9 -cons 60"
 
 # ------- Fastree pre processing -------------
@@ -205,7 +205,7 @@ rule Launch_FastTree:
     output: "{path}/Tree/Mag_and_refseqs.tree"
     log: "{path}/Tree/AlignAll/SelectR.out"
     conda : CONDA_ENV + "/fasttree.yaml"
-    singularity : "builds/fasttree.sif"
+    singularity : "docker://quay.io/annacprice/fasttree:2.1.10"
     shell:"""
     FastTreeMP -nt -gtr < {input} 2> {log} > {output}
     """
@@ -215,7 +215,7 @@ rule  Assign_tree:
     input: "{path}/Mag_and_refseqs.tree"
     output: "{path}/Mag_refseq_assign.tsv"
     conda : CONDA_ENV + "/pythonenv.yaml"
-    singularity : "builds/pythonenv.sif"
+    singularity : "docker://quay.io/annacprice/pythonenv:3.9"
     shell :"""
     {SCRIPTS}/AssignTree.py {input} {SCG_DATA}/TaxaSpeciesR.txt {SCG_DATA}/all_taxa_lineage.tsv > {output}
     """
@@ -234,7 +234,7 @@ rule Split_by_bins:
             mags="{group}/binning/{binner}/{binner}_MAG_list.txt"
     output: expand("{{group}}/MagAnalysis/{{binner}}/mags/log/{annotation}_done",annotation=BEST_HITS)
     conda : CONDA_ENV + "/pythonenv.yaml"
-    singularity : "builds/pythonenv.sif"
+    singularity : "docker://quay.io/annacprice/pythonenv:3.9"
     shell:"""
     {SCRIPTS}/Split_fasta_by_bin.py {input.cluster} $(dirname $(dirname {output[0]})) -l {input.mags}  --folder --fasta {input.faa} {input.fna} {input.assembly} --annotation {input.annotation} {input.cog} {input.cat} 
     touch {output}
@@ -248,7 +248,7 @@ rule annotation_summary:
     output: summary=expand("{{group}}/MagAnalysis/{{binner}}/mags_infos/{annotation}_summary.tsv",annotation=BEST_HITS)
     params: best_hits=BEST_HITS
     conda : CONDA_ENV + "/pythonenv.yaml"
-    singularity : "builds/pythonenv.sif"
+    singularity : "docker://quay.io/annacprice/pythonenv:3.9"
     shell : """
     {SCRIPTS}/annotation_summary.py -a {input.annotation} -h {params.best_hits} -o {output.summary}
     """
