@@ -40,12 +40,21 @@ rule bedtools:
     shell:   "bedtools coverage -a {input.bed} -b {input.bam} -g {input.genome} -mean -sorted> {output} 2>{log} "
 
 # ---- collate all files  -----------------------
-rule coverage:
-    input:   lambda w : [w.group+"/map/"+sample.split('/')[-1]+".{type}.cov" for sample in  GROUPS[w.group]]
-    output:  "{group}/profile/coverage_{type}.tsv"
-    conda : CONDA_ENV + "/pythonenv.yaml"
-    singularity : "builds/pythonenv.sif"
-    shell : "{SCRIPTS}/collate_coverage.py -o {output} -l {input} "
+
+if COVERAGE_UNIQUE_SAMPLE:
+    rule coverage:
+        input:   lambda w : [w.group+"/map/"+sample.split('/')[-1]+".{type}.cov" for sample in  GROUPS[w.group]]
+        output:  "{group}/profile/coverage_{type}.tsv"
+        conda : CONDA_ENV + "/pythonenv.yaml"
+        singularity : "builds/pythonenv.sif"
+        shell : "{SCRIPTS}/collate_coverage.py -o {output} -l {input} "
+else:
+    rule coverage:
+        input:   expand("{{group}}/map/{sample}.{{type}}.cov",sample=SAMPLES)
+        output:  "{group}/profile/coverage_{type}.tsv"
+        conda : CONDA_ENV + "/pythonenv.yaml"
+        singularity : "builds/pythonenv.sif"
+        shell : "{SCRIPTS}/collate_coverage.py -o {output} -l {input} "
 
 # ---- generate a mapping of annotation to orfs  -----------------------
 rule map_annotation_to_orfs:

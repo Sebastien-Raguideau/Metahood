@@ -1,0 +1,194 @@
+from collections import defaultdict
+# taken from enrichm 
+# https://github.com/geronimp/enrichM/blob/master/enrichm/genome.py
+# https://github.com/geronimp/enrichM/blob/master/enrichm/genome.py
+
+
+ROOT = config["ROOT"]
+KO_HMM = config["KO_HMM"]
+KO_HMM_CUTOFFS = config["KO_HMM_CUTOFFS"]
+SCRIPTS = config["scripts"]
+
+
+# example launching the snakemake make:
+# snakemake -s /mnt/gpfs/seb/Applications/Snakescripts/faster_koannotation.snake --cores 500 CD_TREAT/profile/cov_KEGG.tsv
+
+
+rule results:
+    input: "%s/contigs_KEGG_best_hits.tsv"%ROOT
+
+
+rule koannotation:
+    input: "{path}.faa"
+    output: "{path}_ko.out"
+    threads: 5
+    shell: """
+    if [ -s {input} ]
+    then
+        hmmsearch --cpu {threads} -o /dev/null --noali --domtblout {output} {KO_HMM} {input}
+    fi
+    touch {output}
+    """
+
+
+rule parse_results:
+    input: file = "{path}_ko.out"
+    output: out = "{path}_ko.tsv"
+    log: "{path}_ko.log"
+    run:
+        orf_to_ann = generate_orf_annotation(input["file"])
+        with open(output["out"],"w") as handle:
+            handle.writelines("%s\t%s\n"%(orf,"\t".join(ann)) for orf,ann in orf_to_ann.items())
+        # except Exception as e:
+        #     with open(log[0], 'w') as handle:
+        #         handle.write(traceback.format_exc())
+        #     raise
+
+
+# use metahood standard spliting of orfs for parallelisation of annotation
+rule annotation_kofamscan :
+    input :  expand("{{path}}/temp_splits/Batch_{nb}_ko.tsv",nb=range(100))
+    output : out = "{path}/contigs_KEGG_best_hits.tsv"
+    log: "{path}/KEGG_best_hits.log"
+    run : 
+        try:
+            # get KO definition
+            ko_to_def = {line.rstrip().split("\t")[0]:line.rstrip().split("\t")[-1] for line in open(KO_HMM_CUTOFFS)}
+
+            # parse and write results at the same time
+            with open(output["out"],"w") as handle:
+                handle.write("%s\n"%'\t'.join(['orf',"KO","KO definition"]))
+                for file in input:
+                    for line in open(file):
+                        sline = line.rstrip().split("\t")
+                        orf = sline[0]
+                        handle.writelines("%s\t%s\t%s\n"%(orf,KO,ko_to_def[KO]) for KO in sline[1:])
+        except Exception as e:
+            with open(log[0], 'w') as handle:
+                handle.write(traceback.format_exc())
+            raise
+
+
+
+def parse_ko_cutoffs():
+    cut_ko = {}
+    out_io = open(KO_HMM_CUTOFFS)
+    _ = out_io.readline()
+
+    for line in out_io:
+        sline = line.strip().split('\t')
+
+        if sline[1] == '-':
+            cut_ko[sline[0]] = [0.0, "NA"]
+        else:
+            cut_ko[sline[0]] = [float(sline[1]), sline[2]]
+    return cut_ko
+
+
+def from_hmmsearch_results(hmmsearch_output_path,
+                           evalue_cutoff=1e-05,
+                           bitscore_cutoff=0,
+                           percent_aln_query_cutoff=0.8,
+                           percent_aln_reference_cutoff=0.8,
+                            acc = True):
+    '''
+    Parse input hmmsearch file
+    Parameters
+    ----------
+    hmmsearch_output_path           - String. Path to domtblout file containing
+                                      hmmsearch results.
+    evalue_cutoff                   - Float. E-value threshold for annotations.
+    bitscore_cutoff                 - Float. Bit score threshold for annotations.
+    percent_aln_query_cutoff        - Float. Threshold for the percent of the query
+                                      that must be aligned to consider the annotation.
+    percent_aln_reference_cutoff    - Float. Threshold for the percent of the reference
+                                      that must be aligned to consider the annotation.
+    Yields
+    ------
+    A sequence name, accession, E-value and region hit for every annotation result in
+    blast_output_path that pass a set of cutoffs
+    '''
+    # extract specific cutoffs:
+    specific_cutoffs =  parse_ko_cutoffs()
+
+    # Filling in column
+    for line in open(hmmsearch_output_path):
+
+        # Skip headers
+        if line.startswith('#'): continue
+
+        # Parse HMMsearch line. '_'s represent unimportant entries. Line
+        # is trimmed using [:22] to remove sequence description
+        # try:
+        seqname, _, tlen, ko_hmm, accession, qlen, _, score, \
+        _, _, _, _, i_evalue, dom_score, _, _, \
+        _, seq_from, seq_to, _, _, _ = line.strip().split()[:22]
+        # except:
+        #     print("issue with formating for line \n%s"%line)
+        #     continue
+
+        # Determine sequence and HMM spans
+        seq_list = [int(seq_from), int(seq_to)]
+
+        # Calculate percent of the query and reference aligned to each-other.
+        perc_seq_aln = (max(seq_list)-min(seq_list))/float(tlen)
+        perc_hmm_aln = (max(seq_list)-min(seq_list))/float(qlen)
+
+        if acc:
+            accession = ko_hmm
+
+        # If the annotation passes the specified cutoffs
+        if specific_cutoffs:
+            if ko_hmm in specific_cutoffs:
+                if specific_cutoffs[ko_hmm][1]=='full':
+                    if float(score) < specific_cutoffs[ko_hmm][0]:
+                        continue
+                elif specific_cutoffs[ko_hmm][1] == 'domain':
+                    if float(dom_score) < specific_cutoffs[ko_hmm][0]:
+                        continue
+
+        if(float(i_evalue) <= evalue_cutoff and
+                                float(score) >= bitscore_cutoff and
+                                perc_seq_aln >= percent_aln_query_cutoff and
+                                perc_hmm_aln >= percent_aln_reference_cutoff):
+            yield seqname, [accession], float(i_evalue), range(min(seq_list), max(seq_list))
+
+def generate_orf_annotation(file):
+    # get the hits under the cutoffs
+    orf_to_annotations = defaultdict(list)
+    iterator = from_hmmsearch_results(file)
+    for orf,[accession],evalue,Range in iterator:
+        orf_to_annotations[orf].append([accession,evalue,Range])
+
+    # only keep things with a unique hit as a first pass
+    orf_to_ann = {orf:[val[0][0]] for orf,val in orf_to_annotations.items() if len(val)==1}
+
+    # for the rest, sort hits by evalue, keep the best and any non overlaping ones
+    issues = set(orf_to_annotations.keys())-set(orf_to_ann.keys())
+    for orf in issues:
+        accessions = sorted(orf_to_annotations[orf],key=lambda x:x[1])
+        real_acc = []
+        to_del = set()
+        for index,(acc,evalue,range_best) in enumerate(accessions):
+            if acc in to_del:
+                continue 
+            real_acc.append(acc)
+            for (acc_cand,evalue,range_candidat) in accessions[index:]:
+                if set(range_best).intersection(range_candidat):
+                    to_del.add(acc_cand)
+                    continue
+        orf_to_ann[orf]=real_acc
+    return orf_to_ann
+
+
+
+
+
+
+
+
+
+
+
+
+

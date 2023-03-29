@@ -2,7 +2,7 @@
 
 # in order to allow for multiple annotation process to coexist and produce similar names output, we just define rules priority
 # if parse_cogs_annotation does not work, it tries annotation_diamond
-ruleorder: annotation_kofamscan > parse_hmmsearch_annotation  >annotation_diamond
+ruleorder:  koannotation > parse_hmmsearch_annotation  > annotation_diamond
 
 # ---- prodigal annotation on splits ----------------------------------------------------------------
 rule prodigal:
@@ -50,38 +50,49 @@ rule annotation_diamond:
     shell :   "{SCRIPTS}/M8_Filtering.py {input} -D {params.annotation} -B {params.Bitscore} -E {params.Evalue} -P {params.PID} -R {params.subject_pid} -C {params.subject_coverage} -Q {params.querry_coverage}  >{output}"
 
 
-# ---- kegg own annotation pipeline  --------------------
+# ---- KO annotation taken from enrichm  --------------------
+rule koannotation:
+    input :  expand("{{path}}/temp_splits/Batch_{nb}.faa",nb=range(100))
+    output : out = "{path}/contigs_KEGG_best_hits.tsv"
+    params: root = realpath("{path}")
+    conda: "%s/ko_annotation.yaml"%CONDA_ENV
+    singularity: "builds/ko_annotation.sif"
+    threads: 50
+    shell: """
+    snakemake -s {LOCAL_DIR}/ko_annotation.snake -k --rerun-incomplete --directory {params.root} --cores {threads} --nolock --config scripts={SCRIPTS} ROOT={params.root} KO_HMM={KO_HMM} KO_HMM_CUTOFFS={KO_HMM_CUTOFFS}
+    rm -rf {params.root}/.snakemake
+    """
 
-rule kofamscan:
-    input :  "{filename}.faa"
-    output : "{filename}_kofamscan.out"
-    conda : CONDA_ENV + "/kofamscan.yaml"    
-    singularity : "builds/kofamscan.sif"
-    params : profiles = KOFAMSCAN["profiles"],
-             ko_list = KOFAMSCAN["ko_list"]
-    threads : 1000
-    shell :   "exec_annotation {input} -o {output} -p {params.profiles} -k {params.ko_list}  --cpu {threads} --tmp-dir $(dirname {input})/tmp"
+# ---- plasmid annotation  --------------------
+rule plasmidnet:
+    input: "{path}/Batch_{nb}.faa"
+    output:  "{path}/Batch_{nb}_contig_results.tab"
+    singularity: "builds/plasmidnet.sif"
+    conda: "%s/plasmidnet.yaml"%CONDA_ENV
+    threads: 1
+    shell: "python {PLASMIDNET}/bin/plasmidnet.py -f {input} -o $(dirname {output}) -m {PLASMIDNET}/model.zip -j {threads}"
 
-rule annotation_kofamscan :
-    input : file = "{filename}_kofamscan.out"
-    output : out = "{filename}_KEGG_best_hits.tsv"
-    run : 
-        with open(input['file']) as handle :
-            orf_to_ko={}
-            for line in handle :
-                if line[0] != "*" :
-                    continue
-                splitline = line.rstrip().split()[1:6] + [" ".join(line.rstrip().split()[6:])]
-                if splitline[0] in orf_to_ko :
-                    orf_to_ko[splitline[0]] = min([orf_to_ko[splitline[0]],splitline],key = lambda x:float(x[4]))
-                else : 
-                    orf_to_ko[splitline[0]]=splitline
-        with open(output["out"],"w") as handle_w :
-            handle_w.write('\t'.join(['orf',"KO","threshold","score","KO definition"])+"\n")
-            for line in orf_to_ko.values() : 
-                handle_w.write("\t".join(line)+"\n")
+rule generate_result_file:
+    input: expand("{{path}}/annotation/temp_splits/Batch_{nb}_contig_results.tab",nb=range(1,100))
+    output: results = "{path}/plasmidnet/results.tsv"
+    run:
+        with open(output["results"],"w") as handle:
+            handle.write("contig\tbacterial_genes\tplasmid_genes\tgenes_in_total\tvote\n")
+            for file in input:
+                handle.writelines(line for index,line in enumerate(open(file)) if index>0)
 
 
+# ---- virsorter  --------------------
+rule virsorter2:
+    input: "{path}/contigs/contigs.fa"
+    output: "{path}/virsorter2/final-viral-boundary.tsv"
+    conda: "%s/virsorter2.yaml"%CONDA_ENV
+    singularity: "builds/virsorter2.sif"
+    threads: 10
+    shell: """
+           virsorter config --init-source --db-dir={VIRSORTER_DB}
+           virsorter run -w $(dirname {output}) -i {input} --min-length 1500 -j {threads} all
+           """
 
 # ------ taxonomic annotation  --------------------
 

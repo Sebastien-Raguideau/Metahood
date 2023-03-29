@@ -7,7 +7,7 @@ from subprocess import Popen, PIPE
 import argparse
 import time 
 
-def split_fasta(fasta_file,Temp_location,nb_chunks) :
+def split_fasta(fasta_file,Temp_location,nb_chunks):
     Sorted_Names=[]
     Dico_genome_seq={}
     Dico_genome_len={}
@@ -24,6 +24,7 @@ def split_fasta(fasta_file,Temp_location,nb_chunks) :
     Current_filename=lambda x:"%s_%s"%(fasta_path,str(x))
     Handle=open(Current_filename(num),"w")
     Temp_length=0
+    # contigs_to_handle = {}
     for header in Sorted_Names :
         if Temp_length>Chunk_size :
             Temp_length=0
@@ -32,11 +33,11 @@ def split_fasta(fasta_file,Temp_location,nb_chunks) :
             Handle=open(Current_filename(num),"w")
         Seq=Dico_genome_seq[header]
         Temp_length+=len(Seq)
+        # contigs_to_handle[header]=Current_filename(num)
         Handle.write(">"+header+"\n"+Seq+"\n")
     Handle.close()
-    for n in range(num,nb_chunks):
-    	with open(Current_filename(n),"w"):
-    		continue
+    for n in range(num+1,nb_chunks):
+        os.system("touch %s"%Current_filename(n))
 
 def prodigal(file):
     process = Popen(["prodigal -i %s -a %s.faa -d %s.fna -f gff -p meta -o %s.gff > %s_prodigal.out 2>&1"%(file,file,file,file,file)], stdout=PIPE, stderr=PIPE,shell=True)

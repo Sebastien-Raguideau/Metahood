@@ -41,6 +41,11 @@ LOCAL_DIR = config["LOCAL_DIR"]
 EXEC_DIR = config["EXEC_DIR"]
 
 # -------- Binning -----------
+# option related to which samples would we want to be mapping to the assembly
+# do we want all samples or just the sample used for ssa
+# default false, we want all samples
+COVERAGE_UNIQUE_SAMPLE = config["binning"]["ssa_unique_sample"]
+
 CONCOCT_EXECUTION = config["binning"]["concoct"]["execution"]
 BINNING_TASKS=lambda wildcards: [wildcards.group+""]
 MAX_BIN_NB=config["binning"]["concoct"]["max_bin_nb"]
@@ -49,7 +54,6 @@ METABAT2_EXECUTION = config["binning"]["metabat2"]["execution"]
 MIN_CONTIG_SIZE_METABAT2=config["binning"]["metabat2"]["contig_size"]
 BINNER=CONCOCT_EXECUTION*["concoct"]+METABAT2_EXECUTION*["metabat2"]
 BINNER+=(len(BINNER)-1)*["consensus"]
-
 # -------- Annotation --------
 ANNOTATION = config["annotation"]
 CHECKM_DB = ANNOTATION["checkm"]
@@ -63,7 +67,12 @@ DIAMOND = ANNOTATION["diamond"]
 CAT_DB = ANNOTATION["cat_db"]
 KRAKEN_DB = ANNOTATION["kraken_db"] 
 KOFAMSCAN = ANNOTATION['kofamscan']
-BEST_HITS = ["KEGG"]*(KOFAMSCAN["profiles"]!="")+[annotation for annotation in DIAMOND]
+KO_HMM = KOFAMSCAN["profiles"]
+KO_HMM_CUTOFFS = KOFAMSCAN["ko_list"]
+VIRSORTER_DB = ANNOTATION["virsorter"]
+PLASMIDNET = ANNOTATION["plasmidnet_install"]
+
+BEST_HITS = ["KEGG"]*(KO_HMM!="")+[annotation for annotation in DIAMOND]
 assert len(BEST_HITS)==len(set(BEST_HITS)), "diamond annotation use KEGG as keyword, this is ambiguous as one of these is already done otherwise."
 
 # -------- MAG analysis ------
@@ -118,6 +127,7 @@ if Empty_group :
 # -------- Files associated with each samples --------
 # Each sample should have its own folder with fasta/fastq files in it
 SAMPLES= {basename(sample) for list_sample in GROUPS.values() for sample in list_sample}
+
 SAMPLE_READS = dict(map(lambda sample: (sample, detect_reads(os.path.join(IN, sample))), SAMPLES))
 
 Files_nb = [sample for sample,list_file in SAMPLE_READS.items() if len(list_file)!=2]

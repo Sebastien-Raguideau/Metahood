@@ -24,6 +24,7 @@ List_inputs += expand("{group}/profile/coverage_orf.tsv", group=GROUPS)
 # get mapped information
 List_inputs += expand("{group}/profile/mapping_percent.tsv", group=GROUPS)
 List_inputs += expand("{group}/profile/mag_{binner}_percent_mapped.tsv",group=GROUPS,binner=BINNER)
+
 # ------------ optional outputs ------------
 # annotation and annotation profiles
 if BEST_HITS:
@@ -32,6 +33,10 @@ if BEST_HITS:
     List_inputs += expand("{group}/profile/cov_{annotation}.tsv",annotation=BEST_HITS, group=GROUPS)
 if CAT_DB:
     List_inputs += expand("{group}/annotation/CAT_contigs_taxonomy.tsv",group=GROUPS)
+if VIRSORTER_DB:
+    List_inputs += expand("{group}/virsorter2/final-viral-boundary.tsv",group=GROUPS)
+if PLASMIDNET:
+    List_inputs += expand("{group}/plasmidnet/results.tsv",group=GROUPS)
 
 # if KRAKEN_DB:
 #     List_inputs += expand("{group}/annotation/kraken_taxonomy_report.tsv",group=GROUPS)    

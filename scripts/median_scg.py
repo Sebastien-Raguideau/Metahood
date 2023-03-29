@@ -19,7 +19,7 @@ if __name__ == "__main__":
 
     set_SCG = {cog.rstrip() for cog in open(SCG_DATA+"/scg_cogs_min0.97_max1.03_unique_genera.txt")}
     List_profile = []
-    # compute median of SCG       
+    # compute median of SCG
     with open(cov) as handle:
         samples = next(handle).rstrip().split("\t")[1:]
         for index,line in enumerate(handle):
@@ -28,13 +28,14 @@ if __name__ == "__main__":
             if cog in set_SCG:
                 List_profile.append([float(element) for element in split_line[1:]])
     scg_norm=np.median(List_profile, axis=0)
+
     # get previous normalisation
     with open(nuc) as handle:
         samples_local=next(handle).rstrip().split("\t")[1:]
         nuc_norm=next(handle).rstrip().split("\t")[1:]
-    sample_to_norm={sample:nuc_norm[index] for index,sample in enumerate(samples_local)}
+
     with open(out_file,"w") as handle:
-        handle.write("Normalisation\t"+"\t".join(samples)+"\n")
-        handle.write("Nucleotides\t"+"\t".join([sample_to_norm[sample] for sample in samples])+"\n")
-        handle.write("median_scg\t"+"\t".join(map(str,scg_norm))+"\n")
+        handle.write("Normalisation\t"+"\t".join(samples_local)+"\n")
+        handle.write("Nucleotides\t"+"\t".join(nuc_norm)+"\n")
+        handle.write("median_scg\t"+"\t".join([str(scg_norm[samples.index(sample)]) for sample in samples_local])+"\n")
 

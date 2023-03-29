@@ -15,11 +15,11 @@ import re
 
 
 default_values = {
-    "binning":{"concoct":{"contig_size" : 1000,"execution" : 1,"max_bin_nb" : 2000},"metabat2":{"execution" : 1,"contig_size":1500}},
+    "binning":{"concoct":{"contig_size" : 1000,"execution" : 1,"max_bin_nb" : 2000},"metabat2":{"execution" : 1,"contig_size":1500},"ssa_unique_sample":False},
     "mag":["native"],
     "threads":8,
     "assembly":    {"assembler": "megahit","groups": {},"parameters":"" },
-    "annotation": {'diamond':{},"cat_db":"","kraken_db":"","kofamscan":{"profiles":"","ko_list":""}},
+    "annotation": {'diamond':{},"cat_db":"","kraken_db":"","kofamscan":{"profiles":"","ko_list":""},"virsorter":"","plasmidnet_install":""},
     "graph":{"List_graphs":{}},
     "filtering":"",
     "Percent_memory":0.5,

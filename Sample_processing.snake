@@ -70,8 +70,9 @@ if FILTER:
         log :   "{IN}/{sample}/{prefix}.{suffix}.{ext}.log"
         conda : CONDA_ENV + "/trim_galore.yaml"
         singularity : "builds/trim_galore.sif"
+        threads: 8
         shell : """
-        trim_galore  --fastqc {params.option} -o $(dirname {output.R1}) --paired {input.file_R1} {input.file_R2} > {log} 2>&1
+        trim_galore -j {threads} --fastqc {params.option} -o $(dirname {output.R1}) --paired {input.file_R1} {input.file_R2} > {log} 2>&1
         mv {params.R1} {output.R1}
         mv {params.R2} {output.R2}
         """
@@ -91,8 +92,9 @@ else:
         log :   "{IN}/{sample}/{prefix}.{suffix}.{ext}.log"
         conda : CONDA_ENV + "/trim_galore.yaml"
         singularity : "builds/trim_galore.sif"
+        threads: 8
         shell :"""
-        trim_galore  --fastqc {params.option} -o $(dirname {output.R1}) --paired {input.file_R1} {input.file_R2} > {log} 2>&1
+        trim_galore -j {threads} --fastqc {params.option} -o $(dirname {output.R1}) --paired {input.file_R1} {input.file_R2} > {log} 2>&1
         mv {params.R1} {output.R1}
         mv {params.R2} {output.R2}
         """    

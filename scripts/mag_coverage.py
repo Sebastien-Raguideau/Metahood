@@ -14,16 +14,21 @@ def get_cluster_def(file,mags):
             contig_to_cluster[contig]=cluster
     return cluster_def,contig_to_cluster
 
-def get_contig_cov(file,contigs):
+#  from last update, there is a need for making a distinction between coerage over all samples and coverage over samples used for assembly
+def get_contig_cov(file,contigs,sorted_samples):
     contig_cov={}
     with open(file) as handle :
         header=next(handle)
+        samples = header.rstrip().split('\t')[1:]
+        samples_indexes = np.array([samples.index(s) for s in sorted_samples])
         for line in handle:
             splitline=line.rstrip().split("\t")
             contig=splitline[0]
             if contig in contigs:
                 contig_cov[contig]=np.array(list(map(float,splitline[1:])))
-    return header,contig_cov
+    # reorder
+    contig_cov = {contig:cov[samples_indexes] for contig,cov in contig_cov.items()}
+    return sorted_samples,contig_cov
 
 
 if __name__ == "__main__":
@@ -48,22 +53,20 @@ if __name__ == "__main__":
 
     # get the sets of bins, considered mags
     mags={line.rstrip() for line in open(mags_list)}
+
     # get cluster definition
     cluster_def,contig_to_cluster=get_cluster_def(cluster,mags)
-    # get contigs coverage
-    header,contig_cov=get_contig_cov(cov,contig_to_cluster)
-    # get contigs lengths
-    contig_len={line.rstrip().split('\t')[0]:float(line.rstrip().split('\t')[2]) for line in open(length) if line.rstrip().split('\t')[0] in contig_to_cluster}
-    # get nb reads :
+
+    # get nb reads
     with open(nb_nuc) as handle:
         header_norm = next(handle).rstrip().split("\t")[1:]
-        samples = header.rstrip().split('\t')[1:]
         nuc_nb=list(map(float,next(handle).rstrip().split("\t")[1:]))
-        if samples != header_norm :
-            reorder = [header_norm.index(elmt) for elmt in samples]
-            header_norm = np.array(header_norm)[reorder]
-            nuc_nb = np.array(nuc_nb)[reorder]
-        assert samples == header_norm,"error, header are differents : \n%s\n%s"%(samples, header_norm)
+
+    # get contigs coverage
+    samples,contig_cov=get_contig_cov(cov,contig_to_cluster,header_norm)
+
+    # get contigs lengths
+    contig_len={line.rstrip().split('\t')[0]:float(line.rstrip().split('\t')[2]) for line in open(length) if line.rstrip().split('\t')[0] in contig_to_cluster}
      
     # get mag nucleotides
     handle_cov=open(mag_cov,"w")

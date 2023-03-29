@@ -50,5 +50,5 @@ annotation: # support only diamond for now
   checkm: /mnt/gpfs/seb/Database/CheckM
   kraken_db: /mnt/gpfs/seb/Database/Kraken_Standard
   kofamscan: 
-    profiles: /mnt/gpfs/seb/Database/KEGG/kofamscan/profiles
+    profiles: /mnt/gpfs/seb/Database/KEGG/kofamscan/ko_hmm.hmm
     ko_list: /mnt/gpfs/seb/Database/KEGG/kofamscan/ko_list

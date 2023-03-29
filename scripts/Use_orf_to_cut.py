@@ -44,9 +44,9 @@ def prodigal_gff_parser(Handle) :
 def get_gff_dico(Chunk_size,Gff_file):
 	Limit_size=2*Chunk_size
 	Dico_contigid_gff=defaultdict(list)
-	Handle = open(Gff_file)
 	Dico_contigs={}
-	for Seq_data,Model,ORF_list in prodigal_gff_parser(Handle) :
+	generator = prodigal_gff_parser(open(Gff_file))
+	for Seq_data,Model,ORF_list in generator :
 		Seq_len=int(Seq_data.split(";")[1].split("=")[1])
 		for ORF in ORF_list :
 			(seqid,source,type,start,end,score,strand,phase,attributes)=ORF.split("\t")
@@ -127,6 +127,7 @@ def main(Fasta_file,Gff_file,output,output_bed,Chunk_size,Replace) :
 	Dico_contigid_gff,Dico_contigs=get_gff_dico(Chunk_size,Gff_file)
 	Dico_Contigid_Cutlocation=Cut_contigs(Chunk_size,Dico_contigid_gff)
 	Dico_contigid_Dico_ORfnb_index={Contig:{index_orf:next(index for index,value in enumerate([i[1] for i in Dico_Contigid_Cutlocation[Contig]]) if ORF[1]<=value) for index_orf,ORF in enumerate(List_ORF)} for Contig,List_ORF in Dico_contigid_gff.items() if Contig in Dico_Contigid_Cutlocation}
+
 	# Output cuts contigs		
 	Lim=2*Chunk_size
 	Handle=open(output,"w")

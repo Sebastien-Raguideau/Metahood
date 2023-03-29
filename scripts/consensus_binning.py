@@ -29,7 +29,7 @@ from Bio.SeqIO.FastaIO import SimpleFastaParser as sfp
 # ----> solution just get a score per mag and remove iteratively the worst mag until no linkage remain.
 # ----> there is a risk you will loose SCG and organism this way
 
-def consensus(cluster_def_m2, cluster_def_c, profile_file, contig_to_len, contigs_to_scg, nb_scg, output):
+def consensus(cluster_def_m2, cluster_def_c, profile_file, contig_to_len, contigs_to_scg, NB_SCG, scg_cluster_def, output):
     # shared contigs amongs mags : 
     common_contigs =set(cluster_def_m2.keys())&set(cluster_def_c.keys())
     mag_shared = defaultdict(lambda :defaultdict(list))
@@ -40,21 +40,27 @@ def consensus(cluster_def_m2, cluster_def_c, profile_file, contig_to_len, contig
         mag_shared[c][m2].append(contig)
 
     # shared SCG among mags :
-    contigs_to_scgnb = defaultdict(int)
-    contigs_to_scgnb.update({contig:len(cogs) for contig,cogs in contigs_to_scg.items()})
-    mag_shared_scg = {mag:{linked_mag:sum([contigs_to_scgnb[contig] for contig in contigs]) for linked_mag,contigs in linked_mag_contigs.items()} for mag,linked_mag_contigs in mag_shared.items()}
+    mag_shared_scg = {mag:{linked_mag:len(set().union(*[set(contigs_to_scg[contig]) for contig in contigs if contig in contigs_to_scg])) for linked_mag,contigs in linked_mag_contigs.items()} for mag,linked_mag_contigs in mag_shared.items()}
 
     # get mags found by both binner, let's call them  smags for shared mags : mag share more than 50%SCG 
-    temp_smags = {mag:{linked_mag:nb_scg for linked_mag,nb_scg in linked_mag_scg.items() if nb_scg>0.5*nb_scg }for mag,linked_mag_scg in mag_shared_scg.items()}
-    smags = set()
-    non_binary_relationship = set()
-    for mag,linked_mag_scg in temp_smags.items() : 
-        if linked_mag_scg=={} :
-            continue
-        if len(linked_mag_scg)>1:
-            non_binary_relationship|={tuple(sorted([mag]+list(linked_mag_scg.keys())))}
-        smags|={tuple(sorted((mag,mag_linked))) for mag_linked in linked_mag_scg.keys()}
+    temp_smags = {mag:{linked_mag:nbscg for linked_mag,nbscg in linked_mag_scg.items() if nbscg>0.5*NB_SCG }for mag,linked_mag_scg in mag_shared_scg.items()}
 
+    # get smags and non_binary_relationship
+    def evaluate_non_binary_relationship(temp_smags,set_removed=set()):
+        smags = set()
+        non_binary_relationship = set()
+        for mag,linked_mag_scg in temp_smags.items():
+            new_linked_mag_scg = {key:val for key,val in linked_mag_scg.items() if key not in set_removed}
+            if new_linked_mag_scg=={} :
+                continue
+            if mag in set_removed:
+                continue
+            if len(linked_mag_scg)>1:
+                non_binary_relationship|={tuple(sorted([mag]+list(new_linked_mag_scg.keys())))}
+            smags|={tuple(sorted((mag,mag_linked))) for mag_linked in new_linked_mag_scg.keys()}
+        return non_binary_relationship,smags
+
+    non_binary_relationship,smags = evaluate_non_binary_relationship(temp_smags)
 
     # define list of ambiguous contigs shared between mags, for which an assignment is needed 
     # ignored pair in smags
@@ -108,25 +114,28 @@ def consensus(cluster_def_m2, cluster_def_c, profile_file, contig_to_len, contig
 
     ### reassess quality of mags 
     # build a scg table 
-    cogs = sorted({ el for scgs in contigs_to_scg.values() for el in scgs})
+    cogs = sorted({ c for scgs in contigs_to_scg.values() for c,clu in scgs})
     mag_to_scg = {mag:[contigs_to_scg[contig] for contig in mag_contigs] for mag,mag_contigs in cluster_to_contigs.items()}
+    mag_to_scg = {mag:Counter([cog for el in val if el for cog in el]) for mag,val in mag_to_scg.items()}
+
     scg_tables = np.zeros((len(cluster_to_contigs),len(cogs)))
     sorted_mags = sorted(cluster_to_contigs.keys())
-    for index, mag in enumerate(sorted_mags) :
-        for contig in cluster_to_contigs[mag] :
-            if contig in contigs_to_scg :
-                for scg in contigs_to_scg[contig] :
-                    scg_tables[index,cogs.index(scg)]+=1
+    for index, mag in enumerate(sorted_mags):
+        counter_scg = mag_to_scg[mag]
+        for cog,clu in counter_scg:
+            scg_tables[index,cogs.index(cog)]+=1
+
+
     # ignore any mag  under the threshold : of at least 75% of mags in a unique copy
-    mags_to_delete = set(np.array(sorted_mags)[np.where((scg_tables==1).sum(1)<(0.75*nb_scg))])
+    mags_to_delete = set(np.array(sorted_mags)[np.where((scg_tables==1).sum(1)<(0.75*NB_SCG))])
 
     ## choose best representative from smags
     # define a criterion
     def criterion(mag, sorted_mags, mags_to_delete) :
         if mag in mags_to_delete : 
             return -500
-        contamination = sum(scg_tables[sorted_mags.index(mag),:]>1)/nb_scg
-        completion = 1-sum(scg_tables[sorted_mags.index(mag),:]==0)/nb_scg
+        contamination = sum(scg_tables[sorted_mags.index(mag),:]>1)/NB_SCG
+        completion = 1-sum(scg_tables[sorted_mags.index(mag),:]==0)/NB_SCG
         score = completion - 5*contamination
         return score
     def get_best_mag(mag1, mag2, sorted_mags, mags_to_delete, contig_to_len, cluster_to_contigs) :
@@ -140,18 +149,22 @@ def consensus(cluster_def_m2, cluster_def_c, profile_file, contig_to_len, contig
         else :
             return [mag1,mag2][score1<score2]
     # get the list of mag to ignore :
-    for mag1,mag2 in smags :
-        if not {mag1,mag2}&set(itertools.chain(*non_binary_relationship)):
+    non_binary_relationship_mags = set(itertools.chain(*non_binary_relationship))
+    for mag1,mag2 in smags:
+        if not {mag1,mag2}&non_binary_relationship_mags:
             best_mag = get_best_mag(mag1, mag2, sorted_mags, mags_to_delete, contig_to_len, cluster_to_contigs)
             # delete the one which is not the best.... next time let's make it even more convoluted 
             mags_to_delete|={[mag1,mag2][mag1==best_mag]}
 
     # deal with non binary relationship: remove the worst of the serie, and then again....
     smags_remaining = lambda mtd:{el for el in smags if not mtd&set(el)}
+    convergence = 0
     while smags_remaining(mags_to_delete):
-        for case in non_binary_relationship:
-            scores = [criterion(mag, sorted_mags, mags_to_delete) for mag in case]
-            mags_to_delete |={case[min(range(len(scores)), key=scores.__getitem__)]}
+        case = sorted(non_binary_relationship,key=lambda x:-len(x))[0]
+        scores = [criterion(mag, sorted_mags, mags_to_delete) for mag in case]
+        mags_to_delete |={case[min(range(len(scores)), key=scores.__getitem__)]}
+        non_binary_relationship,_ = evaluate_non_binary_relationship(temp_smags,set_removed=mags_to_delete)
+        assert convergence<=50, "unable to resolve non binary mag pairing after 50 iterations..."
 
     # create the final cluster definition 
     cluster_to_contigs_final = {mag:contigs for mag,contigs in cluster_to_contigs.items() if mag not in mags_to_delete}
@@ -168,10 +181,10 @@ def consensus(cluster_def_m2, cluster_def_c, profile_file, contig_to_len, contig
         handle.write("contig_id,0\n")
         handle.writelines("%s,%s\n"%(contig,mag[0]) for contig,mag in cluster_def_final.items())
 
-    # output the cluster definition in the same format as input : 
+    # output mag binary linkage: 
     with open("%s/mags_in_both_mapping.tsv"%dirname(output),'w') as handle : 
         handle.write("metabat2\tconcoct\n")
-        handle.writelines("%s\t%s\n"%(*sorted(smag,key=lambda x:int(x[0]=="c")),) for smag in smags)
+        handle.writelines("%s\t%s\n"%(*sorted(smag,key=lambda x:int(x[0]=="c")),) for smag in smags if not {smag[0],smag[1]}&non_binary_relationship_mags)
 
 
 if __name__ == "__main__":
@@ -183,8 +196,8 @@ if __name__ == "__main__":
     parser.add_argument("-scg", required=True, help="SCG annotation of contigs in the for of a .fna. Each orf header must be space delimited with element : orf,cog,strand")
     parser.add_argument("-contig_profiles", required=True, help="concoct generated contig information (tetranucleotide profile and coverage), ex : original_data_gt1000.csv")
     parser.add_argument("-contig_bed", required=True, help="bogus bed used for computing contigs coverages in bedtool, the feature is the contig itself")
+    parser.add_argument("-c", help="use a clustering table for the sake of ignoring stain diversity")
     parser.add_argument("-o", required=True, help="output, unambiguous bin definition")
-
 
     # get args 
     args = parser.parse_args()
@@ -198,21 +211,33 @@ if __name__ == "__main__":
     profile_file = args.contig_profiles 
     # get contig size : 
     contig_to_len = {line.rstrip().split("\t")[0]:int(line.rstrip().split("\t")[2]) for line in open(args.contig_bed)}
-    # get contig SCG
-    contigs_to_scg = defaultdict(list)
-    scgs = set()
-    for header,seq in sfp(open(args.scg)) :
-        orf,cog,strand = header.rstrip().split(" ")
-        contig = "_".join(orf.split('_')[:-1])
-        contigs_to_scg[contig].append(cog)
-        scgs.add(cog)
+
     # output 
     output = args.o
 
+    # use scg cluster useful for hifi and more
+    if args.c:
+        scg_cluster_def = {el:(line.rstrip().split('\t')[0],line.rstrip().split('\t')[1]) for line in open(args.c) for el in line.rstrip().split('\t')[2:]}
+    else:
+        scg_cluster_def = {}
+        cog_cnt = defaultdict(int)
+        for header,seq in sfp(open(args.scg)):
+            header,cog,*_ = header.split(" ")
+            scg_cluster_def[header]=(cog,cog_cnt[cog])
+            cog_cnt[cog]+=1
+
+    # get contig SCG
+    contigs_to_scg = defaultdict(set)
+    scgs = set()
+    for header,seq in sfp(open(args.scg)) :
+        orf,cog,strand = header.rstrip().split(" ")
+        clu = scg_cluster_def[orf]
+        contig = "_".join(orf.split('_')[:-1])
+        contigs_to_scg[contig].add(clu)
+        scgs.add(cog)
+    contigs_to_scg = defaultdict(list,{key:list(vals) for key,vals in contigs_to_scg.items()})
+
+
     #main 
-    consensus(cluster_def_m2, cluster_def_c, profile_file, contig_to_len, contigs_to_scg, float(len(scgs)), output)
-
-
-
-
+    consensus(cluster_def_m2, cluster_def_c, profile_file, contig_to_len, contigs_to_scg, float(len(scgs)), scg_cluster_def, output)
 

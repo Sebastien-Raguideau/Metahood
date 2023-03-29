@@ -123,7 +123,7 @@ if __name__ == "__main__":
     parser.add_argument("-f", help="output SCG sequences, one file by bin, takes the path to where you want to store the mags ")
     parser.add_argument("-l", help="output the list of Mags, takes names of the file as argument")
     parser.add_argument("-t", help="output SCG table, takes the name of a the table")
-    parser.add_argument("-c", help="use a clustering table for the sake of ignoring stain diversity")    
+    parser.add_argument("-c", help="use a clustering table for the sake of ignoring stain diversity")
     args = parser.parse_args()
     Bin_file = args.Bin_file
     Fasta_file = args.SCG_Fasta

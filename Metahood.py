@@ -32,6 +32,9 @@ config = yaml.full_load(open(CONFIG_FILE))
 # get exec directory
 METAHOOD_DIR = dirname(abspath(realpath(sys.argv[0])))
 
+# test if we can store conda env in the metahood dir
+IS_WRITABLE = os.access(METAHOOD_DIR, os.W_OK)
+
 # execution directory
 EXEC_DIR=abspath(realpath(config["execution_directory"]))
 os.system("mkdir -p %s"%EXEC_DIR)
@@ -56,8 +59,10 @@ if args.touch:
 if args.dag:
     base_params.extend(["--rulegraph"])
 if args.s :
-    base_params.extend(args.s)
-
+    additional_params=args.s
+    if ("--use-conda" in additional_params)&IS_WRITABLE:
+        additional_params+= ['--conda-prefix','%s/conda_envs'%METAHOOD_DIR]
+    base_params.extend(additional_params)
 
 # ------- call snakemake from  METAHOOD_DIR -----------
 with cd(METAHOOD_DIR):
