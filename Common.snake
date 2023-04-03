@@ -76,8 +76,9 @@ BEST_HITS = ["KEGG"]*(KO_HMM!="")+[annotation for annotation in DIAMOND]
 assert len(BEST_HITS)==len(set(BEST_HITS)), "diamond annotation use KEGG as keyword, this is ambiguous as one of these is already done otherwise."
 
 # -------- MAG analysis ------
-MAG_ANALYSIS=config["maganalysis"]
+MAG_ANALYSIS = config["maganalysis"]
 HMM = {"cpr43":"%s/cpr_43_markers.hmm"%SCG_DATA, "ar76":"%s/meren_ar76.hmm"%SCG_DATA, "bac71":"%s/meren_bac71.hmm"%SCG_DATA}
+GTDB = config["gtdb"]
 
 # -------- DESMAN ------
 DESMAN=config["desman"]["execution"]

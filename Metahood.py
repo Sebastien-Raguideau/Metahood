@@ -14,7 +14,7 @@ import os
 
 
 parser = argparse.ArgumentParser(description="MetaHood - pipeline for assembly and binning of metagenomic samples")
-parser.add_argument("step", nargs='?', default='all', type=str, choices={"all", "sample_qc"}, help="Pipeline step to run options: all or sample_qc, default is all")
+parser.add_argument("step", nargs='?', default='all', type=str, choices={"all", "sample_qc","mags_wf"}, help="Pipeline step to run options: all, sample_qc or just mags_wf, default is all")
 parser.add_argument("config", type=str, help="config_file.yaml to use")
 parser.add_argument("--cores", "-c", type=int, default=1, help="Number of threads")
 parser.add_argument("--verbose", "-v", action="store_true", help="Increase verbosity level")
@@ -81,6 +81,12 @@ with cd(METAHOOD_DIR):
     if args.step == 'all':
         #launch master snake
         call_snake(["--snakefile", "Master.snake"])
+        #launch mag post processing
+        call_snake(["--snakefile", "mag_processing.snake"])
+    if args.step == 'mags_wf':
+        #launch mag post processing
+        call_snake(["--snakefile", "mag_processing.snake"])
+
     # setup data folder
     # call_snake(["--snakefile", "Setup_samples.snake"])
     # launch Maganalysis

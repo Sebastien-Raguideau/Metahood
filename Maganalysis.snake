@@ -245,12 +245,12 @@ rule annotation_summary:
     input:  annotation=expand("{{group}}/MagAnalysis/{{binner}}/mags/log/{annotation}_done",annotation=BEST_HITS),
             cluster="{group}/binning/{binner}/clustering_{binner}.csv",
             mags="{group}/binning/{binner}/{binner}_MAG_list.txt"
-    output: summary=expand("{{group}}/MagAnalysis/{{binner}}/mags_infos/{annotation}_summary.tsv",annotation=BEST_HITS)
+    output: summary = expand("{{group}}/MagAnalysis/{{binner}}/mags_infos/{annotation}_summary.tsv",annotation=BEST_HITS)
     params: best_hits=BEST_HITS
     conda : CONDA_ENV + "/pythonenv.yaml"
     singularity : "docker://quay.io/annacprice/pythonenv:3.9"
     shell : """
-    {SCRIPTS}/annotation_summary.py -a {input.annotation} -h {params.best_hits} -o {output.summary}
+    {SCRIPTS}/annotation_summary.py -h {params.best_hits} -o {output.summary}
     """
 
 # Add all infos 

@@ -6,12 +6,13 @@ try:
 except:
     pass
 
-from collections import defaultdict
+from os.path import basename, dirname, realpath, isfile
+from collections import defaultdict, Counter
 from subprocess import Popen, PIPE
-from os.path import basename, dirname
-import os
 import os.path
+import glob
 import re
+import os
 
 
 default_values = {
@@ -51,8 +52,9 @@ def fill_default_values(config):
     local_dir = config.get("LOCAL_DIR")
     if local_dir:
         default_values["scripts"] = os.path.join(local_dir, "scripts")
-        default_values["scg_data"]= os.path.join(local_dir, "scg_data")
-        default_values["conda_env"]= os.path.join(local_dir, "conda_envs")
+        default_values["scg_data"] = os.path.join(local_dir, "scg_data")
+        default_values["conda_env"] = os.path.join(local_dir, "conda_envs")
+        default_values["gtdb"] = os.path.join(local_dir, "gtdb")
     setdefault_recursively(config)
 
 def sample_name(fullname):

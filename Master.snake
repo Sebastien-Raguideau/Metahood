@@ -14,7 +14,7 @@ List_inputs = []
 #main task, handle sample trimming, assembly and binning
 List_inputs += expand("{group}/binning/{binner}/{binner}_MAG_list.txt",group=GROUPS, binner=BINNER)
 List_inputs += expand("{group}/binning/{binner}/bins/done", group=GROUPS,binner=BINNER)
-List_inputs += expand("{group}/binning/{binner}/quality/quality_test.tsv",group=GROUPS,binner=BINNER)
+# List_inputs += expand("{group}/binning/{binner}/quality/quality_test.tsv",group=GROUPS,binner=BINNER)
 if "metabat2" in BINNER:
     List_inputs += expand("{group}/binning/metabat2/bins/name_done", group=list(GROUPS.keys()))
 # contigs coverage profile

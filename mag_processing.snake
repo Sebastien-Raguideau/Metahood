@@ -1,0 +1,278 @@
+include: "Common.snake"
+
+
+
+ASMBL_MAGS = {group:glob.glob("%s/binning/consensus/bins/*.fa"%group) for group in GROUPS}
+
+
+
+def matrix_write(matrix,file_name,col_names,row_names):
+    with open(file_name,"w") as handle:
+        handle.write("/\t%s\n"%"\t".join(col_names))
+        handle.writelines('%s\t%s\n'%(row_names[index],"\t".join(["{:.4g}".format(el) for el in line])) for index,line in enumerate(matrix))
+
+rule results:
+    input: expand("MAGs/results/{annotation}_summary.tsv", annotation = BEST_HITS),
+           expand("global_annotation/{type}_cov.tsv",type=BEST_HITS),
+           "global_annotation/normalisation.tsv",
+           "MAGs/results/mag_to_dmags_summary.tsv",
+           # "MAGs/profile/minimap_coverage.tsv"
+
+
+#------------- create folder with symlinks -------------
+rule create_naming_scheme:
+    output: scheme = "MAGs/results/mag_name_mapping.tsv"
+    run:
+        # check that we can use a simple rule to have all mags with different names
+        all_mags = sorted([mag_path for mags in ASMBL_MAGS.values() for mag_path in mags])
+        mags_simple_scheme = {"%s_%s"%(group.replace("/","_"),basename(mag_path).replace(".fa","")):mag_path for group,mags in ASMBL_MAGS.items() for mag_path in mags}
+        mags_basic_scheme = {"mag_%s"%index:mag_path for index,mag_path in enumerate(all_mags)}
+        if len(mags_simple_scheme)==len(all_mags):
+            mag_naming_scheme = mags_simple_scheme
+        else:
+            mag_naming_scheme = mags_basic_scheme
+        assert len(mags_basic_scheme)==len(all_mags), "issue with name scheme for mags, please report issue to github"
+        with open(output["scheme"],"w") as handle:
+            handle.write("MAG\tassembly\tpath\n")
+            get_asm = lambda x:"/".join(x.split("/")[:-4])
+            handle.writelines("%s\t%s\t%s\n"%(mag,get_asm(mag_path),mag_path) for mag,mag_path in mag_naming_scheme.items())
+
+
+rule create_all_mags_link_drep:
+    input: scheme = "MAGs/results/mag_name_mapping.tsv"
+    output: done = "MAGs/logs/drep_done",
+    run:
+        with open(input["scheme"]) as handle:
+            _ = next(handle)
+            name_to_path = {line.rstrip().split("\t")[0]:line.rstrip().split("\t")[-1] for line in handle}
+        dirout = dirname(output["done"])
+        shell("mkdir -p MAGs/drep/non_drep_mags")
+        for mag,path in name_to_path.items():
+            shell("mkdir -p MAGs/all_mags/%s"%mag)
+            shell("ln -s %s MAGs/all_mags/%s/%s.fa"%(realpath(path),mag,mag))
+            shell("ln -s %s MAGs/drep/non_drep_mags/%s.fa"%(realpath(path),mag))
+        shell("touch {output.done}")
+
+rule drep:
+    input: "MAGs/logs/drep_done"
+    output: "MAGs/drep/data_tables/Cdb.csv"
+    params : out = "MAGs/drep",
+             mags = "MAGs/drep/non_drep_mags"
+    conda : "%s/drep.yaml"%CONDA_ENV
+    singularity: "builds/drep.sif"
+    threads: 100
+    shell: "dRep dereplicate {params.out} --ignoreGenomeQuality -g {params.mags}/*.fa -p {threads}"
+
+rule get_gtdb_database:
+    output: db_done="MAGs/logs/gtdb_done",
+    log: "MAGs/logs/download_gtdb.log"
+    singularity: "builds/gtdb.sif"
+    conda : "%s/gtdbtk.yaml"%CONDA_ENV
+    shell: "{SCRIPTS}/install_gtdbtk.py {GTDB}|touch {output.db_done}"
+
+
+rule gtdb:
+    input: "{path}/drep/data_tables/Cdb.csv",
+           "{path}/logs/gtdb_done"
+    output: ar = "{path}/gtdb/gtdbtk.ar122.summary.tsv",
+            bac = "{path}/gtdb/gtdbtk.bac120.summary.tsv"
+    params: "{path}/drep/dereplicated_genomes"
+    singularity: "builds/gtdb.sif"
+    conda : "%s/gtdbtk.yaml"%CONDA_ENV
+    threads: 50
+    shell: """
+    export "GTDBTK_DATA_PATH={GTDB}/"
+    gtdbtk classify_wf --cpus {threads} --genome_dir {params} --out_dir $(dirname {output.ar}) --extension .fa
+    touch {output.ar}
+    touch {output.bac}
+    """
+
+#------------- global aggregation of annotation (assembly level) -------------
+
+rule get_profile:
+    input:  scheme = "MAGs/results/mag_name_mapping.tsv",
+            done = "MAGs/logs/drep_done",
+            annot = expand("{group}/profile/cov_{{type}}.tsv",group=GROUPS)
+    output: mat = "global_annotation/{type}_cov.tsv",
+    singularity : "docker://quay.io/annacprice/pythonenv:3.9"
+    conda : "%s/pythonenv.yaml"%CONDA_ENV    
+    params: asmbl = "-custom_sep-".join(list(GROUPS.keys()))
+    shell: "{SCRIPTS}/aggregate_annotation.py {wildcards.type} {params.asmbl} {output.mat}"
+
+rule get_normalisation:
+    input:  scheme = "MAGs/results/mag_name_mapping.tsv",
+            done = "MAGs/logs/drep_done",
+            annot = expand("{group}/profile/Normalisation.tsv",group=GROUPS)
+    output: norm = "global_annotation/normalisation.tsv"
+    singularity : "docker://quay.io/annacprice/pythonenv:3.9"
+    conda : "%s/pythonenv.yaml"%CONDA_ENV
+    params: asmbl = "-custom_sep-".join(list(GROUPS.keys()))    
+    shell: "{SCRIPTS}/aggregate_normalisation.py {params.asmbl} {output.norm}"
+
+rule mag_summary:
+    input: ar = "{path}/gtdb/gtdbtk.ar122.summary.tsv",
+           bac = "{path}/gtdb/gtdbtk.bac120.summary.tsv",
+           drep = "{path}/drep/data_tables/Cdb.csv",
+           scheme = "{path}/results/mag_name_mapping.tsv",
+    params: asmbl = "-custom_sep-".join(list(GROUPS.keys()))           
+    singularity : "docker://quay.io/annacprice/pythonenv:3.9"
+    conda : "%s/pythonenv.yaml"%CONDA_ENV
+    output: summary = "{path}/results/mag_to_dmags_summary.tsv",
+    shell: "{SCRIPTS}/generate_mag_summary.py {input.ar} {input.bac} {input.drep} {input.scheme} {params.asmbl} {output.summary}"
+
+#------------- get mags annotation ------------------
+rule split_by_mag:
+    input:  annotation = expand("{{group}}/annotation/contigs_{annot}_best_hits.tsv",annot=BEST_HITS),
+            faa="{group}/annotation/contigs.faa",
+            fna="{group}/annotation/contigs.fna",
+            cog="{group}/annotation/contigs_cogs_best_hits.tsv",
+            cluster="{group}/binning/consensus/clustering_consensus.csv",
+            mags="{group}/binning/consensus/consensus_MAG_list.txt",
+            scheme = "MAGs/results/mag_name_mapping.tsv"
+    output: "MAGs/logs/{group}_split_done"
+    params: out = "MAGs/all_mags"
+    conda : CONDA_ENV + "/pythonenv.yaml"
+    singularity : "docker://quay.io/annacprice/pythonenv:3.9"
+    shell:"""
+    {SCRIPTS}/Split_fasta_by_bin.py {input.cluster} {params.out} -l {input.mags}  --folder --fasta {input.faa} {input.fna} --annotation {input.annotation} {input.cog} --scheme {input.scheme}
+    touch {output}
+    """
+
+# Add summary of annotation files
+rule annotation_summary:
+    input:  done = expand("MAGs/logs/{group}_split_done",group = GROUPS),
+    output: summary = expand("MAGs/results/{annotation}_summary.tsv", annotation = BEST_HITS)
+    params: best_hits = BEST_HITS,
+            out = "MAGs/results",
+            path = "MAGs/all_mags"
+    conda : CONDA_ENV + "/pythonenv.yaml"
+    singularity : "docker://quay.io/annacprice/pythonenv:3.9"
+    shell : """
+    {SCRIPTS}/annotation_summary.py -o {params.out} -a {params.best_hits} -p {params.path}
+    """
+
+
+# #------------- get mags coverage  ------------------
+# rule index_bam:
+#     input: "{path}.bam"
+#     output: "{path}.bam.bai"
+#     shell: "samtools index {input}"
+
+# rule concatenated_coverage:
+#     input : cluster ="{path}/drep/data_tables/Cdb.csv",
+#     output: cov = "{path}/profile/concatenated_coverage.tsv",
+#     run:
+#         # get mag,dmag relationship
+#         mag_to_dmag,dmag_to_mags = get_mag_dmag(dirname(input["cluster"]))
+
+#         # for each ad the line of mags 
+#         asmbl_to_mags = defaultdict(lambda:set())
+#         for mag in mag_to_dmag:
+#             asmbl,_bin = mag.split("_Bin_")
+#             mag = "Bin_%s"%_bin
+#             asmbl_to_mags[asmbl]|={mag}
+
+#         # build dmag wise concatenated matrix 
+#         def translate_sample(asmbl,sample):
+#             if asmbl not in sample:
+#                 sample = "%s_%s"%(asmbl,sample)
+#             return sample
+
+#         # first create a matrix of the rigth dimension
+#         get_cov = lambda asmbl:"%s/profile/mag_consensus_coverage.tsv"%(ASMBL[asmbl])
+#         sorted_dmags = sorted(set(mag_to_dmag.values()))
+#         mag_to_index = {mag:sorted_dmags.index(dmag) for mag,dmag in mag_to_dmag.items()}
+#         sorted_samples = sorted([translate_sample(asmbl,sample) for asmbl in asmbl_to_mags for sample in next(open(get_cov(asmbl))).rstrip().split("\t")[1:]])
+#         concat_cov = np.zeros((len(sorted_dmags),len(sorted_samples)))
+
+#         for asmbl in asmbl_to_mags:
+#             matrix,header,colnames = load_matrix(get_cov(asmbl))
+#             sample_reoder = [sorted_samples.index(translate_sample(asmbl,el)) for el in header]
+#             for index,line in enumerate(matrix):
+#                 mag = "%s_%s"%(asmbl,colnames[index])
+#                 if mag in mag_to_index:
+#                     concat_cov[mag_to_index[mag],sample_reoder]+=line
+         
+#         # output
+#         matrix_write(concat_cov,output["cov"],sorted_samples,sorted_dmags)
+
+
+# rule dmags_genomes : 
+#     input : drep_done = "{path}/drep/data_tables/Cdb.csv",
+#     output : out = "{path}/profile/dmags_genomes.fa"
+#     run :
+#         folder = "%s/drep/dereplicated_genomes"%wildcards["path"]
+#         with open(output["out"],"w") as handle :
+#             for mag_file in glob.glob("%s/*.fa"%folder):
+#                 mag = basename(mag_file).replace(".fa","")
+#                 handle.writelines(">%s_%s\n%s\n"%(mag,header,seq) for header,seq in sfp(open(mag_file)))
+
+# #------------- do some minimap2  ------------------
+# rule select_contigs: 
+#     output : out = "{path}/unbinned_contigs.fa",
+#              length = "{path}/unbinned_contigs_len.tsv"
+#     run:
+#         # select contigs for each biome
+#         clusterings = [file for file in  glob.glob("%s/assemblies/*/binning/consensus/clustering_consensus.csv"%ROOT) if file.split("/")[-4]]
+#         asmbl_to_contigs = defaultdict(list)
+#         for asmbl,folder in ASMBL.items():
+#             for line in open("%s/binning/consensus/clustering_consensus.csv"%folder):
+#                 contig,nb_bin = line.rstrip().split(",")
+#                 asmbl_to_contigs[asmbl].append(contig)
+
+#         # get the seq and write the seq:
+#         with open(output["length"],"w") as handle_l:
+#             with open(output["out"],"w") as handle_w:
+#                 for asmbl,contigs in asmbl_to_contigs.items():
+#                     set_contigs = set(contigs)
+#                     for header,seq in sfp(open("%s/contigs/contigs.fa"%(ASMBL[asmbl]))):
+#                         header = header.split(" ")[0]
+#                         if header not in set_contigs:
+#                             handle_w.write(">%s_%s\n%s\n"%(asmbl,header,seq))
+#                             handle_l.write("%s_%s\t%s\n"%(asmbl,header,len(seq)))
+
+
+# # map long reads to mags with 1%
+# rule minimap2:
+#     input: ref = "{path}/dmags_genomes.fa",
+#            contigs = "{path}/minimap2/unbinned_contigs.fa"
+#     output: "{path}/minimap2/contig_mapped_sorted.bam"
+#     params: "{path}/minimap2/tmp"
+#     threads : 100
+#     log:"{path}/minimap2/minimap.log"
+#     shell: "minimap2 -ax asm10 {input.ref} {input.contigs} -t {threads} -I 200G 2> {log} | samtools view  -b -F 4 -@{threads} - | samtools sort -@{threads} - > {output}"
+
+# rule create_asmbl_path_file:
+#     output:"{path}/asmbl_paths.tsv"
+#     run:
+#         with open(output[0],"w") as handle:
+#             handle.writelines("%s\t%s\n"%(key,val) for key,val in ASMBL.items())
+
+
+# SCRIPT = "/mnt/gpfs2/seb/Project/ambi_map/snakenest"
+
+# rule bogus_bed:
+#     input:   contig="{path}.fa"
+#     output:  bed="{path}.bed"
+#     run :
+#         handle=open(output['bed'],"w")
+#         for header,seq in sfp(open(input["contig"])) :
+#             name=header.split(" ")[0]
+#             handle.write("\t".join([name,"0",str(len(seq)),name+"\n"]))
+#         handle.close()
+
+
+# rule minimap2_coverage:
+#     input:  index = "{path}/profile/minimap2/contig_mapped_sorted.bam.bai",
+#             contig_len = "{path}/profile/minimap2/unbinned_contigs_len.tsv",
+#             ref_contig_len = "{path}/profile/dmags_genomes.bed",
+#             mag_sum = "{path}/mag_to_dmags_summary.tsv",
+#             bam_file = "{path}/profile/minimap2/contig_mapped_sorted.bam",
+#             concat_cov = "{path}/profile/concatenated_coverage.tsv",
+#             asmbl_path = "{path}/profile/asmbl_paths.tsv"
+#     output: out_breadth = "{path}/profile/minimap2/dmag_minimap_breadth_cov.tsv",
+#             biome_cov = "{path}/profile/minimap2/dmag_to_minimap_per_biome_cov.tsv",
+#             raw_cov = "{path}/profile/minimap2/dmag_to_minimap_cov_RAW.tsv",
+#             Filt_cov = "{path}/profile/minimap2/dmag_to_minimap_cov_F10p.tsv",
+#             final_cov = "{path}/profile/minimap_coverage.tsv",
+#     shell: "{SCRIPT}/minimap_contigs_to_mags.py {input.contig_len} {input.ref_contig_len} {input.mag_sum} {input.bam_file} {input.concat_cov} {input.asmbl_path} {output}"

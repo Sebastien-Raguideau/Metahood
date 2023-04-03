@@ -1,34 +1,35 @@
 #!/usr/bin/env python
 from __future__ import division
 from Bio.SeqIO.FastaIO import SimpleFastaParser
+from os.path import basename,dirname
 from collections import defaultdict
 import argparse,os
 import resource
 import sys
 
 
-def scheduler(method,List_Batchs,file,restrict,bin_composition,path_output,folder):
+def scheduler(method,List_Batchs,file,restrict,bin_composition,path_output,folder,rename):
     for Batch in List_Batchs :
         if restrict :
             set_bins=set(Batch)&set(restrict)
         else :
             set_bins=set(Batch)
-        method(file,bin_composition,set_bins,path_output,folder)
+        method(file,bin_composition,set_bins,path_output,folder,rename)
 
 
-def split_fasta(fasta_file,bin_composition,set_bins,output,folder):
+def split_fasta(fasta_file,bin_composition,set_bins,output,folder,rename):
     # get bin definition 
-    Dico_contigs_bin={line.rstrip().split(",")[0]:line.rstrip().split(",")[1] for line in open(bin_composition) if line.rstrip().split(",")[1] in set_bins}
+    Dico_contigs_bin={line.rstrip().split(",")[0]:rename("Bin_%s"%line.rstrip().split(",")[1]) for line in open(bin_composition) if line.rstrip().split(",")[1] in set_bins}
     # open one file for writting, by bin
     Dico_bin_Handle={}
-    ext=fasta_file.split(".")[-1]
-    for bins in set(Dico_contigs_bin.values()) :
+    ext = fasta_file.split(".")[-1]
+    for _bin in set(Dico_contigs_bin.values()) :
         if folder :
-            output_folder=output+"/Bin_%s/"%bins
+            output_folder = "%s/%s"%(output,_bin)
         else :
-            output_folder=output
+            output_folder = output
         os.system("mkdir -p %s"%output_folder)
-        Dico_bin_Handle[bins]=open("%s/Bin_%s.%s"%(output_folder,bins,ext),"w")
+        Dico_bin_Handle[_bin]=open("%s/%s.%s"%(output_folder,_bin,ext),"w")
 
     # go through all element of the the fasta file and write it to the rigth bin file
     for header,seq in SimpleFastaParser(open(fasta_file)) :
@@ -46,19 +47,20 @@ def split_fasta(fasta_file,bin_composition,set_bins,output,folder):
 
 
 
-def split_annotation(annotation_file,bin_composition,set_bins,output,folder):
+def split_annotation(annotation_file,bin_composition,set_bins,output,folder,rename):
     # get bin definition 
-    Dico_contigs_bin={line.rstrip().split(",")[0]:line.rstrip().split(",")[1] for line in open(bin_composition) if line.rstrip().split(",")[1] in set_bins}
+    Dico_contigs_bin = {line.rstrip().split(",")[0]:rename("Bin_%s"%line.rstrip().split(",")[1]) for line in open(bin_composition) if line.rstrip().split(",")[1] in set_bins}
+
     # open one file for writting, by bin
-    Dico_bin_Handle={}
-    ext=annotation_file.split("/")[-1].replace("contigs_","")
-    for bins in set(Dico_contigs_bin.values()) :
+    Dico_bin_Handle = {}
+    ext = annotation_file.split("/")[-1].replace("contigs_","")
+    for _bin in set(Dico_contigs_bin.values()) :
         if folder :
-            output_folder=output+"/Bin_%s"%bins
+            output_folder="%s/%s"%(output, _bin)
         else :
             output_folder=output
         os.system("mkdir -p %s"%output_folder)
-        Dico_bin_Handle[bins]=open("%s/Bin_%s_%s"%(output_folder,bins,ext),"w")
+        Dico_bin_Handle[_bin]=open("%s/%s_%s"%(output_folder,_bin,ext),"w")
 
     # go through all element of the the fasta file and write it to the rigth bin file
     for line in open(annotation_file) :
@@ -73,8 +75,6 @@ def split_annotation(annotation_file,bin_composition,set_bins,output,folder):
         handle.close()
 
 
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("bin_composition", help="csv file giving bin composition, output of concoct, first column=contig id, second is bin number")
@@ -83,6 +83,7 @@ if __name__ == "__main__":
     parser.add_argument("--annotation",nargs='*', help="annotation refering to sequences binned, must be .tsv, first column is the orf id, it should be possible to obtain contig id from removing last underscore suffix.")
     parser.add_argument("-l",help="file with one bin number by line : restrict to a list of specifics bins ")
     parser.add_argument("--folder",help="alternative output option : create one folder for each bin", action = 'store_true')
+    parser.add_argument("--scheme",help="alternative naming convention for mags, in case split over assemblies")
     args = parser.parse_args()
 
     # parse argument
@@ -94,6 +95,7 @@ if __name__ == "__main__":
         annotation_files=[file for file in args.annotation]
     if annotation_files+fasta_files==[]:
         sys.exit('no fasta of annotation to split')
+
     bin_composition=args.bin_composition
     path_output=args.path_output
     folder=args.folder
@@ -104,17 +106,29 @@ if __name__ == "__main__":
 
     #---------- Batch strategy ----------------
     # there is a hard limit of number of handles which can be open
-    max_nb_handles=resource.getrlimit(resource.RLIMIT_NOFILE)[0]
-    max_nb_handles=max_nb_handles-100
-    List_all_bins=list({line.rstrip().split(",")[1] for index,line in enumerate(open(bin_composition)) if index>0})
-    Nb_bins=len(List_all_bins)
-    nb_batch=Nb_bins//max_nb_handles+1
-    List_Batchs=[List_all_bins[batch*max_nb_handles:min((batch+1)*max_nb_handles,Nb_bins)] for batch in range(nb_batch)]
+    max_nb_handles = resource.getrlimit(resource.RLIMIT_NOFILE)[0]
+    max_nb_handles = max_nb_handles-100
+    List_all_bins = list({line.rstrip().split(",")[1] for index,line in enumerate(open(bin_composition)) if index>0})
+    Nb_bins = len(List_all_bins)
+    nb_batch = Nb_bins//max_nb_handles+1
+    List_Batchs = [List_all_bins[batch*max_nb_handles:min((batch+1)*max_nb_handles,Nb_bins)] for batch in range(nb_batch)]
+
+    # renaming: if using different names than expected
+    if args.scheme:
+        current_asm = dirname(dirname(args.annotation[0]))
+        mag_path = {line.rstrip().split("\t")[0]:line.rstrip().split("\t")[2] for index,line in enumerate(open(args.scheme)) if index>0 if line.rstrip().split("\t")[1]==current_asm}
+        assert len(mag_path)!=0, "no mag dectected for this assemble: %s"%current_asm
+        rename_template = {basename(path).replace(".fa",""):mag for mag,path in mag_path.items()}
+        def rename(x):
+            return rename_template[x]
+    else:
+        rename = lambda x:x
+
     # split fasta files
     for file in fasta_files:
-        scheduler(split_fasta,List_Batchs,file,restrict,bin_composition,path_output,folder)
+        scheduler(split_fasta,List_Batchs,file,restrict,bin_composition,path_output,folder,rename)
     # split annotation files
     for file in annotation_files :
-        scheduler(split_annotation,List_Batchs,file,restrict,bin_composition,path_output,folder)
+        scheduler(split_annotation,List_Batchs,file,restrict,bin_composition,path_output,folder,rename)
 
 
