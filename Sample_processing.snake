@@ -17,7 +17,8 @@ rule bwa_index2:
     input: "{file}"
     output: "{file}.sa"
     conda : "%s/bwasamtools.yaml"%CONDA_ENV
-    resources: mem_mb: 10000
+    resources:
+        mem_mb: 10000
     singularity : "docker://quay.io/annacprice/bwasamtools:1.10"
     shell: "bwa index {input}"
 
