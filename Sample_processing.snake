@@ -41,12 +41,14 @@ rule bam_to_fastq:
             R2 = temp("{IN}/{sample}/Filtered_{prefix}R2{suffix}.{ext}")
     threads: 1
     resources: mem_mb=10000
-    singularity : "docker://quay.io/annacprice/bedtools:2.29.2"    
-    run:
-        shell("bamToFastq -i {input} -fq {output.R1}_temp -fq2 {output.R2}_temp")
-        if wildcards['ext'].endswith(".gz"):
-            shell("gzip -c {output.R1}_temp > {output.R1} && rm {output.R1}_temp")
-            shell("gzip -c {output.R2}_temp > {output.R2} && rm {output.R2}_temp")
+    singularity : "docker://quay.io/annacprice/bedtools:2.29.2"
+    shell: """
+        bamToFastq -i {input} -fq {output.R1}_temp -fq2 {output.R2}_temp
+        if [[ "${wildcards.ext}" == *.gz ]]; then
+            gzip -c {output.R1}_temp > {output.R1} && rm {output.R1}_temp
+            gzip -c {output.R2}_temp > {output.R2} && rm {output.R2}_temp
+        fi
+        """
 
 
 # need to use a _done file, so that I can precise {ext}, since fastqc output name can't be precised.
