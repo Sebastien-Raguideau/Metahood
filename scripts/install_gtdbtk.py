@@ -29,8 +29,8 @@ if __name__ == "__main__":
         dl_script = which("download-db.sh")
         new_dl_script = dirname(dl_script)+"/download-db2.sh"
         os.system("cp %s %s"%(dl_script,new_dl_script))
-        os.system("sed -i 's=${{GTDBTK_DATA_PATH}}=%s=g' %s"%(GTDB,new_dl_script))
-        os.system("download-db2.sh &>{log}")
+        os.system("sed -i 's=$GTDBTK_DATA_PATH=%s=g' %s"%(GTDB,new_dl_script))
+        os.system("download-db2.sh")
     # overwrite default database location
     export_path = env_path+"/etc/conda/activate.d/gtdbtk.sh"
     with open(export_path,"w") as handle:

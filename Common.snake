@@ -40,6 +40,10 @@ CONFIG_PATH = config["CONFIG_PATH"]
 LOCAL_DIR = config["LOCAL_DIR"]
 EXEC_DIR = config["EXEC_DIR"]
 
+# ------- Cluster resources -------
+SLURM_PARTITIONS = config["slurm_partitions"]
+HIGH_MEM_PARTITION = SLURM_PARTITIONS["high_mem"]
+
 # -------- Binning -----------
 # option related to which samples would we want to be mapping to the assembly
 # do we want all samples or just the sample used for ssa

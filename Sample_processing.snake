@@ -44,7 +44,7 @@ rule bam_to_fastq:
     singularity : "docker://quay.io/annacprice/bedtools:2.29.2"
     shell: """
         bamToFastq -i {input} -fq {output.R1}_temp -fq2 {output.R2}_temp
-        if [[ "${wildcards.ext}" == *.gz ]]; then
+        if [[ "{wildcards.ext}" == *.gz ]]; then
             gzip -c {output.R1}_temp > {output.R1} && rm {output.R1}_temp
             gzip -c {output.R2}_temp > {output.R2} && rm {output.R2}_temp
         fi

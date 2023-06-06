@@ -14,6 +14,8 @@ rule megahit:
              Additional_params=ASSEMBLER_PARAMS,
              assembly = "../assembly/final.contigs.fa"
     threads: 50
+    resources:
+        partition: HIGH_MEM_PARTITION
     log:     "{group}/assembly/assembly.log"
     message: "Assembling {wildcards.group} with MegaHIT"
     conda : CONDA_ENV + "/megahit.yaml"
@@ -30,7 +32,6 @@ rule bwa_index:
     input:   "{path}/contigs.fa"
     output:  touch("{path}/index.done")
     log:     "{path}/index.log"
-    resources : memG=100
     params : 100000000000
     message: "Building bwa index for {input}"
     conda : CONDA_ENV + "/bwasamtools.yaml"
@@ -43,7 +44,7 @@ rule bwa_mem_to_bam:
              contigs="{group}/contigs/contigs.fa",
              left=lambda w:replace_extensions(SAMPLE_READS[w.sample][0],FILTER), right=lambda w:replace_extensions(SAMPLE_READS[w.sample][1],FILTER)
     output:  "{group}/map/{sample}_mapped_sorted.bam"
-    threads: 1000
+    threads: 10
     log:     "{group}/map/{sample}_map.log"
     message: "bwa mem mapping followed by samtool sorting for {input}"
     conda : CONDA_ENV + "/bwasamtools.yaml"

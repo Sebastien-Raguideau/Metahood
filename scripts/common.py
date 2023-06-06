@@ -27,6 +27,7 @@ default_values = {
     "task_memory":200,
     "maganalysis":0,
     "desman":{"execution":0, "nb_haplotypes": 10,"nb_repeat": 5,"min_cov": 1,"scripts":""}
+    "slurm_partitions":{"high_mem":""}
 }
 
 
