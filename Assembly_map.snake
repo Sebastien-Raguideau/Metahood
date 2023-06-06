@@ -15,7 +15,7 @@ rule megahit:
              assembly = "../assembly/final.contigs.fa"
     threads: 50
     resources:
-        partition: HIGH_MEM_PARTITION
+        slurm_partition: HIGH_MEM_PARTITION
     log:     "{group}/assembly/assembly.log"
     message: "Assembling {wildcards.group} with MegaHIT"
     conda : CONDA_ENV + "/megahit.yaml"
