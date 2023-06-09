@@ -1,0 +1,5 @@
+channels:
+  - bioconda
+dependencies:
+  - checkm-genome==1.2.0
+  - snakemake >=5.5.6
