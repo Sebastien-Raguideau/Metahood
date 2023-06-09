@@ -15,9 +15,7 @@ rule prodigal:
         cut_faa=expand("{{group}}/annotation/temp_splits/Batch_{nb}.faa",nb=range(100))
     params:
         dir='{group}/annotation'
-    priority: 100
-    threads:
-        1000
+    threads: 20
     message:"Parallel prodigal run in {input}"
     conda : CONDA_ENV + "/prodigal.yaml"
     singularity : "docker://quay.io/annacprice/prodigal:2.6.3"
@@ -30,7 +28,7 @@ rule diamond:
     output : "{filename}_{annotation}.m8"
     params : db=lambda w: DIAMOND[w.annotation]["db"],
     log:     "{filename}_{annotation}_diamond.log"
-    threads:  1000
+    threads:  50
     conda : CONDA_ENV + "/diamond.yaml"
     singularity : "docker://quay.io/annacprice/diamond:2.0.6"
     shell :   "diamond blastp --more-sensitive -d {params.db}  -q {input} -p {threads} -o {output} -f6 qseqid sseqid qstart qend qlen sstart send slen length pident evalue bitscore &>{log}"

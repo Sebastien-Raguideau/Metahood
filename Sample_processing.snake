@@ -35,6 +35,8 @@ rule map_to_mask:
     shell: """
             bwa mem -t {threads} {FILTER} {input.R1} {input.R2} 2>{log} | samtools view  -b -f 12 -@{threads} - | samtools sort -@{threads} - > {output.bam}
             """
+
+
 rule bam_to_fastq:
     input: "{IN}/{sample}/Filtered.bam"
     output: R1 = temp("{IN}/{sample}/Filtered_{prefix}R1{suffix}.{ext}"),
@@ -56,7 +58,7 @@ rule fastqc :
     input :  "{IN}/{sample}/{prefix}.{ext}"
     output : "{IN}/{sample}/{prefix}.{ext}_fastqc_done"
     conda : CONDA_ENV + "/fastqc.yaml"
-    resources: mem_mb=10000
+    resources: mem_mb=30000
     threads: 1
     singularity : "docker://quay.io/annacprice/fastqc:0.11.9"
     shell :"""
@@ -116,7 +118,7 @@ rule multiqc :
             R2=[replace_extensions(SAMPLE_READS[sample][1],FILTER) for sample in SAMPLES],
     output : IN+"/quality_done"
     conda : CONDA_ENV + "/multiqc.yaml"
-    resources: mem_mb=10000
+    resources: mem_mb=50000
     threads: 1
     singularity : "docker://quay.io/annacprice/multiqc:1.9"
     shell : """multiqc --interactive -f {IN}/ -o {IN}/
