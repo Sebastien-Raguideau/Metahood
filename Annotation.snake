@@ -31,6 +31,8 @@ rule diamond:
     params : db=lambda w: DIAMOND[w.annotation]["db"],
     log:     "{filename}_{annotation}_diamond.log"
     threads:  50
+    resources:
+        mem_mb= 50000
     conda : CONDA_ENV + "/diamond.yaml"
     singularity : "docker://quay.io/annacprice/diamond:2.0.6"
     shell :   "diamond blastp --more-sensitive -d {params.db}  -q {input} -p {threads} -o {output} -f6 qseqid sseqid qstart qend qlen sstart send slen length pident evalue bitscore &>{log}"
