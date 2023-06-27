@@ -7,14 +7,16 @@ rule bogus_bed:
     input:   contig="{group}/contigs/contigs.fa"
     output:  bed=temp("{group}/annotation/contigs.bedtemp")
     conda : CONDA_ENV + "/pythonenv.yaml"
+    resources: mem_mb = get_mem_mb
     singularity : "docker://quay.io/annacprice/pythonenv:3.9"
     shell : "{SCRIPTS}/bogus_bed.py -i {input.contig} -o {output.bed}"
 
 # ---- generate orfs bed   ----------------------------------------------------
 rule bed_orfs:
-    input:   gff="{path}/contigs.gff"
-    output:  bed=temp("{path}/orf.bedtemp")
+    input:   gff = "{path}/contigs.gff"
+    output:  bed = temp("{path}/orf.bedtemp")
     conda : CONDA_ENV + "/pythonenv.yaml"
+    resources: mem_mb = get_mem_mb
     singularity : "docker://quay.io/annacprice/pythonenv:3.9"
     shell : "{SCRIPTS}/Gff_to_bed.py {input.gff} {output.bed}"
 
@@ -23,6 +25,7 @@ rule sort_bed:
            cont = "{path}/contigs/contigs.fa"
     output: bed = "{path}/annotation/{type}.bed",
             gfile = temp("{path}/annotation/{type}_bedtools_target_definition.tsv")
+    resources: mem_mb = get_mem_mb            
     conda : "%s/pythonenv.yaml"%CONDA_ENV
     singularity : "docker://quay.io/annacprice/pythonenv:3.9"
     shell: "{SCRIPTS}/sort_bed.py {input.bed} {input.cont} {output.bed} -g {output.gfile}"
@@ -35,8 +38,7 @@ rule bedtools:
              genome = "{group}/annotation/{type}_bedtools_target_definition.tsv"
     output:  "{group}/map/{sample}.{type}.cov"
     log:      "{group}/map/{sample}_{type}.log"
-    resources:
-        mem_mb= 50000
+    resources: mem_mb = get_mem_mb
     conda : CONDA_ENV + "/bedtools.yaml"
     singularity : "docker://quay.io/annacprice/bedtools:2.29.2"
     shell:   "bedtools coverage -a {input.bed} -b {input.bam} -g {input.genome} -mean -sorted> {output} 2>{log} "
@@ -48,6 +50,7 @@ if COVERAGE_UNIQUE_SAMPLE:
         input:   lambda w : [w.group+"/map/"+sample.split('/')[-1]+".{type}.cov" for sample in  GROUPS[w.group]]
         output:  "{group}/profile/coverage_{type}.tsv"
         conda : CONDA_ENV + "/pythonenv.yaml"
+        resources: mem_mb = get_mem_mb
         singularity : "docker://quay.io/annacprice/pythonenv:3.9"
         shell : "{SCRIPTS}/collate_coverage.py -o {output} -l {input} "
 else:
@@ -55,6 +58,7 @@ else:
         input:   expand("{{group}}/map/{sample}.{{type}}.cov",sample=SAMPLES)
         output:  "{group}/profile/coverage_{type}.tsv"
         conda : CONDA_ENV + "/pythonenv.yaml"
+        resources: mem_mb = get_mem_mb
         singularity : "docker://quay.io/annacprice/pythonenv:3.9"
         shell : "{SCRIPTS}/collate_coverage.py -o {output} -l {input} "
 
@@ -63,6 +67,7 @@ rule map_annotation_to_orfs:
     input:   "{path}/contigs_{annotation}_best_hits.tsv"
     output:  "{path}/map_{annotation}_to_orfs.tsv"
     conda : CONDA_ENV + "/pythonenv.yaml"
+    resources: mem_mb = get_mem_mb
     singularity : "docker://quay.io/annacprice/pythonenv:3.9"
     shell:  """{SCRIPTS}/Annotation_listcontig.py {input} {output} """
 
@@ -72,6 +77,7 @@ rule generate_profile:
             map="{group}/annotation/map_{annotation}_to_orfs.tsv"
     output: "{group}/profile/cov_{annotation}.tsv"
     conda : CONDA_ENV + "/pythonenv.yaml"
+    resources: mem_mb = get_mem_mb    
     singularity : "docker://quay.io/annacprice/pythonenv:3.9"
     shell:  "{SCRIPTS}/Extract_gene_profile.py {input.map} {input.cov} {output}"
 
@@ -90,6 +96,7 @@ if IS_FASTA :
         input: lambda w : [fastq_file for sample in  GROUPS[w.group] for fastq_file in SAMPLE_READS[basename(sample)]]
         output: temp("{group}/profile/nucleotides.tsv")
         conda : CONDA_ENV + "/pythonenv.yaml"
+        resources: mem_mb = get_mem_mb
         singularity : "docker://quay.io/annacprice/pythonenv:3.9"
         script: "{SCRIPTS}/nb_bases_fasta.py {input} {output}"
             
@@ -97,6 +104,7 @@ else :
     rule nb_bases:
         input: lambda w : [filtered(fastq_file,FILTER)+"_trimming_report.txt" for sample in  GROUPS[w.group] for fastq_file in SAMPLE_READS[basename(sample)]]
         output: temp("{group}/profile/nucleotides.tsv")
+        resources: mem_mb = get_mem_mb
         run: 
             dict_sample_nb=defaultdict(list)
             for file in input:
@@ -123,6 +131,7 @@ rule median_SCG_cov:
     output: "{group}/profile/Normalisation.tsv"
     params: scgdata=SCG_DATA
     conda: CONDA_ENV + "/pythonenv.yaml"
+    resources: mem_mb = get_mem_mb    
     singularity: "docker://quay.io/annacprice/pythonenv:3.9"
     shell : """
     {SCRIPTS}/median_scg.py -c {input.cov} -n {input.nuc} -o {output} -s {params.scgdata}
@@ -135,6 +144,7 @@ rule mapped_reads:
     output: readnb="{group}/map/{sample}_mapped_read.txt"
     threads:THREADS
     conda : CONDA_ENV + "/bwasamtools.yaml"
+    resources: mem_mb = get_mem_mb
     singularity : "docker://quay.io/annacprice/bwasamtools:1.10"
     shell: """samtools flagstat {input.bam} -@ {threads} | grep 'paired in sequencing' | cut -f1 -d " " > {output.readnb}""" 
 
@@ -179,6 +189,7 @@ rule mag_coverage:
     output: mag_cov="{group}/profile/mag_{binner}_coverage.tsv",
             mag_map="{group}/profile/mag_{binner}_percent_mapped.tsv"
     conda : CONDA_ENV + "/pythonenv.yaml"
+    resources: mem_mb = get_mem_mb
     singularity : "docker://quay.io/annacprice/pythonenv:3.9"
     shell:"""
     {SCRIPTS}/mag_coverage.py -m {input.mags} -c {input.cluster} -t {input.cov} -l {input.len} -n {input.nb_nuc} -v {output.mag_cov} -p {output.mag_map}

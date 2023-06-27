@@ -11,6 +11,7 @@ rule cut_contigs:
     output: contig="{group}/contigs/contigs_C10K.fa",
             Contig_bed=temp("{group}/annotation/contigs_C10K.bedtemp")
     priority: 50
+    resources: mem_mb = get_mem_mb
     message:"Use orfs annotation to cut contigs"
     conda : CONDA_ENV + "/pythonenv.yaml"
     singularity : "docker://quay.io/annacprice/pythonenv:3.9"
@@ -23,6 +24,7 @@ rule extract_SCG_sequences:
             gff="{filename}.gff",
             fna="{filename}.fna"
     output: "{filename}_SCG.fna"
+    resources: mem_mb = get_mem_mb
     conda : CONDA_ENV + "/pythonenv.yaml"
     singularity : "docker://quay.io/annacprice/pythonenv:3.9"
     shell:  "{SCRIPTS}/Extract_SCG.py {input.fna} {input.annotation} {SCG_DATA}/scg_cogs_min0.97_max1.03_unique_genera.txt {input.gff}>{output}"
@@ -50,6 +52,7 @@ rule concoct:
     conda : CONDA_ENV + "/concoct.yaml"
     singularity : "docker://quay.io/annacprice/concoct:1.1.0"
     threads: 20
+    resources: mem_mb = get_mem_mb
     # I don't want to use checkpoints, (buggy and increase DAG resolution time?) so I'll run the code inside a python run
     shell : """
             string=$({SCRIPTS}/concoct_get_bins.py -s {input.SCG} -m {params.max_bin_nb}) 
@@ -64,6 +67,7 @@ rule SCG_table:
              split_bed="{group}/annotation/contigs_C10K.bed"
     output : "{group}/binning/{binner}/{name}_SCG_table.csv"
     conda : CONDA_ENV + "/pythonenv.yaml"
+    resources: mem_mb = get_mem_mb
     singularity : "docker://quay.io/annacprice/pythonenv:3.9"
     shell  : "{SCRIPTS}/SCG_in_Bins.py {input.bins} {input.SCG} {input.orf_bed} {input.split_bed} -t {output}"
 
@@ -79,6 +83,7 @@ rule refine:
     params: temp="{group}/{path}refine.temp" 
     log:    temp("{group}/{path,.*/.*/}clustering.log")
     conda : CONDA_ENV + "/concoct.yaml"
+    resources: mem_mb = get_mem_mb
     singularity : "docker://quay.io/annacprice/concoct:1.1.0"
     threads: 20
     shell:  """
@@ -104,6 +109,7 @@ rule merge_contigs:
     output:  "{path}clustering_concoct.csv"
     log:     "{path}clustering_consensus.log"
     conda : CONDA_ENV + "/pythonenv.yaml"
+    resources: mem_mb = get_mem_mb
     singularity : "docker://quay.io/annacprice/pythonenv:3.9"
     shell:   "{SCRIPTS}/Consensus.py {input.refine} >{output} 2>{log}"
 
@@ -136,6 +142,7 @@ rule output_bins:
     output:  "{group}/binning/{binner}/bins/done"
     conda : CONDA_ENV + "/pythonenv.yaml"
     singularity : "docker://quay.io/annacprice/pythonenv:3.9"
+    resources: mem_mb = get_mem_mb
     shell :"""
     {SCRIPTS}/Split_fasta_by_bin.py {input.clustering} $(dirname {output}) --fasta {input.contigs}
     touch {output}
@@ -155,6 +162,7 @@ rule get_consensus_binning :
     output : "{group}/binning/consensus/clustering_consensus.csv"
     conda : CONDA_ENV + "/pythonenv.yaml"
     singularity : "docker://quay.io/annacprice/pythonenv:3.9"
+    resources: mem_mb = get_mem_mb
     shell :"""
     {SCRIPTS}/consensus_binning.py -c_bin_def {input.c_bin_def} -m_bin_def {input.m_bin_def} -c_mag_list {input.c_mag_list} -m_mag_list {input.m_mag_list} -scg {input.scg} -contig_profiles {input.contig_profiles} -contig_bed {input.contig_bed} -o {output}
     """
@@ -166,6 +174,7 @@ rule output_bins_faa:
     output:  "{group}/binning/{binner}/quality/bins_aa/done"
     conda : CONDA_ENV + "/pythonenv.yaml"
     singularity : "docker://quay.io/annacprice/pythonenv:3.9"
+    resources: mem_mb = get_mem_mb
     shell :"""
     {SCRIPTS}/Split_fasta_by_bin.py {input.clustering} $(dirname {output}) --fasta {input.contigs}
     touch {output}
@@ -184,6 +193,7 @@ rule checkm_analyse:
     threads: 50
     conda : "%s/checkm.yaml"%CONDA_ENV
     singularity : "docker://quay.io/annacprice/gtdbtk:1.4.0"
+    resources: mem_mb = get_mem_mb
     shell :"""
            mkdir -p {params.folder}/tmp/
            checkm analyze {params.hmm} $(dirname {input}) {params.folder} -g -x .faa --tmpdir {params.tmp} -t {threads}
@@ -197,6 +207,7 @@ rule checkm_quality_assessment :
              tmp = "{group}/binning/{binner}/quality/{type}/tmp",
              hmm = lambda w:HMM[w.type]
     threads: 50
+    resources: mem_mb = get_mem_mb
     conda : "%s/checkm.yaml"%CONDA_ENV
     singularity : "docker://quay.io/annacprice/gtdbtk:1.4.0"
     shell :"""
@@ -207,6 +218,7 @@ rule experimental_quality :
     input: marker = expand("{{group}}/binning/{{binner}}/quality/checkm_{type}.tsv",type=["cpr43","ar76","bac71"])
     output: out = "{group}/binning/{binner}/quality/quality_test.tsv"
     conda : CONDA_ENV + "/pythonenv.yaml"
+    resources: mem_mb = get_mem_mb
     singularity : "docker://quay.io/annacprice/pythonenv:3.9"
     shell:"{SCRIPTS}/experimental_quality.py {output.out} {input.marker}"
 

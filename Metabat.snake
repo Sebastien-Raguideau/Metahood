@@ -5,6 +5,7 @@ rule generate_depth :
     output: "{group}/map/depth.txt"
     log : "{group}/map/depth.log"
     conda : CONDA_ENV + "/metabat2.yaml"
+    resources: mem_mb = get_mem_mb
     singularity : "docker://quay.io/annacprice/metabat2:2.15"
     shell: "jgi_summarize_bam_contig_depths --outputDepth {output} {input} &>{log}" 
 
@@ -15,6 +16,7 @@ rule metabat2 :
     params: out="{group}/binning/metabat2/bins/bin",
             min_contig_size=max(1500,MIN_CONTIG_SIZE_METABAT2) # metabat2 does not bin anything smaller than 1500
     conda : CONDA_ENV + "/metabat2.yaml"
+    resources: mem_mb = get_mem_mb
     singularity : "docker://quay.io/annacprice/metabat2:2.15"
     threads : 20
     shell: """metabat2 -i {input.contig} -a {input.depth} -t {threads} -o {params.out} -m {params.min_contig_size}
