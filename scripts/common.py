@@ -123,6 +123,6 @@ class cd:
 # from https://stackoverflow.com/questions/50891407/snakemake-how-to-dynamically-set-memory-resource-based-on-input-file-size
 
 def get_mem_mb(wildcards, input, attempt):
-    return mem_mb = (input.size//1000000) * attempt * 2
+    return max((input.size//1000000) * attempt * 2,attempt*1000)
 # Where input.size//1000000 is used convert the cumulative size of input files in bytes to mb, and the tailing 2 could be any arbitrary number based on the specifics of your shell/script requirements.
 
