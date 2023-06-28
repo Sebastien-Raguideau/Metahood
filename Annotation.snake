@@ -1,4 +1,4 @@
-
+include: "Common.snake"
 
 # in order to allow for multiple annotation process to coexist and produce similar names output, we just define rules priority
 # if parse_cogs_annotation does not work, it tries annotation_diamond
