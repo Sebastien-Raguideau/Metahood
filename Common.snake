@@ -10,7 +10,7 @@ from psutil import virtual_memory
 from subprocess import Popen, PIPE
 from snakemake.exceptions import WorkflowError
 from os.path import basename,dirname,abspath,realpath
-from scripts.common import detect_reads, fill_default_values, extended_glob, replace_extensions, get_extension
+from scripts.common import detect_reads, fill_default_values, extended_glob, replace_extensions, get_extension, get_mem_mb
 
 #--------------------------- Config parameters ---------------------------
 # config=yaml.load(open("./config_AD07.yaml"))
