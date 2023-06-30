@@ -1,13 +1,26 @@
 
 
-rule generate_depth :
-    input:  lambda w : [w.group+"/map/"+sample.split('/')[-1]+"_mapped_sorted.bam" for sample in  GROUPS[w.group]]
-    output: "{group}/map/depth.txt"
-    log : "{group}/map/depth.log"
-    conda : CONDA_ENV + "/metabat2.yaml"
-    resources: mem_mb = get_mem_mb
-    singularity : "docker://quay.io/annacprice/metabat2:2.15"
-    shell: "jgi_summarize_bam_contig_depths --outputDepth {output} {input} &>{log}" 
+
+if COVERAGE_UNIQUE_SAMPLE:
+    rule generate_depth :
+        input:  lambda w : [w.group+"/map/"+sample.split('/')[-1]+"_mapped_sorted.bam" for sample in  GROUPS[w.group]]
+        output: "{group}/map/depth.txt"
+        log : "{group}/map/depth.log"
+        conda : CONDA_ENV + "/metabat2.yaml"
+        resources: mem_mb = get_mem_mb
+        singularity : "docker://quay.io/annacprice/metabat2:2.15"
+        shell: "jgi_summarize_bam_contig_depths --outputDepth {output} {input} &>{log}" 
+else:
+    rule generate_depth :
+        input:  lambda w : ["%s/map/%s_mapped_sorted.bam"%(w.group,basename(sample)) for sample in  SAMPLES]
+        output: "{group}/map/depth.txt"
+        log : "{group}/map/depth.log"
+        conda : CONDA_ENV + "/metabat2.yaml"
+        resources: mem_mb = get_mem_mb
+        singularity : "docker://quay.io/annacprice/metabat2:2.15"
+        shell: "jgi_summarize_bam_contig_depths --outputDepth {output} {input} &>{log}" 
+
+
 
 rule metabat2 :
     input:  contig="{group}/contigs/contigs.fa",
