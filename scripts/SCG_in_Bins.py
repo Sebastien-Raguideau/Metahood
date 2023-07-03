@@ -73,8 +73,7 @@ def main(Bin_file, Fasta_file, C10K_bed, orf_bed, path, Table, LIST, cluster_def
                     Dico_bins_SCG[Bin][SCG] += list_values
 # --------------- SCG output for concoct refine------------------------------------------------------------
     if Table:
-        Dico_bin_Array = {bin_nb: [len({clu for header,seq,clu in Dico_bins_SCG[bin_nb][SCG]}) if Dico_bins_SCG[bin_nb]
-                                   else 0 for SCG in List_SCG] for bin_nb in Dico_bins_nbcontigs}
+        Dico_bin_Array = {bin_nb: [len({clu for header,seq,clu in Dico_bins_SCG[bin_nb][SCG]}) if Dico_bins_SCG[bin_nb] else 0 for SCG in List_SCG] for bin_nb in Dico_bins_nbcontigs}
         # add exception for consensus 
         def sort_bin_name(x) :
             if x[0].isalpha() :
@@ -141,6 +140,11 @@ if __name__ == "__main__":
     if args.c:
         cluster_def = {el:(line.rstrip().split('\t')[0],line.rstrip().split('\t')[1]) for line in open(args.c) for el in line.rstrip().split('\t')[2:]}
     else:
-        cluster_def = {header.split(" ")[0]:(header.split(" ")[1],0) for header,seq in sfp(open(args.SCG_Fasta))}
+        cluster_def = {}
+        cog_cnt = defaultdict(int)
+        for header,seq in sfp(open(Fasta_file)):
+            header,cog,*_ = header.split(" ")
+            cluster_def[header]=(cog,cog_cnt[cog])
+            cog_cnt[cog]+=1
 
     main(Bin_file, Fasta_file, C10K_bed, orf_bed, path, Table, List, cluster_def)
