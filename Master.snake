@@ -24,6 +24,9 @@ List_inputs += expand("{group}/profile/coverage_orf.tsv", group=GROUPS)
 # get mapped information
 List_inputs += expand("{group}/profile/mapping_percent.tsv", group=GROUPS)
 List_inputs += expand("{group}/profile/mag_{binner}_percent_mapped.tsv",group=GROUPS,binner=BINNER)
+# get duplicate information
+List_inputs += expand("{group}/profile/percent_duplicate.tsv", group=GROUPS)
+
 
 # ------------ optional outputs ------------
 # annotation and annotation profiles

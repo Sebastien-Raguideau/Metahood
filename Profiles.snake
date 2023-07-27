@@ -1,5 +1,6 @@
 #from Bio.SeqIO.FastaIO import SimpleFastaParser as SFP
 from os.path import dirname,basename,join
+from functools import partial
 #import gzip
 
 # ---- generate contig bed   ----------------------------------------------------
@@ -47,7 +48,7 @@ rule bedtools:
 
 if COVERAGE_UNIQUE_SAMPLE:
     rule coverage:
-        input:   lambda w : [w.group+"/map/"+sample.split('/')[-1]+".{type}.cov" for sample in  GROUPS[w.group]]
+        input:   lambda w : ["%s/map/%s.{type}.cov"%(w.group,sample.split('/')[-1]) for sample in  GROUPS[w.group]]
         output:  "{group}/profile/coverage_{type}.tsv"
         conda : CONDA_ENV + "/pythonenv.yaml"
         resources: mem_mb = get_mem_mb
@@ -194,3 +195,52 @@ rule mag_coverage:
     shell:"""
     {SCRIPTS}/mag_coverage.py -m {input.mags} -c {input.cluster} -t {input.cov} -l {input.len} -n {input.nb_nuc} -v {output.mag_cov} -p {output.mag_map}
     """
+
+# ---------------------- look at ducplicates ----------------------
+# (PICARD)
+
+rule picard_duplicate:
+    input: bam = "{group}/map/{sample}_mapped_sorted.bam",
+           # index = "{group}/map/{sample}_mapped_sorted.bam.bai",
+    output: bam = "{group}/map/{sample}_mapped_sorted_dup.bam",
+            stat = "{group}/map/{sample}_marked_dup_metrics.txt"
+    resources: mem_mb = partial(get_mem_mb,mult=10)
+    singularity : "docker://biocontainers/picard-tools:v2.18.25dfsg-2-deb_cv1"
+    shell: "PicardCommandLine MarkDuplicates I={input.bam} O={output.bam} M={output.stat}"
+
+# samtools
+rule samtools_check_duplicate:
+    input: bam = "{group}/map/{sample}_mapped_sorted.bam",
+           # index = "{group}/map/{sample}_mapped_sorted.bam.bai",
+    output: bam = "{group}/map/{sample}_mapped_sorted_dup_samtools.bam",
+            stat = "{group}/map/{sample}_marked_dup_metrics_samtools.txt"
+    resources: mem_mb = partial(get_mem_mb,mult=10)
+    singularity : "docker://quay.io/annacprice/bwasamtools:1.10"
+    shell: """
+    samtools sort -n {input.bam} | samtools fixmate -m - - | samtools sort - | samtools markdup -r -f {output.stat} - {output.bam}
+    """
+
+# aggregate info on duplicates
+rule check_duplicates:
+    input: lambda w : ["%s/map/%s_marked_dup_metrics.txt"%(w.group,sample.split('/')[-1]) for sample in  GROUPS[w.group]]
+    output: "{group}/profile/percent_duplicate.tsv"
+    shell: "touch {output}"
+
+# ---------------------- get cov hist and cov variation ----------------------
+rule index:
+    input: "{path}.bam"
+    output: "{path}.bam.bai"
+    resources: mem_mb = get_mem_mb
+    singularity : "docker://quay.io/annacprice/bwasamtools:1.10"
+    shell: "bwa index {input}"
+
+rule get_cov_stats:
+    input: bam = "{group}/map/{sample}_mapped_sorted.bam",
+           bai = "{group}/map/{sample}_mapped_sorted.bam.bai"
+    output: cov_stat = "{group}/map/{sample}_cov.stats",
+            cov_hists = "{group}/map/{sample}_cov.hists"
+    resources: mem_mb = get_mem_mb
+    singularity : "docker://biocontainers/python3-pysam:v0.10.0ds-2-deb_cv1"
+    shell: "{SCRIPTS}/CovEvaluate.py {input.bam} {output.cov_stat} {output.cov_hists} -l 10000"
+
+

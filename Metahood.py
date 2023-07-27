@@ -81,8 +81,6 @@ with cd(METAHOOD_DIR):
     if args.step == 'all':
         #launch master snake
         call_snake(["--snakefile", "Master.snake"])
-        #launch mag post processing
-        call_snake(["--snakefile", "mag_processing.snake"])
     if args.step == 'mags_wf':
         #launch mag post processing
         call_snake(["--snakefile", "mag_processing.snake"])
