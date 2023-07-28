@@ -56,7 +56,7 @@ rule koannotation:
     output : out = "{path}/contigs_KEGG_best_hits.tsv"
     params: root = realpath("{path}")
     conda: "%s/ko_annotation.yaml"%CONDA_ENV
-    singularity: "builds/ko_annotation.sif"
+    singularity: "singularity_container/ko_annotation.sif"
     threads: 50
     resources: mem_mb = get_mem_mb
     shell: """
@@ -68,7 +68,7 @@ rule koannotation:
 rule plasmidnet:
     input: "{path}/Batch_{nb}.faa"
     output:  "{path}/Batch_{nb}_contig_results.tab"
-    singularity: "builds/plasmidnet.sif"
+    singularity: "singularity_container/plasmidnet.sif"
     conda: "%s/plasmidnet.yaml"%CONDA_ENV
     threads: 1
     resources: mem_mb = get_mem_mb
@@ -89,7 +89,7 @@ rule virsorter2:
     input: "{path}/contigs/contigs.fa"
     output: "{path}/virsorter2/final-viral-boundary.tsv"
     conda: "%s/virsorter2.yaml"%CONDA_ENV
-    singularity: "builds/virsorter2.sif"
+    singularity: "singularity_container/virsorter2.sif"
     resources: mem_mb = get_mem_mb
     threads: 10
     shell: """

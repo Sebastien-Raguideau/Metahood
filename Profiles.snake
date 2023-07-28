@@ -240,7 +240,7 @@ rule get_cov_stats:
     output: cov_stat = "{group}/map/{sample}_cov.stats",
             cov_hists = "{group}/map/{sample}_cov.hists"
     resources: mem_mb = get_mem_mb
-    singularity : "docker://biocontainers/python3-pysam:v0.10.0ds-2-deb_cv1"
+    singularity : "singularity_container/pythonenv_pysam.sif"
     shell: "{SCRIPTS}/CovEvaluate.py {input.bam} {output.cov_stat} {output.cov_hists} -l 10000"
 
 

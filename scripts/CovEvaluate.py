@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 import argparse
 import sys
 import numpy as np
@@ -17,10 +17,10 @@ def main(bam_file,out_stats,out_hists,maxlen):
         for contig,length in contigs_10K.items():
             # hist
             pos_to_cnt = defaultdict(int)
-            pos_to_cnt.update({col.nsegments:col.reference_pos for col in samfile.pileup(contig)})
+            pos_to_cnt.update({col.reference_pos:col.nsegments for col in samfile.pileup(contig)})
             handle_hists.writelines("%s\t%s\t%s\n"%(contig,pos,pos_to_cnt[pos]) for pos in range(length))
             # stats
-            depthArray = np.array(pos_to_cnt.values())
+            depthArray = np.array(list(pos_to_cnt.values()))
             (lq,med,uq) = np.quantile(depthArray,[0.25,0.5,0.75])
             devF = (uq - lq)/med
             handle_stat.write("%s\t%s\t%s\n"%(contig,med,devF))
