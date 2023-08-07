@@ -108,7 +108,13 @@ def consensus(cluster_def_m2, cluster_def_c, profile_file, contig_to_len, contig
 
     # dispatch contigs to the most correlated mag, let's assign a contig to the best correlated mag
     for contig,[mag1,mag2] in  contig_to_mags.items() :
-        worst_mag= [mag1,mag2][np.argmin([pearsonr(contig_profile[contig],mag_profile[mag1])[0],pearsonr(contig_profile[contig],mag_profile[mag2])[0]])]
+        # it may happen that everything is ambiguous
+        issue = [m for m in [mag1,mag2] if np.isnan(mag_profile[m]).sum()]
+        if issue:
+            worst_mag = issue[0]
+            del cluster_to_contigs[worst_mag][cluster_to_contigs[worst_mag].index(contig)]
+            continue
+        worst_mag = [mag1,mag2][np.argmin([pearsonr(contig_profile[contig],mag_profile[mag1])[0],pearsonr(contig_profile[contig],mag_profile[mag2])[0]])]
         # delete contig from cluster definition of bad mag
         del cluster_to_contigs[worst_mag][cluster_to_contigs[worst_mag].index(contig)]
 
