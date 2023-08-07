@@ -232,7 +232,7 @@ rule index:
     output: "{path}.bam.bai"
     resources: mem_mb = get_mem_mb
     singularity : "docker://quay.io/annacprice/bwasamtools:1.10"
-    shell: "bwa index {input}"
+    shell: "samtools index {input}"
 
 rule get_cov_stats:
     input: bam = "{group}/map/{sample}_mapped_sorted.bam",

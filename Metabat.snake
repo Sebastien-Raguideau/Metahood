@@ -29,7 +29,7 @@ rule metabat2 :
     params: out="{group}/binning/metabat2/bins/bin",
             min_contig_size=max(1500,MIN_CONTIG_SIZE_METABAT2) # metabat2 does not bin anything smaller than 1500
     conda : CONDA_ENV + "/metabat2.yaml"
-    resources: mem_mb = get_mem_mb
+    resources: mem_mb = partial(get_mem_mb,min_size=30000)
     singularity : "docker://quay.io/annacprice/metabat2:2.15"
     threads : 20
     shell: """metabat2 -i {input.contig} -a {input.depth} -t {threads} -o {params.out} -m {params.min_contig_size}
