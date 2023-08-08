@@ -48,7 +48,7 @@ rule bwa_mem_to_bam:
     output:  temp("{group}/map/{sample}_mapped_sorted.bam")
     threads: 10
     resources:
-        mem_mb=get_mem_mb
+        mem_mb=partial(get_mem_mb,mult=10)
     log:     "{group}/map/{sample}_map.log"
     message: "bwa mem mapping followed by samtool sorting for {input}"
     conda : CONDA_ENV + "/bwasamtools.yaml"
