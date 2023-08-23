@@ -140,5 +140,12 @@ if __name__ == "__main__":
     except:
         print("no valid database file given, it can't be opened for some reason", file=sys.stderr)
         Database_file = ""
-    main(m8_file, Database_file, min_Bitscore, max_Evalue,
+
+    # deal with empty m8:
+    try :
+        _ = next(open(m8_file))
+        main(m8_file, Database_file, min_Bitscore, max_Evalue,
          min_PID, min_ref_pid, min_coverage, min_Query_coverage)
+    except StopIteration:
+        print("\t".join(["Query", "Subject", "Bitscore", "PID",
+                     "Subject_Pid", "Coverage", "Query_coverage"]))
