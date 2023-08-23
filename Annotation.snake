@@ -148,7 +148,7 @@ rule hmmsearch:
     singularity: "docker://quay.io/annacprice/gtdbtk:1.4.0"
     log: "{path}_hmm.log"
     shell: """
-    if [ ! -s {input} ]
+    if [ ! -s {input.faa} ]
     then
         touch {output}
     else
