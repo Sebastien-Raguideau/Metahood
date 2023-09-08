@@ -10,13 +10,13 @@ rule megahit:
     params:  left=lambda w: ",".join(R1[w["group"]]),
              right=lambda w: ",".join(R2[w["group"]]),
              dir="{group}/assembly",
-             mem = MAX_MEM_PERCENT_to_change,
+             mem = lambda w: get_percent_megahit(w["group"],50),
              Additional_params = ASSEMBLER_PARAMS,
              assembly = "../assembly/final.contigs.fa"
-    threads: get_resource("threads",50)
+    threads: 32
     resources:
-        slurm_partition = get_resource("partition",50),
-        mem_mb = get_resource("mem",50)
+        slurm_partition = get_resource("partition",32),
+        mem_mb = get_resource("mem",32)
     log:     "{group}/assembly/assembly.log"
     conda : CONDA_ENV + "/megahit.yaml"
     singularity : "docker://quay.io/annacprice/megahit:1.2.9"
@@ -47,7 +47,7 @@ rule bwa_mem_to_bam:
              contigs="{group}/contigs/contigs.fa",
              left=lambda w:replace_extensions(SAMPLE_READS[w.sample][0],FILTER), right=lambda w:replace_extensions(SAMPLE_READS[w.sample][1],FILTER)
     output:  temp("{group}/map/{sample}_mapped_sorted.bam")
-    threads: get_resource("threads",10)
+    threads: 10
     resources:
         slurm_partition = get_resource("partition",10),
         mem_mb = get_resource("mem",10, mult=10)

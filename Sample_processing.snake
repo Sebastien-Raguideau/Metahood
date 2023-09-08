@@ -30,7 +30,7 @@ rule map_to_mask:
            index = "%s.sa"%FILTER
     output: bam = temp("{IN}/{sample}/Filtered.bam"),
     log: "{IN}/{sample}/mapping.log"
-    threads: get_resource("threads",10)
+    threads: 10
     resources:
         slurm_partition = get_resource("partition",10),
         mem_mb = get_resource("mem",10)
@@ -45,7 +45,7 @@ rule bam_to_fastq:
     input: "{IN}/{sample}/Filtered.bam"
     output: R1 = temp("{IN}/{sample}/Filtered_{prefix}R1{suffix}.{ext}"),
             R2 = temp("{IN}/{sample}/Filtered_{prefix}R2{suffix}.{ext}")
-    threads: get_resource("threads",10)
+    threads: 10
     resources:
         slurm_partition = get_resource("partition",10),
         mem_mb = get_resource("mem",10)
@@ -88,7 +88,7 @@ if FILTER:
                  option = lambda w:"--gzip"*("gz" in w['ext']),
         log :   "{IN}/{sample}/{prefix}.{suffix}.{ext}.log"
         conda : CONDA_ENV + "/trim_galore.yaml"
-        threads: get_resource("threads",8)
+        threads: 8
         resources:
             slurm_partition = get_resource("partition",8),
             mem_mb = get_resource("mem",8)
@@ -113,7 +113,7 @@ else:
                  option = lambda w:"--gzip"*("gz" in w['ext']),
         log :   "{IN}/{sample}/{prefix}.{suffix}.{ext}.log"
         conda : CONDA_ENV + "/trim_galore.yaml"
-        threads: get_resource("threads",8)
+        threads: 8
         resources:
             slurm_partition = get_resource("partition",8),
             mem_mb = get_resource("mem",8)

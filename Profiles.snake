@@ -59,9 +59,9 @@ if COVERAGE_UNIQUE_SAMPLE:
         input:   lambda w : ["%s/map/%s.{type}.cov"%(w.group,sample.split('/')[-1]) for sample in  GROUPS[w.group]]
         output:  "{group}/profile/coverage_{type}.tsv"
         conda : CONDA_ENV + "/pythonenv.yaml"
-    resources:
-        slurm_partition = get_resource("partition",1),
-        mem_mb = get_resource("mem",1)
+        resources:
+            slurm_partition = get_resource("partition",1),
+            mem_mb = get_resource("mem",1)
         singularity : "docker://quay.io/annacprice/pythonenv:3.9"
         shell : "{SCRIPTS}/collate_coverage.py -o {output} -l {input} "
 else:
@@ -69,9 +69,9 @@ else:
         input:   expand("{{group}}/map/{sample}.{{type}}.cov",sample=SAMPLES)
         output:  "{group}/profile/coverage_{type}.tsv"
         conda : CONDA_ENV + "/pythonenv.yaml"
-    resources:
-        slurm_partition = get_resource("partition",1),
-        mem_mb = get_resource("mem",1)
+        resources:
+            slurm_partition = get_resource("partition",1),
+            mem_mb = get_resource("mem",1)
         singularity : "docker://quay.io/annacprice/pythonenv:3.9"
         shell : "{SCRIPTS}/collate_coverage.py -o {output} -l {input} "
 
@@ -165,7 +165,7 @@ rule median_SCG_cov:
 rule mapped_reads:
     input:  bam="{group}/map/{sample}_mapped_sorted.bam"
     output: readnb="{group}/map/{sample}_mapped_read.txt"
-    threads: get_resource("threads",8)
+    threads: 8
     conda : CONDA_ENV + "/bwasamtools.yaml"
     resources:
         slurm_partition = get_resource("partition",8),

@@ -28,7 +28,7 @@ default_values = {
     "task_memory":200,
     "maganalysis":0,
     "desman":{"execution":0, "nb_haplotypes": 10,"nb_repeat": 5,"min_cov": 1,"scripts":""},
-    "slurm_partitions":{"":{"name":"","min_memory":"","max_memory":"","max_cpu":""}}
+    "slurm_partitions":{"":{"name":"","min_mem":"","max_mem":"","min_threads":"","max_threads":""}}
 }
 
 
@@ -120,23 +120,24 @@ class cd:
         os.chdir(self.savedPath)
 
 
+        
 # from doc: https://snakemake.readthedocs.io/en/stable/snakefiles/rules.html
 # from https://stackoverflow.com/questions/50891407/snakemake-how-to-dynamically-set-memory-resource-based-on-input-file-size
-def get_resource(mode,threads,**kwargs):
-    return partial(get_resource_real, mode=mode, threads=threads, **kwargs)
 
-def get_resource_real(wildcards, input, attempt,threads="",mode="",mult=2,min_size=10000):
+def get_resource_real(wildcards, input, attempt,SLURM_PARTITIONS="",mode="",threads="",mult=2,min_size=10000):
     # return either partition, mem or threads, theses need to be done together
     # because if mem/cpu/threads is over partition definition, then mem/threads needs to change
     # since there can be setting for minimum mem/threads in some partition definition
     # also max threads needs 
     def return_result(mem,partition,threads,mode):
         if mode=="mem":
-            return mem
+#            print(int(mem), wildcards)
+            return int(mem)
         if mode=="partition":
+#            print(partition,wildcards)
             return partition
         if mode=="threads":
-            return threads
+            return int(threads)
 
     # change with each attempt
     # Where input.size//1000000 is used convert the cumulative size of input files in bytes to mb, and the tailing 2 could be any arbitrary number based on the specifics of your shell/script requirements.
@@ -151,7 +152,7 @@ def get_resource_real(wildcards, input, attempt,threads="",mode="",mult=2,min_si
     # HIGH_MEM_PARTITIONS = [["name","min_memory","max_memory","min_threads","max_threads"]]
 
     #### check memory, get all partition giving mem/1000 (Gb)
-    mem_selection = [part for part in SLURM_PARTITIONS if part[2]>=mem/1000]
+    mem_selection = [part for part in SLURM_PARTITIONS if part[2]>=mem]
 
     # if empty, get the partition with most mem
     if not mem_selection:
@@ -170,12 +171,12 @@ def get_resource_real(wildcards, input, attempt,threads="",mode="",mult=2,min_si
     final_selection = min(threads_selection,key=lambda x:[x[1],x[3],x[2],x[4]])
 
     #### decide on mem/threads to use
-    name, min_memory, max_memory, min_threads ,max_threads = final_selection
+    partition, min_memory, max_memory, min_threads ,max_threads = final_selection
     mem_final = max(mem, min_memory)
     threads_final = max(threads, min_threads)
 
     # output
-    return_result(mem,partition,threads,mode)
+    return return_result(mem_final,partition,threads_final,mode)
 
 
 

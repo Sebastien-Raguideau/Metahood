@@ -9,7 +9,8 @@ if COVERAGE_UNIQUE_SAMPLE:
         conda : CONDA_ENV + "/metabat2.yaml"
         resources:
             slurm_partition = get_resource("partition",1),
-            mem_mb = get_resource("mem",1)        singularity : "docker://quay.io/annacprice/metabat2:2.15"
+            mem_mb = get_resource("mem",1)
+        singularity : "docker://quay.io/annacprice/metabat2:2.15"
         shell: "jgi_summarize_bam_contig_depths --outputDepth {output} {input} &>{log}" 
 else:
     rule generate_depth :
@@ -32,7 +33,7 @@ rule metabat2 :
     params: out="{group}/binning/metabat2/bins/bin",
             min_contig_size=max(1500,MIN_CONTIG_SIZE_METABAT2) # metabat2 does not bin anything smaller than 1500
     conda : CONDA_ENV + "/metabat2.yaml"
-    threads : get_resource("threads",20)
+    threads : 20
     resources:
         slurm_partition = get_resource("partition",20),
         mem_mb = get_resource("mem",20,min_size=30000)

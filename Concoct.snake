@@ -57,7 +57,7 @@ rule concoct:
              error="Not enough contigs pass the threshold"
     conda : CONDA_ENV + "/concoct.yaml"
     singularity : "docker://quay.io/annacprice/concoct:1.1.0"
-    threads: get_resource("threads",20)
+    threads: 20
     resources:
         slurm_partition = get_resource("partition",20),
         mem_mb = get_resource("mem",20)
@@ -101,11 +101,11 @@ rule refine:
     params: temp="{group}/{path}refine.temp" 
     log:    temp("{group}/{path,.*/.*/}clustering.log")
     conda : CONDA_ENV + "/concoct.yaml"
-    resources:
-        slurm_partition = get_resource("partition",1),
-        mem_mb = get_resource("mem",1)
-    singularity : "docker://quay.io/annacprice/concoct:1.1.0"
     threads: 20
+    resources:
+        slurm_partition = get_resource("partition",20),
+        mem_mb = get_resource("mem",20)
+    singularity : "docker://quay.io/annacprice/concoct:1.1.0"
     shell:  """
             CPATH=`which concoct_refine`
             if [ -w $CPATH ]
@@ -218,12 +218,12 @@ rule checkm_analyse:
     params : folder = "{group}/binning/{binner}/quality/{type}",
              tmp = "{group}/binning/{binner}/quality/{type}/tmp",
              hmm = lambda w:HMM[w.type]
-    threads: get_resource("threads",50)
+    threads: 32
     conda : "%s/checkm.yaml"%CONDA_ENV
     singularity : "docker://quay.io/annacprice/gtdbtk:1.4.0"
     resources:
-        slurm_partition = get_resource("partition",50),
-        mem_mb = get_resource("mem",50)
+        slurm_partition = get_resource("partition",32),
+        mem_mb = get_resource("mem",32)
     shell :"""
            mkdir -p {params.folder}/tmp/
            checkm analyze {params.hmm} $(dirname {input}) {params.folder} -g -x .faa --tmpdir {params.tmp} -t {threads}
@@ -236,10 +236,10 @@ rule checkm_quality_assessment :
     params : folder = "{group}/binning/{binner}/quality/{type}",
              tmp = "{group}/binning/{binner}/quality/{type}/tmp",
              hmm = lambda w:HMM[w.type]
-    threads: get_resource("threads",50)
+    threads: 32
     resources:
-        slurm_partition = get_resource("partition",50),
-        mem_mb = get_resource("mem",50)
+        slurm_partition = get_resource("partition",32),
+        mem_mb = get_resource("mem",32)
     conda : "%s/checkm.yaml"%CONDA_ENV
     singularity : "docker://quay.io/annacprice/gtdbtk:1.4.0"
     shell :"""

@@ -64,10 +64,10 @@ rule drep:
              mags = "MAGs/drep/non_drep_mags"
     conda : "%s/drep.yaml"%CONDA_ENV
     singularity: "builds/drep.sif"
-    threads: get_resource("threads",100)
+    threads: 32
     resources:
-        slurm_partition = get_resource("partition",100),
-        mem_mb = get_resource("mem",100)
+        slurm_partition = get_resource("partition",32),
+        mem_mb = get_resource("mem",32)
     shell: "dRep dereplicate {params.out} --ignoreGenomeQuality -g {params.mags}/*.fa -p {threads}"
 
 rule get_gtdb_database:
@@ -89,10 +89,10 @@ rule gtdb:
     params: "{path}/drep/dereplicated_genomes"
     singularity: "builds/gtdb.sif"
     conda : "%s/gtdbtk.yaml"%CONDA_ENV
-    threads: get_resource("threads",50)
+    threads: 32
     resources:
-        slurm_partition = get_resource("partition"50),
-        mem_mb = get_resource("mem",50)
+        slurm_partition = get_resource("partition"32),
+        mem_mb = get_resource("mem",32)
     shell: """
     export "GTDBTK_DATA_PATH={GTDB}/"
     gtdbtk classify_wf --cpus {threads} --genome_dir {params} --out_dir $(dirname {output.ar}) --extension .fa

@@ -9,8 +9,8 @@ from collections import defaultdict
 from psutil import virtual_memory
 from subprocess import Popen, PIPE
 from snakemake.exceptions import WorkflowError
-from os.path import basename,dirname,abspath,realpath
-from scripts.common import detect_reads, fill_default_values, extended_glob, replace_extensions, get_extension, get_mem_mb
+from os.path import basename,dirname,abspath,realpath, getsize
+from scripts.common import detect_reads, fill_default_values, extended_glob, replace_extensions, get_extension, get_resource_real
 
 #--------------------------- Config parameters ---------------------------
 # config=yaml.load(open("./config_AD07.yaml"))
@@ -29,11 +29,9 @@ IN = config["data"]
 ASSEMBLER_PARAMS = config["assembly"]["parameters"]
 
 # -------- Ressources --------
-MAX_MEM_PERCENT = config["Percent_memory"]
 THREADS = config["threads"]
 SCRIPTS = config["scripts"]
 Mem_tot = virtual_memory().total
-MAX_MEMG = int((MAX_MEM_PERCENT*Mem_tot)/10**9)
 TASK_MEMORY = config["task_memory"]
 CONDA_ENV = config["conda_env"]
 CONFIG_PATH = config["CONFIG_PATH"]
@@ -41,7 +39,19 @@ LOCAL_DIR = config["LOCAL_DIR"]
 EXEC_DIR = config["EXEC_DIR"]
 
 # ------- Cluster resources -------
-SLURM_PARTITIONS = [[specs["name"],int(specs["min_mem"]),int(specs["max_mem"]),int(specs["min_threads"]),int(specs["max_threads"])] for _,specs in config["slurm_partitions"].items()]
+# config should be in G, but this will be compared with info in mb
+SLURM_PARTITIONS = [[specs["name"],1000*int(specs["min_mem"]),1000*int(specs["max_mem"]),int(specs["min_threads"]),int(specs["max_threads"])] for _,specs in config["slurm_partitions"].items() if _]
+
+# megahit wants a percent of max mem, so there is a need for calculations
+MAX_MEM_PERCENT = {"":config["Percent_memory"]}
+if SLURM_PARTITIONS[0][0]:
+    for name,_,max_mem,_,_ in SLURM_PARTITIONS:
+        MAX_MEM_PERCENT[name] = max_mem 
+
+# need to create a partial function because rules takes a function
+def get_resource(mode,threads,**kwargs):
+    return partial(get_resource_real, SLURM_PARTITIONS=SLURM_PARTITIONS, mode=mode, threads=threads, **kwargs)
+
 
 # -------- Binning -----------
 # option related to which samples would we want to be mapping to the assembly
@@ -155,6 +165,22 @@ GROUP_R2={group:[R2[basename(sample)] for sample in list_sample] for group,list_
 # Add definition to global dict
 R1.update(GROUP_R1)
 R2.update(GROUP_R2)
+
+
+
+
+# need to reimplement getting the size of input for megahit, because it wants an estimation of percent usage relative to total mem installed... stupid.
+class megahit_file_size:
+    def __init__(self,group):
+        self.size = sum([getsize(f) for f in R1[group]+R2[group]])
+
+def get_percent_megahit(group,threads):
+    input_size = megahit_file_size(group)
+    mem = get_resource_real("", input_size, 1,SLURM_PARTITIONS=SLURM_PARTITIONS,mode="mem",threads=threads,mult=2,min_size=10000)
+    partition = get_resource_real("", input_size, 1,SLURM_PARTITIONS=SLURM_PARTITIONS,mode="partition",threads=threads,mult=2,min_size=10000)
+
+    partition, min_memory, max_memory, min_threads ,max_threads = next(el for el in SLURM_PARTITIONS if el[0]==partition)
+    return mem/max_memory
 
 
 

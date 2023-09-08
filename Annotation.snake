@@ -13,7 +13,7 @@ rule prodigal:
         cut_faa=expand("{{group}}/annotation/temp_splits/Batch_{nb}.faa",nb=range(100))
     params:
         dir='{group}/annotation'
-    threads: get_resource("threads",20)
+    threads: 20
     resources:
         slurm_partition = get_resource("partition",20),
         mem_mb = get_resource("mem",20)
@@ -29,7 +29,7 @@ rule diamond:
              db = lambda w: DIAMOND[w.annotation]["db"]
     output : "{filename}_{annotation}.m8"
     log:     "{filename}_{annotation}_diamond.log"
-    threads:  get_resource("threads",20)
+    threads:  20
     resources:
         slurm_partition = get_resource("partition",20),
         mem_mb = get_resource("mem",20)
@@ -63,7 +63,7 @@ rule koannotation:
     params: root = realpath("{path}")
     conda: "%s/ko_annotation.yaml"%CONDA_ENV
     singularity: "singularity_container/ko_annotation.sif"
-    threads: get_resource("threads",50)
+    threads: 50
     resources:
         slurm_partition = get_resource("partition",50),
         mem_mb = get_resource("mem",50)
@@ -78,6 +78,7 @@ rule plasmidnet:
     output:  "{path}/Batch_{nb}_contig_results.tab"
     singularity: "singularity_container/plasmidnet.sif"
     conda: "%s/plasmidnet.yaml"%CONDA_ENV
+    threads: 1
     resources:
         slurm_partition = get_resource("partition",1),
         mem_mb = get_resource("mem",1)
@@ -99,10 +100,10 @@ rule virsorter2:
     output: "{path}/virsorter2/final-viral-boundary.tsv"
     conda: "%s/virsorter2.yaml"%CONDA_ENV
     singularity: "singularity_container/virsorter2.sif"
-    threads: get_resource("threads",50)
+    threads: 32
     resources:
-        slurm_partition = get_resource("partition",50),
-        mem_mb = get_resource("mem",50)
+        slurm_partition = get_resource("partition",32),
+        mem_mb = get_resource("mem",32)
     shell: """
            virsorter config --init-source --db-dir={VIRSORTER_DB}
            virsorter run -w $(dirname {output}) -i {input} --min-length 1500 -j {threads} all
@@ -117,10 +118,10 @@ rule CAT_annotation:
     params : Dir="{group}/annotation/CAT/contigs"
     conda : CONDA_ENV + "/cat.yaml"
     singularity : "docker://quay.io/annacprice/cat:5.2.2"
-    threads: get_resource("threads",50)
+    threads: 32
     resources:
-        slurm_partition = get_resource("partition",50),
-        mem_mb = get_resource("mem",50)
+        slurm_partition = get_resource("partition",32),
+        mem_mb = get_resource("mem",32)
     shell : """
     CAT contigs -c {input.contigs}  -d {CAT_DB} -t {CAT_DB} -p {input.faa} -n {threads} --out_prefix {params.Dir} --top 11 --I_know_what_Im_doing --force
     """
@@ -145,7 +146,7 @@ rule kraken_uniq:
             classif = "{group}/annotation/kraken_contig_taxonomy.tsv"
     conda : CONDA_ENV + "/kraken.yaml"
     singularity: "docker://quay.io/annacprice/krakenuniq:0.5.8"
-    threads: get_resource("threads",20)
+    threads: 20
     resources:
         slurm_partition = get_resource("partition",20),
         mem_mb = get_resource("mem",20)
