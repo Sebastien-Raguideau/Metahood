@@ -41,8 +41,7 @@ LOCAL_DIR = config["LOCAL_DIR"]
 EXEC_DIR = config["EXEC_DIR"]
 
 # ------- Cluster resources -------
-SLURM_PARTITIONS = config["slurm_partitions"]
-HIGH_MEM_PARTITION = SLURM_PARTITIONS["high_mem"]
+SLURM_PARTITIONS = [[specs["name"],int(specs["min_mem"]),int(specs["max_mem"]),int(specs["min_threads"]),int(specs["max_threads"])] for _,specs in config["slurm_partitions"].items()]
 
 # -------- Binning -----------
 # option related to which samples would we want to be mapping to the assembly

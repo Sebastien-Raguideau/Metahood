@@ -7,8 +7,9 @@ if COVERAGE_UNIQUE_SAMPLE:
         output: "{group}/map/depth.txt"
         log : "{group}/map/depth.log"
         conda : CONDA_ENV + "/metabat2.yaml"
-        resources: mem_mb = get_mem_mb
-        singularity : "docker://quay.io/annacprice/metabat2:2.15"
+        resources:
+            slurm_partition = get_resource("partition",1),
+            mem_mb = get_resource("mem",1)        singularity : "docker://quay.io/annacprice/metabat2:2.15"
         shell: "jgi_summarize_bam_contig_depths --outputDepth {output} {input} &>{log}" 
 else:
     rule generate_depth :
@@ -16,7 +17,9 @@ else:
         output: "{group}/map/depth.txt"
         log : "{group}/map/depth.log"
         conda : CONDA_ENV + "/metabat2.yaml"
-        resources: mem_mb = get_mem_mb
+        resources:
+            slurm_partition = get_resource("partition",1),
+            mem_mb = get_resource("mem",1)
         singularity : "docker://quay.io/annacprice/metabat2:2.15"
         shell: "jgi_summarize_bam_contig_depths --outputDepth {output} {input} &>{log}" 
 
@@ -29,9 +32,11 @@ rule metabat2 :
     params: out="{group}/binning/metabat2/bins/bin",
             min_contig_size=max(1500,MIN_CONTIG_SIZE_METABAT2) # metabat2 does not bin anything smaller than 1500
     conda : CONDA_ENV + "/metabat2.yaml"
-    resources: mem_mb = partial(get_mem_mb,min_size=30000)
+    threads : get_resource("threads",20)
+    resources:
+        slurm_partition = get_resource("partition",20),
+        mem_mb = get_resource("mem",20,min_size=30000)
     singularity : "docker://quay.io/annacprice/metabat2:2.15"
-    threads : 20
     shell: """metabat2 -i {input.contig} -a {input.depth} -t {threads} -o {params.out} -m {params.min_contig_size}
             touch {output}
             """
@@ -39,6 +44,9 @@ rule metabat2 :
 rule renames_metabat2_bins :
     input: "{group}/binning/metabat2/bins/done"
     output:"{group}/binning/metabat2/bins/name_done"
+    resources:
+        slurm_partition = get_resource("partition",1),
+        mem_mb = get_resource("mem",1)
     run:
         List_bins=glob.glob(wildcards.group+"/binning/metabat2/bins/bin*.fa")
         for bin_ in List_bins:
@@ -50,6 +58,9 @@ rule post_processing :
     input: "{group}/binning/metabat2/bins/name_done"
     output:"{group}/binning/metabat2/clustering_metabat2.csv"
     conda : CONDA_ENV + "/pythonenv.yaml"
+    resources:
+        slurm_partition = get_resource("partition",1),
+        mem_mb = get_resource("mem",1)
     singularity : "docker://quay.io/annacprice/pythonenv:3.9"
     shell: """
            {SCRIPTS}/post_processing.py -o {output} -w {wildcards.group}

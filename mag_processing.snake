@@ -20,6 +20,9 @@ rule results:
 #------------- create folder with symlinks -------------
 rule create_naming_scheme:
     output: scheme = "MAGs/results/mag_name_mapping.tsv"
+    resources:
+        slurm_partition = get_resource("partition",1),
+        mem_mb = get_resource("mem",1)
     run:
         # check that we can use a simple rule to have all mags with different names
         all_mags = sorted([mag_path for mags in ASMBL_MAGS.values() for mag_path in mags])
@@ -39,6 +42,9 @@ rule create_naming_scheme:
 rule create_all_mags_link_drep:
     input: scheme = "MAGs/results/mag_name_mapping.tsv"
     output: done = "MAGs/logs/drep_done",
+    resources:
+        slurm_partition = get_resource("partition",1),
+        mem_mb = get_resource("mem",1)
     run:
         with open(input["scheme"]) as handle:
             _ = next(handle)
@@ -58,7 +64,10 @@ rule drep:
              mags = "MAGs/drep/non_drep_mags"
     conda : "%s/drep.yaml"%CONDA_ENV
     singularity: "builds/drep.sif"
-    threads: 100
+    threads: get_resource("threads",100)
+    resources:
+        slurm_partition = get_resource("partition",100),
+        mem_mb = get_resource("mem",100)
     shell: "dRep dereplicate {params.out} --ignoreGenomeQuality -g {params.mags}/*.fa -p {threads}"
 
 rule get_gtdb_database:
@@ -66,6 +75,9 @@ rule get_gtdb_database:
     log: "MAGs/logs/download_gtdb.log"
     singularity: "builds/gtdb.sif"
     conda : "%s/gtdbtk.yaml"%CONDA_ENV
+    resources:
+        slurm_partition = get_resource("partition",1),
+        mem_mb = get_resource("mem",1)
     shell: "{SCRIPTS}/install_gtdbtk.py {GTDB}&&touch {output.db_done}"
 
 
@@ -77,7 +89,10 @@ rule gtdb:
     params: "{path}/drep/dereplicated_genomes"
     singularity: "builds/gtdb.sif"
     conda : "%s/gtdbtk.yaml"%CONDA_ENV
-    threads: 50
+    threads: get_resource("threads",50)
+    resources:
+        slurm_partition = get_resource("partition"50),
+        mem_mb = get_resource("mem",50)
     shell: """
     export "GTDBTK_DATA_PATH={GTDB}/"
     gtdbtk classify_wf --cpus {threads} --genome_dir {params} --out_dir $(dirname {output.ar}) --extension .fa
@@ -94,6 +109,9 @@ rule get_profile:
     output: mat = "global_annotation/{type}_cov.tsv",
     singularity : "docker://quay.io/annacprice/pythonenv:3.9"
     conda : "%s/pythonenv.yaml"%CONDA_ENV    
+    resources:
+        slurm_partition = get_resource("partition",1),
+        mem_mb = get_resource("mem",1)
     params: asmbl = "-custom_sep-".join(list(GROUPS.keys()))
     shell: "{SCRIPTS}/aggregate_annotation.py {wildcards.type} {params.asmbl} {output.mat}"
 
@@ -105,6 +123,9 @@ rule get_normalisation:
     singularity : "docker://quay.io/annacprice/pythonenv:3.9"
     conda : "%s/pythonenv.yaml"%CONDA_ENV
     params: asmbl = "-custom_sep-".join(list(GROUPS.keys()))    
+    resources:
+        slurm_partition = get_resource("partition",1),
+        mem_mb = get_resource("mem",1)
     shell: "{SCRIPTS}/aggregate_normalisation.py {params.asmbl} {output.norm}"
 
 rule mag_summary:
@@ -114,6 +135,9 @@ rule mag_summary:
            scheme = "{path}/results/mag_name_mapping.tsv",
     params: asmbl = "-custom_sep-".join(list(GROUPS.keys()))           
     singularity : "docker://quay.io/annacprice/pythonenv:3.9"
+    resources:
+        slurm_partition = get_resource("partition",1),
+        mem_mb = get_resource("mem",1)
     conda : "%s/pythonenv.yaml"%CONDA_ENV
     output: summary = "{path}/results/mag_to_dmags_summary.tsv",
     shell: "{SCRIPTS}/generate_mag_summary.py {input.ar} {input.bac} {input.drep} {input.scheme} {params.asmbl} {output.summary}"
@@ -130,6 +154,9 @@ rule split_by_mag:
     output: "MAGs/logs/{group}_split_done"
     params: out = "MAGs/all_mags"
     conda : CONDA_ENV + "/pythonenv.yaml"
+    resources:
+        slurm_partition = get_resource("partition",1),
+        mem_mb = get_resource("mem",1)
     singularity : "docker://quay.io/annacprice/pythonenv:3.9"
     shell:"""
     {SCRIPTS}/Split_fasta_by_bin.py {input.cluster} {params.out} -l {input.mags}  --folder --fasta {input.faa} {input.fna} --annotation {input.annotation} {input.cog} --scheme {input.scheme}
@@ -144,6 +171,9 @@ rule annotation_summary:
             out = "MAGs/results",
             path = "MAGs/all_mags"
     conda : CONDA_ENV + "/pythonenv.yaml"
+    resources:
+        slurm_partition = get_resource("partition",1),
+        mem_mb = get_resource("mem",1)
     singularity : "docker://quay.io/annacprice/pythonenv:3.9"
     shell : """
     {SCRIPTS}/annotation_summary.py -o {params.out} -a {params.best_hits} -p {params.path}

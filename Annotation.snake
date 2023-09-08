@@ -13,8 +13,10 @@ rule prodigal:
         cut_faa=expand("{{group}}/annotation/temp_splits/Batch_{nb}.faa",nb=range(100))
     params:
         dir='{group}/annotation'
-    threads: 20
-    resources: mem_mb = get_mem_mb
+    threads: get_resource("threads",20)
+    resources:
+        slurm_partition = get_resource("partition",20),
+        mem_mb = get_resource("mem",20)
     message:"Parallel prodigal run in {input}"
     conda : CONDA_ENV + "/prodigal.yaml"
     singularity : "docker://quay.io/annacprice/prodigal:2.6.3"
@@ -27,8 +29,10 @@ rule diamond:
              db = lambda w: DIAMOND[w.annotation]["db"]
     output : "{filename}_{annotation}.m8"
     log:     "{filename}_{annotation}_diamond.log"
-    threads:  20
-    resources: mem_mb = get_mem_mb
+    threads:  get_resource("threads",20)
+    resources:
+        slurm_partition = get_resource("partition",20),
+        mem_mb = get_resource("mem",20)
     conda : CONDA_ENV + "/diamond.yaml"
     singularity : "docker://quay.io/annacprice/diamond:2.0.6"
     shell :   "diamond blastp --more-sensitive -d {input.db}  -q {input.faa} -p {threads} -o {output} -f6 qseqid sseqid qstart qend qlen sstart send slen length pident evalue bitscore &>{log}"
@@ -37,7 +41,9 @@ rule annotation_diamond:
     input :  "{group}/annotation/{filename}_{annotation}.m8"
     output : "{group}/annotation/{filename}_{annotation}_best_hits.tsv"
     conda : CONDA_ENV + "/pythonenv.yaml"
-    resources: mem_mb = get_mem_mb
+    resources:
+        slurm_partition = get_resource("partition",1),
+        mem_mb = get_resource("mem",1)
     singularity : "docker://quay.io/annacprice/pythonenv:3.9"
     params : annotation=lambda w: DIAMOND[w.annotation]["annotation"],
              Bitscore=lambda w: DIAMOND[w.annotation]["filter"][0],
@@ -57,8 +63,10 @@ rule koannotation:
     params: root = realpath("{path}")
     conda: "%s/ko_annotation.yaml"%CONDA_ENV
     singularity: "singularity_container/ko_annotation.sif"
-    threads: 50
-    resources: mem_mb = get_mem_mb
+    threads: get_resource("threads",50)
+    resources:
+        slurm_partition = get_resource("partition",50),
+        mem_mb = get_resource("mem",50)
     shell: """
     snakemake -s {LOCAL_DIR}/ko_annotation.snake -k --rerun-incomplete --directory {params.root} --cores {threads} --nolock --config scripts={SCRIPTS} ROOT={params.root} KO_HMM={KO_HMM} KO_HMM_CUTOFFS={KO_HMM_CUTOFFS}
     rm -rf {params.root}/.snakemake
@@ -70,8 +78,9 @@ rule plasmidnet:
     output:  "{path}/Batch_{nb}_contig_results.tab"
     singularity: "singularity_container/plasmidnet.sif"
     conda: "%s/plasmidnet.yaml"%CONDA_ENV
-    threads: 1
-    resources: mem_mb = get_mem_mb
+    resources:
+        slurm_partition = get_resource("partition",1),
+        mem_mb = get_resource("mem",1)
     shell: "python {PLASMIDNET}/bin/plasmidnet.py -f {input} -o $(dirname {output}) -m {PLASMIDNET}/model.zip -j {threads}"
 
 rule generate_result_file:
@@ -90,8 +99,10 @@ rule virsorter2:
     output: "{path}/virsorter2/final-viral-boundary.tsv"
     conda: "%s/virsorter2.yaml"%CONDA_ENV
     singularity: "singularity_container/virsorter2.sif"
-    resources: mem_mb = get_mem_mb
-    threads: 10
+    threads: get_resource("threads",50)
+    resources:
+        slurm_partition = get_resource("partition",50),
+        mem_mb = get_resource("mem",50)
     shell: """
            virsorter config --init-source --db-dir={VIRSORTER_DB}
            virsorter run -w $(dirname {output}) -i {input} --min-length 1500 -j {threads} all
@@ -106,8 +117,10 @@ rule CAT_annotation:
     params : Dir="{group}/annotation/CAT/contigs"
     conda : CONDA_ENV + "/cat.yaml"
     singularity : "docker://quay.io/annacprice/cat:5.2.2"
-    resources: mem_mb = get_mem_mb
-    threads: 50
+    threads: get_resource("threads",50)
+    resources:
+        slurm_partition = get_resource("partition",50),
+        mem_mb = get_resource("mem",50)
     shell : """
     CAT contigs -c {input.contigs}  -d {CAT_DB} -t {CAT_DB} -p {input.faa} -n {threads} --out_prefix {params.Dir} --top 11 --I_know_what_Im_doing --force
     """
@@ -116,7 +129,9 @@ rule CAT_ORF_annotation:
     input: ORF2LCA="{group}/annotation/CAT/contigs.contig2classification.txt"
     output: annotation="{group}/annotation/CAT_contigs_taxonomy.tsv"
     conda : CONDA_ENV + "/cat.yaml"
-    resources: mem_mb = get_mem_mb
+    resources:
+        slurm_partition = get_resource("partition",1),
+        mem_mb = get_resource("mem",1)
     singularity : "docker://quay.io/annacprice/cat:5.2.2"
     shell : """
     CAT add_names -i {input.ORF2LCA} -o {output.annotation} -t {CAT_DB} --only_official
@@ -130,8 +145,10 @@ rule kraken_uniq:
             classif = "{group}/annotation/kraken_contig_taxonomy.tsv"
     conda : CONDA_ENV + "/kraken.yaml"
     singularity: "docker://quay.io/annacprice/krakenuniq:0.5.8"
-    resources: mem_mb = get_mem_mb
-    threads: 20
+    threads: get_resource("threads",20)
+    resources:
+        slurm_partition = get_resource("partition",20),
+        mem_mb = get_resource("mem",20)
     shell : """
     krakenuniq --db {input.db} --preload --fasta-input {input.fa} --threads {threads} --report-file {output.report} > {output.classif}
     """
@@ -144,7 +161,9 @@ rule hmmsearch:
            db = "%s"%SCG_HMM
     output:"{path}_hmm.out"
     conda : "%s/checkm.yaml"%CONDA_ENV
-    resources: mem_mb = get_mem_mb
+    resources:
+        slurm_partition = get_resource("partition",1),
+        mem_mb = get_resource("mem",1)
     singularity: "docker://quay.io/annacprice/gtdbtk:1.4.0"
     log: "{path}_hmm.log"
     shell: """
@@ -163,7 +182,9 @@ rule parse_hmmsearch_annotation:
     output: cat=temp("{path}/contigs_hmm.out"),
             cog="{path}/contigs_cogs_best_hits.tsv"
     conda : "%s/pythonenv.yaml"%CONDA_ENV
-    resources: mem_mb = get_mem_mb
+    resources:
+        slurm_partition = get_resource("partition",1),
+        mem_mb = get_resource("mem",1)
     singularity : "docker://quay.io/annacprice/pythonenv:3.9"
     shell: """cat {input}> {output.cat}
              {SCRIPTS}/Filter_scg_hmm.py {output.cat} --cog_hmm {SCG_DATA}/scg_hmm_selected.txt {output.cog}"""

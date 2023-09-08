@@ -10,13 +10,13 @@ rule megahit:
     params:  left=lambda w: ",".join(R1[w["group"]]),
              right=lambda w: ",".join(R2[w["group"]]),
              dir="{group}/assembly",
-             mem=MAX_MEM_PERCENT,
-             Additional_params=ASSEMBLER_PARAMS,
+             mem = MAX_MEM_PERCENT_to_change,
+             Additional_params = ASSEMBLER_PARAMS,
              assembly = "../assembly/final.contigs.fa"
-    threads: 50
+    threads: get_resource("threads",50)
     resources:
-        slurm_partition = HIGH_MEM_PARTITION,
-        mem_mb=get_mem_mb
+        slurm_partition = get_resource("partition",50),
+        mem_mb = get_resource("mem",50)
     log:     "{group}/assembly/assembly.log"
     conda : CONDA_ENV + "/megahit.yaml"
     singularity : "docker://quay.io/annacprice/megahit:1.2.9"
@@ -34,7 +34,8 @@ rule bwa_index:
     log:     "{path}/index.log"
     params : 10000000000
     resources:
-        mem_mb=get_mem_mb
+        slurm_partition = get_resource("partition",1),
+        mem_mb=get_resource("mem",1),
     message: "Building bwa index for {input}"
     conda : CONDA_ENV + "/bwasamtools.yaml"
     singularity: "docker://quay.io/annacprice/bwasamtools:1.10"
@@ -46,9 +47,10 @@ rule bwa_mem_to_bam:
              contigs="{group}/contigs/contigs.fa",
              left=lambda w:replace_extensions(SAMPLE_READS[w.sample][0],FILTER), right=lambda w:replace_extensions(SAMPLE_READS[w.sample][1],FILTER)
     output:  temp("{group}/map/{sample}_mapped_sorted.bam")
-    threads: 10
+    threads: get_resource("threads",10)
     resources:
-        mem_mb=partial(get_mem_mb,mult=10)
+        slurm_partition = get_resource("partition",10),
+        mem_mb = get_resource("mem",10, mult=10)
     log:     "{group}/map/{sample}_map.log"
     message: "bwa mem mapping followed by samtool sorting for {input}"
     conda : CONDA_ENV + "/bwasamtools.yaml"
