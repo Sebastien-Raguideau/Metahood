@@ -17,8 +17,8 @@ rule bwa_index2:
     input: "{file}"
     output: "{file}.sa"
     resources:
-        slurm_partition = get_resource("partition",1),
-        mem_mb = get_resource("mem",1)
+        slurm_partition = get_resource("partition"),
+        mem_mb = get_resource("mem")
     conda : "%s/bwasamtools.yaml"%CONDA_ENV
     singularity : "docker://quay.io/annacprice/bwasamtools:1.10"
     shell: "bwa index {input}"
@@ -32,8 +32,8 @@ rule map_to_mask:
     log: "{IN}/{sample}/mapping.log"
     threads: 10
     resources:
-        slurm_partition = get_resource("partition",10),
-        mem_mb = get_resource("mem",10)
+        slurm_partition = get_resource("partition"),
+        mem_mb = get_resource("mem")
     conda : CONDA_ENV + "/bwasamtools.yaml"
     singularity : "docker://quay.io/annacprice/bwasamtools:1.10"
     shell: """
@@ -47,8 +47,8 @@ rule bam_to_fastq:
             R2 = temp("{IN}/{sample}/Filtered_{prefix}R2{suffix}.{ext}")
     threads: 10
     resources:
-        slurm_partition = get_resource("partition",10),
-        mem_mb = get_resource("mem",10)
+        slurm_partition = get_resource("partition"),
+        mem_mb = get_resource("mem")
     singularity : "docker://quay.io/annacprice/bedtools:2.29.2"
     shell: """
         bamToFastq -i {input} -fq {output.R1}_temp -fq2 {output.R2}_temp
@@ -65,8 +65,8 @@ rule fastqc :
     output : "{IN}/{sample}/{prefix}.{ext}_fastqc_done"
     conda : CONDA_ENV + "/fastqc.yaml"
     resources:
-        slurm_partition = get_resource("partition",1),
-        mem_mb = get_resource("mem",1)
+        slurm_partition = get_resource("partition"),
+        mem_mb = get_resource("mem")
     singularity : "docker://quay.io/annacprice/fastqc:0.11.9"
     shell :"""
             fastqc -o {IN}/{wildcards.sample} {input}
@@ -90,8 +90,8 @@ if FILTER:
         conda : CONDA_ENV + "/trim_galore.yaml"
         threads: 8
         resources:
-            slurm_partition = get_resource("partition",8),
-            mem_mb = get_resource("mem",8)
+            slurm_partition = get_resource("partition"),
+            mem_mb = get_resource("mem")
         singularity : "docker://quay.io/annacprice/trimgalore:0.6.5"
         shell : """
         trim_galore -j {threads} --fastqc {params.option} -o $(dirname {output.R1}) --paired {input.file_R1} {input.file_R2} > {log} 2>&1
@@ -115,8 +115,8 @@ else:
         conda : CONDA_ENV + "/trim_galore.yaml"
         threads: 8
         resources:
-            slurm_partition = get_resource("partition",8),
-            mem_mb = get_resource("mem",8)
+            slurm_partition = get_resource("partition"),
+            mem_mb = get_resource("mem")
         singularity : "docker://quay.io/annacprice/trimgalore:0.6.5"
         shell :"""
         trim_galore -j {threads} --fastqc {params.option} -o $(dirname {output.R1}) --paired {input.file_R1} {input.file_R2} > {log} 2>&1
@@ -130,8 +130,8 @@ rule multiqc :
     output : IN+"/quality_done"
     conda : CONDA_ENV + "/multiqc.yaml"
     resources:
-        slurm_partition = get_resource("partition",1),
-        mem_mb = get_resource("mem",1)
+        slurm_partition = get_resource("partition"),
+        mem_mb = get_resource("mem")
     singularity : "docker://quay.io/annacprice/multiqc:1.9"
     shell : """multiqc --interactive -f {IN}/ -o {IN}/
     touch {output}

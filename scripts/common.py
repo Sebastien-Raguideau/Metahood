@@ -124,7 +124,7 @@ class cd:
 # from doc: https://snakemake.readthedocs.io/en/stable/snakefiles/rules.html
 # from https://stackoverflow.com/questions/50891407/snakemake-how-to-dynamically-set-memory-resource-based-on-input-file-size
 
-def get_resource_real(wildcards, input, attempt,SLURM_PARTITIONS="",mode="",threads="",mult=2,min_size=10000):
+def get_resource_real(wildcards, input, threads, attempt,SLURM_PARTITIONS="",mode="",mult=2,min_size=10000):
     # return either partition, mem or threads, theses need to be done together
     # because if mem/cpu/threads is over partition definition, then mem/threads needs to change
     # since there can be setting for minimum mem/threads in some partition definition

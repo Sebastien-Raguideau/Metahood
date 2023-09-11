@@ -49,8 +49,8 @@ if SLURM_PARTITIONS[0][0]:
         MAX_MEM_PERCENT[name] = max_mem 
 
 # need to create a partial function because rules takes a function
-def get_resource(mode,threads,**kwargs):
-    return partial(get_resource_real, SLURM_PARTITIONS=SLURM_PARTITIONS, mode=mode, threads=threads, **kwargs)
+def get_resource(mode,**kwargs):
+    return partial(get_resource_real, SLURM_PARTITIONS=SLURM_PARTITIONS, mode=mode, **kwargs)
 
 
 # -------- Binning -----------
@@ -176,9 +176,9 @@ class megahit_file_size:
 
 def get_percent_megahit(group,threads):
     input_size = megahit_file_size(group)
-    mem = get_resource_real("", input_size, 1,SLURM_PARTITIONS=SLURM_PARTITIONS,mode="mem",threads=threads,mult=2,min_size=10000)
-    partition = get_resource_real("", input_size, 1,SLURM_PARTITIONS=SLURM_PARTITIONS,mode="partition",threads=threads,mult=2,min_size=10000)
-
+    mem = get_resource_real("", input_size, threads, 1,SLURM_PARTITIONS=SLURM_PARTITIONS,mode="mem",mult=2,min_size=10000)
+    partition = get_resource_real("", input_size, threads, 1,SLURM_PARTITIONS=SLURM_PARTITIONS,mode="partition", mult=2,min_size=10000)
+    
     partition, min_memory, max_memory, min_threads ,max_threads = next(el for el in SLURM_PARTITIONS if el[0]==partition)
     return mem/max_memory
 

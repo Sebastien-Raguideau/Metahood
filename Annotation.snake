@@ -15,8 +15,8 @@ rule prodigal:
         dir='{group}/annotation'
     threads: 20
     resources:
-        slurm_partition = get_resource("partition",20),
-        mem_mb = get_resource("mem",20)
+        slurm_partition = get_resource("partition"),
+        mem_mb = get_resource("mem")
     message:"Parallel prodigal run in {input}"
     conda : CONDA_ENV + "/prodigal.yaml"
     singularity : "docker://quay.io/annacprice/prodigal:2.6.3"
@@ -31,8 +31,8 @@ rule diamond:
     log:     "{filename}_{annotation}_diamond.log"
     threads:  20
     resources:
-        slurm_partition = get_resource("partition",20),
-        mem_mb = get_resource("mem",20)
+        slurm_partition = get_resource("partition"),
+        mem_mb = get_resource("mem")
     conda : CONDA_ENV + "/diamond.yaml"
     singularity : "docker://quay.io/annacprice/diamond:2.0.6"
     shell :   "diamond blastp --more-sensitive -d {input.db}  -q {input.faa} -p {threads} -o {output} -f6 qseqid sseqid qstart qend qlen sstart send slen length pident evalue bitscore &>{log}"
@@ -42,8 +42,8 @@ rule annotation_diamond:
     output : "{group}/annotation/{filename}_{annotation}_best_hits.tsv"
     conda : CONDA_ENV + "/pythonenv.yaml"
     resources:
-        slurm_partition = get_resource("partition",1),
-        mem_mb = get_resource("mem",1)
+        slurm_partition = get_resource("partition"),
+        mem_mb = get_resource("mem")
     singularity : "docker://quay.io/annacprice/pythonenv:3.9"
     params : annotation=lambda w: DIAMOND[w.annotation]["annotation"],
              Bitscore=lambda w: DIAMOND[w.annotation]["filter"][0],
@@ -65,8 +65,8 @@ rule koannotation:
     singularity: "singularity_container/ko_annotation.sif"
     threads: 50
     resources:
-        slurm_partition = get_resource("partition",50),
-        mem_mb = get_resource("mem",50)
+        slurm_partition = get_resource("partition"),
+        mem_mb = get_resource("mem")
     shell: """
     snakemake -s {LOCAL_DIR}/ko_annotation.snake -k --rerun-incomplete --directory {params.root} --cores {threads} --nolock --config scripts={SCRIPTS} ROOT={params.root} KO_HMM={KO_HMM} KO_HMM_CUTOFFS={KO_HMM_CUTOFFS}
     rm -rf {params.root}/.snakemake
@@ -80,8 +80,8 @@ rule plasmidnet:
     conda: "%s/plasmidnet.yaml"%CONDA_ENV
     threads: 1
     resources:
-        slurm_partition = get_resource("partition",1),
-        mem_mb = get_resource("mem",1)
+        slurm_partition = get_resource("partition"),
+        mem_mb = get_resource("mem")
     shell: "python {PLASMIDNET}/bin/plasmidnet.py -f {input} -o $(dirname {output}) -m {PLASMIDNET}/model.zip -j {threads}"
 
 rule generate_result_file:
@@ -102,8 +102,8 @@ rule virsorter2:
     singularity: "singularity_container/virsorter2.sif"
     threads: 32
     resources:
-        slurm_partition = get_resource("partition",32),
-        mem_mb = get_resource("mem",32)
+        slurm_partition = get_resource("partition"),
+        mem_mb = get_resource("mem")
     shell: """
            virsorter config --init-source --db-dir={VIRSORTER_DB}
            virsorter run -w $(dirname {output}) -i {input} --min-length 1500 -j {threads} all
@@ -120,8 +120,8 @@ rule CAT_annotation:
     singularity : "docker://quay.io/annacprice/cat:5.2.2"
     threads: 32
     resources:
-        slurm_partition = get_resource("partition",32),
-        mem_mb = get_resource("mem",32)
+        slurm_partition = get_resource("partition"),
+        mem_mb = get_resource("mem")
     shell : """
     CAT contigs -c {input.contigs}  -d {CAT_DB} -t {CAT_DB} -p {input.faa} -n {threads} --out_prefix {params.Dir} --top 11 --I_know_what_Im_doing --force
     """
@@ -131,8 +131,8 @@ rule CAT_ORF_annotation:
     output: annotation="{group}/annotation/CAT_contigs_taxonomy.tsv"
     conda : CONDA_ENV + "/cat.yaml"
     resources:
-        slurm_partition = get_resource("partition",1),
-        mem_mb = get_resource("mem",1)
+        slurm_partition = get_resource("partition"),
+        mem_mb = get_resource("mem")
     singularity : "docker://quay.io/annacprice/cat:5.2.2"
     shell : """
     CAT add_names -i {input.ORF2LCA} -o {output.annotation} -t {CAT_DB} --only_official
@@ -148,8 +148,8 @@ rule kraken_uniq:
     singularity: "docker://quay.io/annacprice/krakenuniq:0.5.8"
     threads: 20
     resources:
-        slurm_partition = get_resource("partition",20),
-        mem_mb = get_resource("mem",20)
+        slurm_partition = get_resource("partition"),
+        mem_mb = get_resource("mem")
     shell : """
     krakenuniq --db {input.db} --preload --fasta-input {input.fa} --threads {threads} --report-file {output.report} > {output.classif}
     """
@@ -163,8 +163,8 @@ rule hmmsearch:
     output:"{path}_hmm.out"
     conda : "%s/checkm.yaml"%CONDA_ENV
     resources:
-        slurm_partition = get_resource("partition",1),
-        mem_mb = get_resource("mem",1)
+        slurm_partition = get_resource("partition"),
+        mem_mb = get_resource("mem")
     singularity: "docker://quay.io/annacprice/gtdbtk:1.4.0"
     log: "{path}_hmm.log"
     shell: """
@@ -184,8 +184,8 @@ rule parse_hmmsearch_annotation:
             cog="{path}/contigs_cogs_best_hits.tsv"
     conda : "%s/pythonenv.yaml"%CONDA_ENV
     resources:
-        slurm_partition = get_resource("partition",1),
-        mem_mb = get_resource("mem",1)
+        slurm_partition = get_resource("partition"),
+        mem_mb = get_resource("mem")
     singularity : "docker://quay.io/annacprice/pythonenv:3.9"
     shell: """cat {input}> {output.cat}
              {SCRIPTS}/Filter_scg_hmm.py {output.cat} --cog_hmm {SCG_DATA}/scg_hmm_selected.txt {output.cog}"""
