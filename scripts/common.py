@@ -28,7 +28,8 @@ default_values = {
     "task_memory":200,
     "maganalysis":0,
     "desman":{"execution":0, "nb_haplotypes": 10,"nb_repeat": 5,"min_cov": 1,"scripts":""},
-    "slurm_partitions":{"":{"name":"","min_mem":"","max_mem":"","min_threads":"","max_threads":""}}
+    "slurm_partitions":{"":{"name":"","min_mem":"","max_mem":"","min_threads":"","max_threads":""}},
+    "nb_map":20
 }
 
 
@@ -124,7 +125,7 @@ class cd:
 # from doc: https://snakemake.readthedocs.io/en/stable/snakefiles/rules.html
 # from https://stackoverflow.com/questions/50891407/snakemake-how-to-dynamically-set-memory-resource-based-on-input-file-size
 
-def get_resource_real(wildcards, input, threads, attempt,SLURM_PARTITIONS="",mode="",mult=2,min_size=10000):
+def get_resource_real(wildcards, input, threads, attempt, SLURM_PARTITIONS="", mode="", mult=2, min_size=10000):
     # return either partition, mem or threads, theses need to be done together
     # because if mem/cpu/threads is over partition definition, then mem/threads needs to change
     # since there can be setting for minimum mem/threads in some partition definition
@@ -141,7 +142,7 @@ def get_resource_real(wildcards, input, threads, attempt,SLURM_PARTITIONS="",mod
 
     # change with each attempt
     # Where input.size//1000000 is used convert the cumulative size of input files in bytes to mb, and the tailing 2 could be any arbitrary number based on the specifics of your shell/script requirements.
-    mem = max((input.size//1000000) * attempt * mult, attempt*min_size) # this is mb
+    mem = max((input.size//1000000) * attempt * mult, attempt*min_size* mult) # this is mb
 
     # handle case where we are not on a cluster, no partition is defined
     if SLURM_PARTITIONS[0][0]=="":

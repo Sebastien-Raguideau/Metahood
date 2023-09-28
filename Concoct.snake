@@ -107,6 +107,10 @@ rule refine:
         mem_mb = get_resource("mem")
     singularity : "docker://quay.io/annacprice/concoct:1.1.0"
     shell:  """
+            if [ ! -s {input.bins} ]; then
+                cp {input.bins} {output.bins}
+                exit 0
+            fi
             CPATH=`which concoct_refine`
             if [ -w $CPATH ]
             then

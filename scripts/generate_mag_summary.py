@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import os
 import glob
 import argparse
 import numpy as np
@@ -69,7 +70,10 @@ if __name__ == "__main__":
     # get quality/contamination
     mag_to_qual = {}
     for asmbl_path in ASMBL:
-        with open("%s/binning/consensus/consensus_SCG_table.csv"%asmbl_path) as handle:
+        scg_table = "%s/binning/consensus/consensus_SCG_table.csv"%asmbl_path
+        if os.path.getsize(scg_table)==0:
+            continue
+        with open(scg_table) as handle:
             _ = next(handle)
             mag_old_to_new = {basename(path):mag for mag,path in mag_path.items() if asmbl_path in path}
             for line in handle:
@@ -77,11 +81,8 @@ if __name__ == "__main__":
                 mag_name = mag_old_to_new["Bin_%s.fa"%splitline[0]]
                 mag_to_qual[mag_name] = list(map(int,splitline[1:]))
 
-    mag_to_completion = {mag:sum(np.array(mag_to_qual[mag])>0)/float(len(mag_to_qual[mag])) for mag in mag_to_dmag}
-    mag_to_contamination = {mag:sum(np.array(mag_to_qual[mag])>1)/float(len(mag_to_qual[mag])) for mag in mag_to_dmag}
-
-    # get mag/dmag mapping
-    mag_to_dmag,dmag_to_mags = get_mag_dmag("%s/drep/data_tables"%PATH)
+    mag_to_completion = {mag:sum(np.array(mag_to_qual[mag])>0)/float(len(mag_to_qual[mag])) for mag in mag_to_qual}
+    mag_to_contamination = {mag:sum(np.array(mag_to_qual[mag])>1)/float(len(mag_to_qual[mag])) for mag in mag_to_qual}
 
     # dmag prevalence
     dmag_to_prevalence = {dmag.replace(".fa",""):len({mag.split("_Bin")[0] for mag in mags}) for dmag,mags in dmag_to_mags.items()}
@@ -96,3 +97,9 @@ if __name__ == "__main__":
     with open(output,'w') as handle:
         handle.write("mag\tassembly\tdmag\tprevalence\tMAG_length\tcompletion\tcontamination\tRED\tDomain\tPhylum\tClass\tOrder\tfamilly\tgenus\tspecies\n")
         handle.writelines("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n"%(mag,get_asm(mag),mag_to_dmag[mag],dmag_to_prevalence[mag_to_dmag[mag]],mag_to_length[mag],mag_to_completion[mag],mag_to_contamination[mag],mag_to_red[mag_to_dmag[mag]],"\t".join(mag_to_taxa[mag_to_dmag[mag]])) for mag in sorted_mags)
+
+    if len(mag_to_dmag)!=len(mag_to_qual):
+        with open("%s/ISSUE_WITH_BIN_OUTPUTED.txt"%dirname(output),"w") as handle:
+            handle.write('These "MAGs" are outputed in /binning/consensus/mags when they are not considered mags, this issue should already have been fixed\n')
+            handle.writelines("%s\n"%(issue) for issue in (set(mag_to_dmag.keys())-set(mag_to_qual.keys())))
+

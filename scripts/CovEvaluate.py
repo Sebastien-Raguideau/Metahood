@@ -10,10 +10,10 @@ from collections import Counter
 
 def main(bam_file,out_stats,out_hists,maxlen):
     samfile = pysam.AlignmentFile(bam_file, "r")
-    contigs_10K = {dicct["SN"]:dicct["LN"] for dicct in samfile.header.as_dict()["SQ"] if dicct["LN"]>=10000}
+    contigs_10K = {dicct["SN"]:dicct["LN"] for dicct in samfile.header.as_dict()["SQ"] if dicct["LN"]>=maxlen}
     with open(out_stats,"w") as handle_stat, open(out_hists,"w") as handle_hists:
-        handle_hists.write("contig\tposisition\tcoverage\n")
-        handle_hists.write("contig\tq50\t(q75-q25)/q50\n")
+        handle_hists.write("contig\tposition\tcoverage\n")
+        handle_stat.write("contig\tq50\t(q75-q25)/q50\n")
         for contig,length in contigs_10K.items():
             # hist
             pos_to_cnt = defaultdict(int)
@@ -22,8 +22,11 @@ def main(bam_file,out_stats,out_hists,maxlen):
             # stats
             depthArray = np.array(list(pos_to_cnt.values()))
             (lq,med,uq) = np.quantile(depthArray,[0.25,0.5,0.75])
-            devF = (uq - lq)/med
-            handle_stat.write("%s\t%s\t%s\n"%(contig,med,devF))
+            if med!=0:
+                devF = (uq - lq)/med
+                handle_stat.write("%s\t%s\t%s\n"%(contig,med,devF))
+            else:
+                handle_stat.write("%s\t%s\t%s\n"%(contig,med,"NA"))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

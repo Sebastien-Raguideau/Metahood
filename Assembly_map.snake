@@ -10,13 +10,13 @@ rule megahit:
     params:  left=lambda w: ",".join(R1[w["group"]]),
              right=lambda w: ",".join(R2[w["group"]]),
              dir="{group}/assembly",
-             mem = lambda w: get_percent_megahit(w["group"],50),
+             mem = lambda w: get_percent_megahit(w["group"],32),
              Additional_params = ASSEMBLER_PARAMS,
              assembly = "../assembly/final.contigs.fa"
     threads: 32
     resources:
-        slurm_partition = get_resource("partition",32),
-        mem_mb = get_resource("mem",32)
+        slurm_partition = get_resource("partition"),
+        mem_mb = get_resource("mem")
     log:     "{group}/assembly/assembly.log"
     conda : CONDA_ENV + "/megahit.yaml"
     singularity : "docker://quay.io/annacprice/megahit:1.2.9"
@@ -50,7 +50,8 @@ rule bwa_mem_to_bam:
     threads: 10
     resources:
         slurm_partition = get_resource("partition", mult=10),
-        mem_mb = get_resource("mem", mult=10)
+        mem_mb = get_resource("mem", mult=10),
+        nb_map = 1
     log:     "{group}/map/{sample}_map.log"
     message: "bwa mem mapping followed by samtool sorting for {input}"
     conda : CONDA_ENV + "/bwasamtools.yaml"

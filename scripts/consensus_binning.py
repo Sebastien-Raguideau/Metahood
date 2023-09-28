@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: latin-1 -*-
 import os
+import sys
 import argparse
 import itertools
 import numpy as np
@@ -210,6 +211,13 @@ if __name__ == "__main__":
     # get mags definition : 
     mags_m2 = {line.rstrip() for line in open(args.m_mag_list)}
     mags_c = {line.rstrip() for line in open(args.c_mag_list)}
+
+    # deal with no mag situtation:
+    if (mags_m2|mags_c)==set():
+        print("warning, no mag in either binner")
+        os.system("touch %s"%args.o)
+        sys.exit(0)
+
     # get cluster definition : 
     cluster_def_m2 = {line.rstrip().split(",")[0]:line.rstrip().split(",")[1] for line in open(args.m_bin_def) if line.rstrip().split(",")[1] in mags_m2}
     cluster_def_c = {line.rstrip().split(",")[0]:line.rstrip().split(",")[1] for line in open(args.c_bin_def) if (line.rstrip().split(",")[1] in mags_c)&(line.rstrip().split(",")[0]!="contig_id")}

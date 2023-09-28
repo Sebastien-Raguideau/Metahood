@@ -41,11 +41,16 @@ os.system("mkdir -p %s"%EXEC_DIR)
 
 # ------- set max memory used, in Go ---------------
 Mem_tot=virtual_memory().total
-Percent_mem=config["Percent_memory"]
+Percent_mem = config["Percent_memory"]
 MEMG=str(int((Percent_mem*Mem_tot)/10**9))
 
+# ------- load  ---------------
+config["LOCAL_DIR"] = METAHOOD_DIR
+fill_default_values(config)
+NB_MAP = config["nb_map"]
+
 # ------- base parameters used to call snakemake -----------
-base_params = ["snakemake", "--directory", EXEC_DIR, "--cores", str(args.cores), "--config", "LOCAL_DIR=%s"%METAHOOD_DIR,"CONFIG_PATH=%s"%CONFIG_FILE,"EXEC_DIR=%s"%EXEC_DIR,"--configfile="+CONFIG_FILE,"--resources",'memG='+MEMG, "--latency-wait", "120","-k"]
+base_params = ["snakemake", "--directory", EXEC_DIR, "--cores", str(args.cores),"-k", "--config", "LOCAL_DIR=%s"%METAHOOD_DIR,"CONFIG_PATH=%s"%CONFIG_FILE,"EXEC_DIR=%s"%EXEC_DIR,"--configfile="+CONFIG_FILE,"--resources",'memG=%s'%MEMG,'nb_map=%s'%NB_MAP, "--latency-wait", "120"]
 
 # ------- additional parameters -----------
 if args.verbose:

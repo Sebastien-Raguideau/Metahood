@@ -13,10 +13,10 @@ rule prodigal:
         cut_faa=expand("{{group}}/annotation/temp_splits/Batch_{nb}.faa",nb=range(100))
     params:
         dir='{group}/annotation'
-    threads: 20
+    threads: 32
     resources:
-        slurm_partition = get_resource("partition"),
-        mem_mb = get_resource("mem")
+        slurm_partition = get_resource("partition",mult=10),
+        mem_mb = get_resource("mem",mult=10)
     message:"Parallel prodigal run in {input}"
     conda : CONDA_ENV + "/prodigal.yaml"
     singularity : "docker://quay.io/annacprice/prodigal:2.6.3"

@@ -23,15 +23,18 @@ def split_fasta(fasta_file,bin_composition,set_bins,output,folder,rename):
     # open one file for writting, by bin
     Dico_bin_Handle={}
     ext = fasta_file.split(".")[-1]
+    if not folder:
+        output_folder = output
+        # issue with previous run giving different bin?
+        os.system("rm %s/*.%s"%(output_folder,ext))
+
     for _bin in set(Dico_contigs_bin.values()) :
         if folder :
             output_folder = "%s/%s"%(output,_bin)
-        else :
-            output_folder = output
         os.system("mkdir -p %s"%output_folder)
         Dico_bin_Handle[_bin]=open("%s/%s.%s"%(output_folder,_bin,ext),"w")
 
-    # go through all element of the the fasta file and write it to the rigth bin file
+    # go through all element of the the fasta file and write it to the right bin file
     for header,seq in SimpleFastaParser(open(fasta_file)) :
         contig1 = header.split()[0]
         contig2 = "_".join(contig1.split("_")[:-1])
@@ -112,6 +115,11 @@ if __name__ == "__main__":
     Nb_bins = len(List_all_bins)
     nb_batch = Nb_bins//max_nb_handles+1
     List_Batchs = [List_all_bins[batch*max_nb_handles:min((batch+1)*max_nb_handles,Nb_bins)] for batch in range(nb_batch)]
+
+    # deal with no binning situation
+    if Nb_bins==0:
+        print("warning binning file empty")
+        sys.exit(0)
 
     # renaming: if using different names than expected
     if args.scheme:

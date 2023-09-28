@@ -13,7 +13,7 @@ rule results:
     input: expand("MAGs/results/{annotation}_summary.tsv", annotation = BEST_HITS),
            expand("global_annotation/{type}_cov.tsv",type=BEST_HITS),
            "global_annotation/normalisation.tsv",
-           "MAGs/results/mag_to_dmags_summary.tsv",
+           "MAGs/results/mags_summary.tsv",
            # "MAGs/profile/minimap_coverage.tsv"
 
 
@@ -63,7 +63,7 @@ rule drep:
     params : out = "MAGs/drep",
              mags = "MAGs/drep/non_drep_mags"
     conda : "%s/drep.yaml"%CONDA_ENV
-    singularity: "builds/drep.sif"
+    singularity: "docker://quay.io/annacprice/drep:3.0.0"
     threads: 32
     resources:
         slurm_partition = get_resource("partition"),
@@ -73,7 +73,7 @@ rule drep:
 rule get_gtdb_database:
     output: db_done="MAGs/logs/gtdb_done",
     log: "MAGs/logs/download_gtdb.log"
-    singularity: "builds/gtdb.sif"
+    singularity: "docker://quay.io/biocontainers/gtdbtk:2.3.2--pyhdfd78af_0"
     conda : "%s/gtdbtk.yaml"%CONDA_ENV
     resources:
         slurm_partition = get_resource("partition"),
@@ -83,19 +83,19 @@ rule get_gtdb_database:
 
 rule gtdb:
     input: "{path}/drep/data_tables/Cdb.csv",
-           "{path}/logs/gtdb_done"
+           "{path}/logs/gtdb_done",
     output: ar = "{path}/gtdb/gtdbtk.ar122.summary.tsv",
             bac = "{path}/gtdb/gtdbtk.bac120.summary.tsv"
     params: "{path}/drep/dereplicated_genomes"
-    singularity: "builds/gtdb.sif"
+    singularity: "docker://quay.io/biocontainers/gtdbtk:2.3.2--pyhdfd78af_0"
     conda : "%s/gtdbtk.yaml"%CONDA_ENV
     threads: 32
     resources:
-        slurm_partition = get_resource("partition"),
-        mem_mb = get_resource("mem")
+        slurm_partition = get_resource("partition",min_size=300000),
+        mem_mb = get_resource("mem",min_size=300000)
     shell: """
     export "GTDBTK_DATA_PATH={GTDB}/"
-    gtdbtk classify_wf --cpus {threads} --genome_dir {params} --out_dir $(dirname {output.ar}) --extension .fa
+    gtdbtk classify_wf --cpus {threads} --genome_dir {params} --skip_ani_screen --out_dir $(dirname {output.ar}) --extension .fa
     touch {output.ar}
     touch {output.bac}
     """
@@ -139,7 +139,7 @@ rule mag_summary:
         slurm_partition = get_resource("partition"),
         mem_mb = get_resource("mem")
     conda : "%s/pythonenv.yaml"%CONDA_ENV
-    output: summary = "{path}/results/mag_to_dmags_summary.tsv",
+    output: summary = "{path}/results/mags_summary.tsv",
     shell: "{SCRIPTS}/generate_mag_summary.py {input.ar} {input.bac} {input.drep} {input.scheme} {params.asmbl} {output.summary}"
 
 #------------- get mags annotation ------------------

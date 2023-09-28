@@ -45,6 +45,7 @@ rule bedtools:
              genome = "{group}/annotation/{type}_bedtools_target_definition.tsv"
     output:  "{group}/map/{sample}.{type}.cov"
     log:      "{group}/map/{sample}_{type}.log"
+    priority: 50
     resources:
         slurm_partition = get_resource("partition"),
         mem_mb = get_resource("mem")
@@ -166,6 +167,7 @@ rule mapped_reads:
     input:  bam="{group}/map/{sample}_mapped_sorted.bam"
     output: readnb="{group}/map/{sample}_mapped_read.txt"
     threads: 8
+    priority: 50
     conda : CONDA_ENV + "/bwasamtools.yaml"
     resources:
         slurm_partition = get_resource("partition"),
@@ -204,7 +206,6 @@ rule get_percent:
 
 
 # ---- mags infos  ----------------------
-
 rule mag_coverage:
     input: mags="{group}/binning/{binner}/{binner}_MAG_list.txt",
            cluster="{group}/binning/{binner}/clustering_{binner}.csv",
@@ -222,7 +223,7 @@ rule mag_coverage:
     {SCRIPTS}/mag_coverage.py -m {input.mags} -c {input.cluster} -t {input.cov} -l {input.len} -n {input.nb_nuc} -v {output.mag_cov} -p {output.mag_map}
     """
 
-# ---------------------- look at ducplicates ----------------------
+# ---------------------- look at duplicates ----------------------
 # (PICARD)
 
 rule picard_duplicate:
@@ -230,9 +231,11 @@ rule picard_duplicate:
            # index = "{group}/map/{sample}_mapped_sorted.bam.bai",
     output: bam = "{group}/map/{sample}_mapped_sorted_dup.bam",
             stat = "{group}/map/{sample}_marked_dup_metrics.txt"
+    priority: 50            
     resources:
         slurm_partition = get_resource("partition", mult=10),
-        mem_mb = get_resource("mem",mult=10)
+        mem_mb = get_resource("mem",mult=10),
+        exclude= "e4096n[1-3],e512n[25-64]"
     singularity : "docker://biocontainers/picard-tools:v2.18.25dfsg-2-deb_cv1"
     shell: "PicardCommandLine MarkDuplicates I={input.bam} O={output.bam} M={output.stat}"
 
@@ -242,6 +245,7 @@ rule samtools_check_duplicate:
            # index = "{group}/map/{sample}_mapped_sorted.bam.bai",
     output: bam = "{group}/map/{sample}_mapped_sorted_dup_samtools.bam",
             stat = "{group}/map/{sample}_marked_dup_metrics_samtools.txt"
+    priority: 50
     resources:
         slurm_partition = get_resource("partition", mult=10),
         mem_mb = get_resource("mem", mult=10)
@@ -253,8 +257,24 @@ rule samtools_check_duplicate:
 # aggregate info on duplicates
 rule check_duplicates:
     input: lambda w : ["%s/map/%s_marked_dup_metrics.txt"%(w.group,sample.split('/')[-1]) for sample in  GROUPS[w.group]]
-    output: "{group}/profile/percent_duplicate.tsv"
-    shell: "touch {output}"
+    output: out = "{group}/profile/percent_duplicate.tsv"
+    run:
+        sorted_samples = sorted([basename(el).split("_marked_dup_metrics.txt")[0] for el in input])
+        sample_stats = {}
+        for file in input:
+            with open(file) as handle:
+                sample = basename(file).split("_marked_dup_metrics.txt")[0]
+                for _ in handle:
+                    if "LIBRARY" in _:
+                        break
+                # LIBRARY UNPAIRED_READS_EXAMINED READ_PAIRS_EXAMINED     SECONDARY_OR_SUPPLEMENTARY_RDS  UNMAPPED_READS  UNPAIRED_READ_DUPLICATES        READ_PAIR_DUPLICATES    READ_PAIR_OPTICAL_DUPLICATES PERCENT_DUPLICATION      ESTIMATED_LIBRARY_SIZE
+                library, unpaired_reads, read_paired, second_sup_reads,unmap_reads,unpaired_dup,paired_dup, pair_opt_dup, percent_dup, estimated_lib_size = next(handle).rstrip().split("\t")
+            sample_stats[sample] = [percent_dup, estimated_lib_size]
+        with open(output["out"],"w") as handle:
+            handle.write("Samples\t%s\n"%"\t".join(sorted_samples))
+            handle.write("Percent_duplicate\t%s\n"%"\t".join([sample_stats[sample][0] for sample in sorted_samples]))
+            handle.write("Estimated_lib_size\t%s\n"%"\t".join([sample_stats[sample][1] for sample in sorted_samples]))
+
 
 # ---------------------- get cov hist and cov variation ----------------------
 rule index:
@@ -271,6 +291,7 @@ rule get_cov_stats:
            bai = "{group}/map/{sample}_mapped_sorted.bam.bai"
     output: cov_stat = "{group}/map/{sample}_cov.stats",
             cov_hists = "{group}/map/{sample}_cov.hists"
+    priority: 50
     resources:
         slurm_partition = get_resource("partition"),
         mem_mb = get_resource("mem")

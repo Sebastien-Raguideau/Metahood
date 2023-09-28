@@ -49,7 +49,7 @@ if SLURM_PARTITIONS[0][0]:
         MAX_MEM_PERCENT[name] = max_mem 
 
 # need to create a partial function because rules takes a function
-def get_resource(mode,**kwargs):
+def get_resource(mode, **kwargs):
     return partial(get_resource_real, SLURM_PARTITIONS=SLURM_PARTITIONS, mode=mode, **kwargs)
 
 
