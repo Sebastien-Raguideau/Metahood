@@ -49,8 +49,13 @@ config["LOCAL_DIR"] = METAHOOD_DIR
 fill_default_values(config)
 NB_MAP = config["nb_map"]
 
+
 # ------- base parameters used to call snakemake -----------
-base_params = ["snakemake", "--directory", EXEC_DIR, "--cores", str(args.cores),"-k", "--config", "LOCAL_DIR=%s"%METAHOOD_DIR,"CONFIG_PATH=%s"%CONFIG_FILE,"EXEC_DIR=%s"%EXEC_DIR,"--configfile="+CONFIG_FILE,"--resources",'memG=%s'%MEMG,'nb_map=%s'%NB_MAP, "--latency-wait", "120"]
+base_params = ["snakemake", "--directory", EXEC_DIR,"-k", "--config", "LOCAL_DIR=%s"%METAHOOD_DIR,"CONFIG_PATH=%s"%CONFIG_FILE,"EXEC_DIR=%s"%EXEC_DIR,"--configfile="+CONFIG_FILE,"--resources",'memG=%s'%MEMG,'nb_map=%s'%NB_MAP, "--latency-wait", "120"]
+if "" not in config["slurm_partitions"]:
+    base_params+=["--cores", str(args.cores)]
+
+
 
 # ------- additional parameters -----------
 if args.verbose:

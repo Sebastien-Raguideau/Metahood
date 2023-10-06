@@ -16,7 +16,8 @@ rule megahit:
     threads: 32
     resources:
         slurm_partition = get_resource("partition"),
-        mem_mb = get_resource("mem")
+        mem_mb = get_resource("mem"),
+        # exclude = "n80546,n83030,n83032"
     log:     "{group}/assembly/assembly.log"
     conda : CONDA_ENV + "/megahit.yaml"
     singularity : "docker://quay.io/annacprice/megahit:1.2.9"

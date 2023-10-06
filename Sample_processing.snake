@@ -55,6 +55,9 @@ rule bam_to_fastq:
         if [[ "{wildcards.ext}" == *.gz ]]; then
             gzip -c {output.R1}_temp > {output.R1} && rm {output.R1}_temp
             gzip -c {output.R2}_temp > {output.R2} && rm {output.R2}_temp
+        else
+            mv {output.R1}_temp {output.R1}
+            mv {output.R2}_temp {output.R2}
         fi
         """
 
