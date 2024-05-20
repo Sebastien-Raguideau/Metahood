@@ -67,7 +67,7 @@ if COVERAGE_UNIQUE_SAMPLE:
         shell : "{SCRIPTS}/collate_coverage.py -o {output} -l {input} "
 else:
     rule coverage:
-        input:   expand("{{group}}/map/{sample}.{{type}}.cov",sample=SAMPLES)
+        input:   expand("{{group}}/map/{sample}.{{type}}.cov",sample=SAMPLE_READS)
         output:  "{group}/profile/coverage_{type}.tsv"
         conda : CONDA_ENV + "/pythonenv.yaml"
         resources:
@@ -86,6 +86,20 @@ rule map_annotation_to_orfs:
         mem_mb = get_resource("mem")
     singularity : "docker://quay.io/annacprice/pythonenv:3.9"
     shell:  """{SCRIPTS}/Annotation_listcontig.py {input} {output} """
+
+
+rule generate_mcard:
+    input:  card = "{path}/contigs_CARD_best_hits.tsv",
+            genomad = "{path}/genomad/genomad.done"
+    output:  "{path}/map_mCARD_to_orfs.tsv"
+    conda : CONDA_ENV + "/pythonenv.yaml"
+    resources:
+        slurm_partition = get_resource("partition"),
+        mem_mb = get_resource("mem")
+    singularity : "docker://quay.io/annacprice/pythonenv:3.9"
+    shell:  """{SCRIPTS}/genomad_card.py {input} {output} """
+
+
 
 # ---- generate annotation profile  -----------------------
 rule generate_profile:
@@ -232,12 +246,17 @@ rule picard_duplicate:
     output: bam = "{group}/map/{sample}_mapped_sorted_dup.bam",
             stat = "{group}/map/{sample}_marked_dup_metrics.txt"
     priority: 50            
+    params: tmp = "{group}/tmp/{sample}"
     resources:
-        slurm_partition = get_resource("partition", mult=10),
-        mem_mb = get_resource("mem",mult=10),
-        exclude= "e4096n[1-3],e512n[25-64]"
+        slurm_partition = get_resource("partition", mult=1),
+        mem_mb = 60000,
+#        exclude= "e4096n[1-3],e512n[25-64]"
     singularity : "docker://biocontainers/picard-tools:v2.18.25dfsg-2-deb_cv1"
-    shell: "PicardCommandLine MarkDuplicates I={input.bam} O={output.bam} M={output.stat}"
+    shell: """
+    mkdir -p {params.tmp}/
+    export JAVA_OPTIONS="-Xmx50G -Xms50G -Djava.io.tmpdir={params.tmp}"
+    PicardCommandLine MarkDuplicates I={input.bam} O={output.bam} M={output.stat} SORTING_COLLECTION_SIZE_RATIO=0.10 TMP_DIR={params.tmp}/
+    """
 
 # samtools
 rule samtools_check_duplicate:
@@ -267,8 +286,13 @@ rule check_duplicates:
                 for _ in handle:
                     if "LIBRARY" in _:
                         break
-                # LIBRARY UNPAIRED_READS_EXAMINED READ_PAIRS_EXAMINED     SECONDARY_OR_SUPPLEMENTARY_RDS  UNMAPPED_READS  UNPAIRED_READ_DUPLICATES        READ_PAIR_DUPLICATES    READ_PAIR_OPTICAL_DUPLICATES PERCENT_DUPLICATION      ESTIMATED_LIBRARY_SIZE
-                library, unpaired_reads, read_paired, second_sup_reads,unmap_reads,unpaired_dup,paired_dup, pair_opt_dup, percent_dup, estimated_lib_size = next(handle).rstrip().split("\t")
+                # catch small file with no estimated library size
+                splitline = next(handle).rstrip().split("\t")
+                if len(splitline)==9:
+                    percent_dup, estimated_lib_size = splitline[-1],"0"
+                else:
+                    # LIBRARY UNPAIRED_READS_EXAMINED READ_PAIRS_EXAMINED     SECONDARY_OR_SUPPLEMENTARY_RDS  UNMAPPED_READS  UNPAIRED_READ_DUPLICATES        READ_PAIR_DUPLICATES    READ_PAIR_OPTICAL_DUPLICATES PERCENT_DUPLICATION      ESTIMATED_LIBRARY_SIZE
+                    library, unpaired_reads, read_paired, second_sup_reads,unmap_reads,unpaired_dup,paired_dup, pair_opt_dup, percent_dup, estimated_lib_size = splitline
             sample_stats[sample] = [percent_dup, estimated_lib_size]
         with open(output["out"],"w") as handle:
             handle.write("Samples\t%s\n"%"\t".join(sorted_samples))

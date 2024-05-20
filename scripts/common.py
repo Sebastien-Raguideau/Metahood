@@ -17,11 +17,11 @@ import os
 
 
 default_values = {
-    "binning":{"concoct":{"contig_size" : 1000,"execution" : 1,"max_bin_nb" : 2000},"metabat2":{"execution" : 1,"contig_size":1500},"ssa_unique_sample":False},
+    "binning":{"concoct":{"contig_size" : 1000,"execution" : 1,"max_bin_nb" : 2000},"metabat2":{"execution" : 1,"contig_size":1500},"ssa_unique_sample":False,"cobinning_samples":["*"]},
     "mag":["native"],
     "threads":8,
     "assembly":    {"assembler": "megahit","groups": {},"parameters":"" },
-    "annotation": {'diamond':{},"cat_db":"","kraken_db":"","kofamscan":{"profiles":"","ko_list":""},"virsorter":"","plasmidnet_install":""},
+    "annotation": {'diamond':{},"cat_db":"","cat_path":"","kraken_db":"","kofamscan":{"profiles":"","ko_list":""},"virsorter":"","plasmidnet_install":"","genomad_db":""},
     "graph":{"List_graphs":{}},
     "filtering":"",
     "Percent_memory":0.5,
@@ -173,8 +173,8 @@ def get_resource_real(wildcards, input, threads, attempt, SLURM_PARTITIONS="", m
 
     #### decide on mem/threads to use
     partition, min_memory, max_memory, min_threads ,max_threads = final_selection
-    mem_final = max(mem, min_memory)
-    threads_final = max(threads, min_threads)
+    mem_final = min(max(mem, min_memory), max_memory)
+    threads_final = min(max(threads, min_threads), max_threads)
 
     # output
     return return_result(mem_final,partition,threads_final,mode)

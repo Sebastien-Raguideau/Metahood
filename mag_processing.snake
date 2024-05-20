@@ -9,11 +9,19 @@ def matrix_write(matrix,file_name,col_names,row_names):
         handle.write("/\t%s\n"%"\t".join(col_names))
         handle.writelines('%s\t%s\n'%(row_names[index],"\t".join(["{:.4g}".format(el) for el in line])) for index,line in enumerate(matrix))
 
+if CAT_DB:
+    cat_out = "global_annotation/CAT_profile.tsv"
+else:
+    cat_out = ""
+
+BEST_HITS2 = [el for el in BEST_HITS if 'mCARD'!=el]
+
 rule results:
-    input: expand("MAGs/results/{annotation}_summary.tsv", annotation = BEST_HITS),
+    input: expand("MAGs/results/{annotation}_summary.tsv", annotation = BEST_HITS2),
            expand("global_annotation/{type}_cov.tsv",type=BEST_HITS),
            "global_annotation/normalisation.tsv",
            "MAGs/results/mags_summary.tsv",
+           cat_out
            # "MAGs/profile/minimap_coverage.tsv"
 
 
@@ -53,8 +61,8 @@ rule create_all_mags_link_drep:
         shell("mkdir -p MAGs/drep/non_drep_mags")
         for mag,path in name_to_path.items():
             shell("mkdir -p MAGs/all_mags/%s"%mag)
-            shell("ln -s %s MAGs/all_mags/%s/%s.fa"%(realpath(path),mag,mag))
-            shell("ln -s %s MAGs/drep/non_drep_mags/%s.fa"%(realpath(path),mag))
+            shell("ln -sf %s MAGs/all_mags/%s/%s.fa"%(realpath(path),mag,mag))
+            shell("ln -sf %s MAGs/drep/non_drep_mags/%s.fa"%(realpath(path),mag))
         shell("touch {output.done}")
 
 rule drep:
@@ -66,8 +74,8 @@ rule drep:
     singularity: "docker://quay.io/annacprice/drep:3.0.0"
     threads: 32
     resources:
-        slurm_partition = get_resource("partition"),
-        mem_mb = get_resource("mem")
+        slurm_partition = get_resource("partition",min_size=500000),
+        mem_mb = get_resource("mem",min_size=500000)
     shell: "dRep dereplicate {params.out} --ignoreGenomeQuality -g {params.mags}/*.fa -p {threads}"
 
 rule get_gtdb_database:
@@ -115,6 +123,19 @@ rule get_profile:
     params: asmbl = "-custom_sep-".join(list(GROUPS.keys()))
     shell: "{SCRIPTS}/aggregate_annotation.py {wildcards.type} {params.asmbl} {output.mat}"
 
+rule get_CAT_profile:
+    input:  scheme = "MAGs/results/mag_name_mapping.tsv",
+            annot = expand("{group}/profile/coverage_contigs.tsv",group=GROUPS)
+    output: mat = "global_annotation/CAT_profile.tsv",
+    singularity : "docker://quay.io/annacprice/pythonenv:3.9"
+    conda : "%s/pythonenv.yaml"%CONDA_ENV    
+    resources:
+        slurm_partition = get_resource("partition"),
+        mem_mb = get_resource("mem")
+    params: asmbl = "-custom_sep-".join(list(GROUPS.keys()))
+    shell: "{SCRIPTS}/aggregate_CAT.py {params.asmbl} {output.mat}"
+
+
 rule get_normalisation:
     input:  scheme = "MAGs/results/mag_name_mapping.tsv",
             done = "MAGs/logs/drep_done",
@@ -144,7 +165,7 @@ rule mag_summary:
 
 #------------- get mags annotation ------------------
 rule split_by_mag:
-    input:  annotation = expand("{{group}}/annotation/contigs_{annot}_best_hits.tsv",annot=BEST_HITS),
+    input:  annotation = expand("{{group}}/annotation/contigs_{annot}_best_hits.tsv",annot=BEST_HITS2),
             faa="{group}/annotation/contigs.faa",
             fna="{group}/annotation/contigs.fna",
             cog="{group}/annotation/contigs_cogs_best_hits.tsv",
@@ -166,8 +187,8 @@ rule split_by_mag:
 # Add summary of annotation files
 rule annotation_summary:
     input:  done = expand("MAGs/logs/{group}_split_done",group = GROUPS),
-    output: summary = expand("MAGs/results/{annotation}_summary.tsv", annotation = BEST_HITS)
-    params: best_hits = BEST_HITS,
+    output: summary = expand("MAGs/results/{annotation}_summary.tsv", annotation = BEST_HITS2)
+    params: best_hits = BEST_HITS2,
             out = "MAGs/results",
             path = "MAGs/all_mags"
     conda : CONDA_ENV + "/pythonenv.yaml"

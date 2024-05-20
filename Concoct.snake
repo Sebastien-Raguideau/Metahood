@@ -111,7 +111,7 @@ rule refine:
                 cp {input.bins} {output.bins}
                 exit 0
             fi
-            CPATH=`which concoct_refine`
+            CPATH=`/usr/bin/which concoct_refine`
             if [ -w $CPATH ]
             then
               sed -i 's/values/to_numpy/g' $CPATH

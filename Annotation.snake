@@ -62,13 +62,12 @@ rule koannotation:
     output : out = "{path}/contigs_KEGG_best_hits.tsv"
     params: root = realpath("{path}")
     conda: "%s/ko_annotation.yaml"%CONDA_ENV
-    singularity: "singularity_container/ko_annotation.sif"
-    threads: 50
+    threads: 1000
     resources:
         slurm_partition = get_resource("partition"),
         mem_mb = get_resource("mem")
     shell: """
-    snakemake -s {LOCAL_DIR}/ko_annotation.snake -k --rerun-incomplete --directory {params.root} --cores {threads} --nolock --config scripts={SCRIPTS} ROOT={params.root} KO_HMM={KO_HMM} KO_HMM_CUTOFFS={KO_HMM_CUTOFFS}
+    snakemake -s {LOCAL_DIR}/ko_annotation.snake -k --rerun-incomplete --directory {params.root} --cores {threads} --nolock --config scripts={SCRIPTS} ROOT={params.root} KO_HMM={KO_HMM} KO_HMM_CUTOFFS={KO_HMM_CUTOFFS} CONFIG_PATH={CONFIG_PATH}
     rm -rf {params.root}/.snakemake
     """
 
@@ -110,20 +109,24 @@ rule virsorter2:
            """
 
 # ------ taxonomic annotation  --------------------
-
+if CAT_DB:
+    CAT_DB_DMND = glob.glob("%s/db/*.dmnd"%CAT_DB)[0] # for size purpose
+else:
+    CAT_DB_DMND =""
 rule CAT_annotation:
     input: contigs="{group}/contigs/contigs.fa",
-           faa="{group}/annotation/contigs.faa"
+           faa="{group}/annotation/contigs.faa",
+           db = CAT_DB_DMND
     output: ORF2LCA="{group}/annotation/CAT/contigs.contig2classification.txt"
     params : Dir="{group}/annotation/CAT/contigs"
     conda : CONDA_ENV + "/cat.yaml"
-    singularity : "docker://quay.io/annacprice/cat:5.2.2"
+    # singularity : "docker://quay.io/annacprice/cat:5.2.2"
     threads: 32
     resources:
         slurm_partition = get_resource("partition"),
         mem_mb = get_resource("mem")
     shell : """
-    CAT contigs -c {input.contigs}  -d {CAT_DB} -t {CAT_DB} -p {input.faa} -n {threads} --out_prefix {params.Dir} --top 11 --I_know_what_Im_doing --force
+    {CAT_PATH}/CAT_pack contigs -c {input.contigs}  -d {CAT_DB}/db -t {CAT_DB}/tax -p {input.faa} -n {threads} --out_prefix {params.Dir} --top 11 --I_know_what_Im_doing --force
     """
 
 rule CAT_ORF_annotation:
@@ -133,10 +136,11 @@ rule CAT_ORF_annotation:
     resources:
         slurm_partition = get_resource("partition"),
         mem_mb = get_resource("mem")
-    singularity : "docker://quay.io/annacprice/cat:5.2.2"
-    shell : """
-    CAT add_names -i {input.ORF2LCA} -o {output.annotation} -t {CAT_DB} --only_official
-    """
+    shell: "cp {input} {output}" # add name not needed anymore, will be supported in the futur
+    # singularity : "docker://quay.io/annacprice/cat:5.2.2"
+    # shell : """
+    # {CAT_PATH}/CAT_pack add_names -i {input.ORF2LCA} -o {output.annotation} -t {CAT_DB} --only_official
+    # """
 
 # ------- kraken annotation -----------------------
 rule kraken_uniq:
@@ -189,3 +193,18 @@ rule parse_hmmsearch_annotation:
     singularity : "docker://quay.io/annacprice/pythonenv:3.9"
     shell: """cat {input}> {output.cat}
              {SCRIPTS}/Filter_scg_hmm.py {output.cat} --cog_hmm {SCG_DATA}/scg_hmm_selected.txt {output.cog}"""
+
+
+
+# ------------- genomad ------------
+rule genomad:
+    input: contigs = "{group}/contigs/contigs.fa", 
+           DB = "%s"%GENOMAD_DB
+    output: "{group}/annotation/genomad/genomad.done"
+    threads: 25
+    resources:
+        slurm_partition = get_resource("partition"),
+        mem_mb = get_resource("mem")
+    params: output = "{group}/annotation/genomad"
+    singularity: "docker://quay.io/biocontainers/genomad:1.8.0--pyhdfd78af_0"
+    shell: """genomad end-to-end --cleanup --splits {threads} {input.contigs} {params.output} {GENOMAD_DB}&& touch {output}"""
