@@ -69,6 +69,7 @@ SCG = {line.rstrip().split("\t")[0] for line in open("%s/scg_hmm_selected.txt"%S
 
 DIAMOND = ANNOTATION["diamond"]
 CAT_DB = ANNOTATION["cat_db"]
+IP_DB = ANNOTATION["ip_db"]
 KRAKEN_DB = ANNOTATION["kraken_db"] 
 KOFAMSCAN = ANNOTATION['kofamscan']
 KO_HMM = KOFAMSCAN["profiles"]

@@ -167,3 +167,15 @@ rule parse_hmmsearch_annotation:
     singularity : "docker://quay.io/annacprice/pythonenv:3.9"
     shell: """cat {input}> {output.cat}
              {SCRIPTS}/Filter_scg_hmm.py {output.cat} --cog_hmm {SCG_DATA}/scg_hmm_selected.txt {output.cog}"""
+
+rule IP_annotation:
+    input: contigs="{group}/contigs/contigs.fa",
+           faa="{group}/annotation/contigs.faa"
+    output: TSV="{group}/annotation/ip_contigs.tsv"
+    conda : CONDA_ENV + "/ip.yaml"
+    singularity : "docker://interpro/interproscan"
+    resources: mem_mb = get_mem_mb
+    threads: 50
+    shell : """
+    {IP_DB}/interproscan.sh -T $TMPDIR -goterms --iprlookup -dp --cpu {threads} -i {input} -o {output} -f TSV
+    """

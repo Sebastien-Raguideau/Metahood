@@ -48,6 +48,7 @@ annotation: # support only diamond for now
       color: "#ff0000" # orf graph
   cat_db: /mnt/gpfs/seb/Database/NR_Cat
   checkm: /mnt/gpfs/seb/Database/CheckM
+  ip_db: /mnt/gpfs/seb/Database/ip
   kraken_db: /mnt/gpfs/seb/Database/Kraken_Standard
   kofamscan: 
     profiles: /mnt/gpfs/seb/Database/KEGG/kofamscan/ko_hmm.hmm
