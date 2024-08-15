@@ -168,14 +168,28 @@ rule parse_hmmsearch_annotation:
     shell: """cat {input}> {output.cat}
              {SCRIPTS}/Filter_scg_hmm.py {output.cat} --cog_hmm {SCG_DATA}/scg_hmm_selected.txt {output.cog}"""
 
-rule IP_annotation:
-    input: contigs="{group}/contigs/contigs.fa",
-           faa="{group}/annotation/contigs.faa"
-    output: TSV="{group}/annotation/ip_contigs.tsv"
-    conda : CONDA_ENV + "/ip.yaml"
-    singularity : "docker://interpro/interproscan"
-    resources: mem_mb = get_mem_mb
-    threads: 50
-    shell : """
-    {IP_DB}/interproscan.sh -T $TMPDIR -goterms --iprlookup -dp --cpu {threads} -i {input} -o {output} -f TSV
+rule IP_annotation_single_batch:
+    input:
+        faa="{group}/annotation/temp_splits/Batch_{nb}.faa"
+    output:
+        tsv=temp("{group}/annotation/temp_splits/Batch_{nb}.tsv")
+    conda: CONDA_ENV + "/ip.yaml"
+    singularity: "docker://interpro/interproscan"
+    resources: mem_mb = get_mem_mb,
+        cpus_per_task=32,
+        runtime=5000,
+    threads: 32
+    shell: """
+    sed 's/*//g' {input.faa} > {input.faa}.no_asterisks
+    {IP_DB}/interproscan.sh -T $TMPDIR -goterms --iprlookup -dp -dra --cpu 32 -i {input.faa}.no_asterisks -o {output.tsv} -f TSV
+    rm {input.faa}.no_asterisks
+    """
+
+rule IP_annotation_combine:
+    input:
+        tsv=expand("{{group}}/annotation/temp_splits/Batch_{nb}.tsv", nb=range(100))
+    output:
+        TSV="{group}/annotation/ip_contigs.tsv"
+    shell: """
+    cat {input.tsv} > {output.TSV}
     """
