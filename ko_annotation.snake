@@ -1,4 +1,17 @@
+import sys
+import yaml
+import glob
+import os.path
+import tempfile
+from itertools import chain
+from functools import partial
 from collections import defaultdict
+from psutil import virtual_memory
+from subprocess import Popen, PIPE
+from snakemake.exceptions import WorkflowError
+from os.path import basename,dirname,abspath,realpath, getsize
+from scripts.common import detect_reads, fill_default_values, extended_glob, replace_extensions, get_extension, get_resource_real
+
 # taken from enrichm 
 # https://github.com/geronimp/enrichM/blob/master/enrichm/genome.py
 # https://github.com/geronimp/enrichM/blob/master/enrichm/genome.py
@@ -8,8 +21,16 @@ ROOT = config["ROOT"]
 KO_HMM = config["KO_HMM"]
 KO_HMM_CUTOFFS = config["KO_HMM_CUTOFFS"]
 SCRIPTS = config["scripts"]
+CONFIG_PATH = config["CONFIG_PATH"]
+config2 = yaml.full_load(open(CONFIG_PATH))
 
+# ------- Cluster resources -------
+# config should be in G, but this will be compared with info in mb
+SLURM_PARTITIONS = [[specs["name"],1000*int(specs["min_mem"]),1000*int(specs["max_mem"]),int(specs["min_threads"]),int(specs["max_threads"])] for _,specs in config2["slurm_partitions"].items() if _]
 
+# need to create a partial function because rules takes a function
+def get_resource(mode, **kwargs):
+    return partial(get_resource_real, SLURM_PARTITIONS=SLURM_PARTITIONS, mode=mode, **kwargs)
 # example launching the snakemake make:
 # snakemake -s /mnt/gpfs/seb/Applications/Snakescripts/faster_koannotation.snake --cores 500 CD_TREAT/profile/cov_KEGG.tsv
 
@@ -22,6 +43,10 @@ rule koannotation:
     input: "{path}.faa"
     output: "{path}_ko.out"
     threads: 5
+    resources:
+        slurm_partition = get_resource("partition"),
+        mem_mb = get_resource("mem"),
+    singularity: "docker://quay.io/annacprice/gtdbtk:1.4.0"        
     shell: """
     if [ -s {input} ]
     then
@@ -35,6 +60,9 @@ rule parse_results:
     input: file = "{path}_ko.out"
     output: out = "{path}_ko.tsv"
     log: "{path}_ko.log"
+    resources:
+        slurm_partition = get_resource("partition"),
+        mem_mb = get_resource("mem"),
     run:
         orf_to_ann = generate_orf_annotation(input["file"])
         with open(output["out"],"w") as handle:
@@ -50,6 +78,9 @@ rule annotation_kofamscan :
     input :  expand("{{path}}/temp_splits/Batch_{nb}_ko.tsv",nb=range(100))
     output : out = "{path}/contigs_KEGG_best_hits.tsv"
     log: "{path}/KEGG_best_hits.log"
+    resources:
+        slurm_partition = get_resource("partition"),
+        mem_mb = get_resource("mem"),
     run : 
         try:
             # get KO definition
@@ -88,8 +119,8 @@ def parse_ko_cutoffs():
 def from_hmmsearch_results(hmmsearch_output_path,
                            evalue_cutoff=1e-05,
                            bitscore_cutoff=0,
-                           percent_aln_query_cutoff=0.8,
-                           percent_aln_reference_cutoff=0.8,
+                           percent_aln_query_cutoff=0,
+                           percent_aln_reference_cutoff=0,
                             acc = True):
     '''
     Parse input hmmsearch file

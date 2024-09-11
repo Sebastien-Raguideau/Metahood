@@ -2,6 +2,7 @@
 from Bio.SeqIO.FastaIO import SimpleFastaParser as sfp
 from collections import Counter, defaultdict
 import argparse
+import sys
 import os
 
 
@@ -146,5 +147,11 @@ if __name__ == "__main__":
             header,cog,*_ = header.split(" ")
             cluster_def[header]=(cog,cog_cnt[cog])
             cog_cnt[cog]+=1
+
+    # deal with concoct didn't run
+    if os.path.getsize(Bin_file)==0:
+        print("warning no contigs was binned")
+        os.system("touch %s"%Table)
+        sys.exit(0)
 
     main(Bin_file, Fasta_file, C10K_bed, orf_bed, path, Table, List, cluster_def)

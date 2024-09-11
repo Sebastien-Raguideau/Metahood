@@ -27,7 +27,11 @@ if __name__ == "__main__":
             cog = split_line[0]
             if cog in set_SCG:
                 List_profile.append([float(element) for element in split_line[1:]])
-    scg_norm=np.median(List_profile, axis=0)
+
+    if not List_profile:
+        scg_norm = np.array([0 for s in samples])
+    else:
+        scg_norm=np.median(List_profile, axis=0)
 
     # get previous normalisation
     with open(nuc) as handle:

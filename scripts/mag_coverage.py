@@ -71,8 +71,8 @@ if __name__ == "__main__":
     # get mag nucleotides
     handle_cov=open(mag_cov,"w")
     handle_map=open(mag_map,"w")
-    handle_map.write("mag\t"+"\t".join(samples)+"\n")
-    handle_cov.write("mag\t"+"\t".join(samples)+"\n")
+    handle_map.write("mag\t%s\n"%"\t".join(samples))
+    handle_cov.write("mag\t%s\n"%"\t".join(samples))
     count = 0
     for cluster,list_contigs in cluster_def.items():
         if cluster =="0":

@@ -32,7 +32,7 @@ List_inputs += ["%s/map/%s_cov.stats"%(group,basename(sample)) for group,samples
 # ------------ optional outputs ------------
 # annotation and annotation profiles
 if BEST_HITS:
-    List_inputs += expand("{group}/annotation/contigs_{annotation}_best_hits.tsv",annotation=BEST_HITS, group=GROUPS)
+    List_inputs += expand("{group}/annotation/contigs_{annotation}_best_hits.tsv",annotation=[el for el in BEST_HITS if el!="mCARD"], group=GROUPS)
     List_inputs += expand("{group}/profile/Normalisation.tsv", group=GROUPS)
     List_inputs += expand("{group}/profile/cov_{annotation}.tsv",annotation=BEST_HITS, group=GROUPS)
 if CAT_DB:
@@ -43,6 +43,8 @@ if PLASMIDNET:
     List_inputs += expand("{group}/plasmidnet/results.tsv",group=GROUPS)
 if IP_DB:
     List_inputs += expand("{group}/annotation/ip_contigs.tsv",group=GROUPS)
+if GENOMAD_DB:
+    List_inputs += expand("{group}/annotation/genomad/genomad.done", group=GROUPS)
 
 # if KRAKEN_DB:
 #     List_inputs += expand("{group}/annotation/kraken_taxonomy_report.tsv",group=GROUPS)    

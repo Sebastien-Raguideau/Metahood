@@ -10,7 +10,7 @@ from Bio.SeqIO.FastaIO import SimpleFastaParser as sfp
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-o", help="output")
-    parser.add_argument("-p", help="path to mag folders",nargs='*')
+    parser.add_argument("-p", help="path to mag folders")
     parser.add_argument("-a", help="annotation",nargs='*')
     args = parser.parse_args()
     folder = args.p
@@ -20,6 +20,7 @@ if __name__ == "__main__":
     # get annotation files for each mag
     annotations=BEST_HITS
     anno_to_files={anno:glob.glob("%s/*/*%s_best_hits.tsv"%(folder,anno)) for anno in annotations}
+
     # build annotation matrix for each annotation
     sorted_mags=sorted({file.split("/")[-2] for files in  anno_to_files.values() for file in files })
     for anno, list_files in  anno_to_files.items() :

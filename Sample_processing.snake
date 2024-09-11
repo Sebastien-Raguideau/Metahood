@@ -16,7 +16,9 @@ wildcard_constraints:
 rule bwa_index2:
     input: "{file}"
     output: "{file}.sa"
-    resources: mem_mb=10000
+    resources:
+        slurm_partition = get_resource("partition"),
+        mem_mb = get_resource("mem")
     conda : "%s/bwasamtools.yaml"%CONDA_ENV
     singularity : "docker://quay.io/annacprice/bwasamtools:1.10"
     shell: "bwa index {input}"
@@ -29,7 +31,9 @@ rule map_to_mask:
     output: bam = temp("{IN}/{sample}/Filtered.bam"),
     log: "{IN}/{sample}/mapping.log"
     threads: 10
-    resources: mem_mb=100000
+    resources:
+        slurm_partition = get_resource("partition"),
+        mem_mb = get_resource("mem")
     conda : CONDA_ENV + "/bwasamtools.yaml"
     singularity : "docker://quay.io/annacprice/bwasamtools:1.10"
     shell: """
@@ -41,14 +45,19 @@ rule bam_to_fastq:
     input: "{IN}/{sample}/Filtered.bam"
     output: R1 = temp("{IN}/{sample}/Filtered_{prefix}R1{suffix}.{ext}"),
             R2 = temp("{IN}/{sample}/Filtered_{prefix}R2{suffix}.{ext}")
-    threads: 1
-    resources: mem_mb=10000
+    threads: 10
+    resources:
+        slurm_partition = get_resource("partition"),
+        mem_mb = get_resource("mem")
     singularity : "docker://quay.io/annacprice/bedtools:2.29.2"
     shell: """
         bamToFastq -i {input} -fq {output.R1}_temp -fq2 {output.R2}_temp
         if [[ "{wildcards.ext}" == *.gz ]]; then
             gzip -c {output.R1}_temp > {output.R1} && rm {output.R1}_temp
             gzip -c {output.R2}_temp > {output.R2} && rm {output.R2}_temp
+        else
+            mv {output.R1}_temp {output.R1}
+            mv {output.R2}_temp {output.R2}
         fi
         """
 
@@ -58,8 +67,9 @@ rule fastqc :
     input :  "{IN}/{sample}/{prefix}.{ext}"
     output : "{IN}/{sample}/{prefix}.{ext}_fastqc_done"
     conda : CONDA_ENV + "/fastqc.yaml"
-    resources: mem_mb=30000
-    threads: 1
+    resources:
+        slurm_partition = get_resource("partition"),
+        mem_mb = get_resource("mem")
     singularity : "docker://quay.io/annacprice/fastqc:0.11.9"
     shell :"""
             fastqc -o {IN}/{wildcards.sample} {input}
@@ -82,7 +92,9 @@ if FILTER:
         log :   "{IN}/{sample}/{prefix}.{suffix}.{ext}.log"
         conda : CONDA_ENV + "/trim_galore.yaml"
         threads: 8
-        resources: mem_mb=100000
+        resources:
+            slurm_partition = get_resource("partition"),
+            mem_mb = get_resource("mem")
         singularity : "docker://quay.io/annacprice/trimgalore:0.6.5"
         shell : """
         trim_galore -j {threads} --fastqc {params.option} -o $(dirname {output.R1}) --paired {input.file_R1} {input.file_R2} > {log} 2>&1
@@ -105,7 +117,9 @@ else:
         log :   "{IN}/{sample}/{prefix}.{suffix}.{ext}.log"
         conda : CONDA_ENV + "/trim_galore.yaml"
         threads: 8
-        resources: mem_mb=100000
+        resources:
+            slurm_partition = get_resource("partition"),
+            mem_mb = get_resource("mem")
         singularity : "docker://quay.io/annacprice/trimgalore:0.6.5"
         shell :"""
         trim_galore -j {threads} --fastqc {params.option} -o $(dirname {output.R1}) --paired {input.file_R1} {input.file_R2} > {log} 2>&1
@@ -118,8 +132,9 @@ rule multiqc :
             R2=[replace_extensions(SAMPLE_READS[sample][1],FILTER) for sample in SAMPLES],
     output : IN+"/quality_done"
     conda : CONDA_ENV + "/multiqc.yaml"
-    resources: mem_mb=50000
-    threads: 1
+    resources:
+        slurm_partition = get_resource("partition"),
+        mem_mb = get_resource("mem")
     singularity : "docker://quay.io/annacprice/multiqc:1.9"
     shell : """multiqc --interactive -f {IN}/ -o {IN}/
     touch {output}
