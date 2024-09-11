@@ -9,6 +9,7 @@ except:
 from os.path import basename, dirname, realpath, isfile
 from collections import defaultdict, Counter
 from subprocess import Popen, PIPE
+from functools import partial
 import os.path
 import glob
 import re
@@ -16,18 +17,19 @@ import os
 
 
 default_values = {
-    "binning":{"concoct":{"contig_size" : 1000,"execution" : 1,"max_bin_nb" : 2000},"metabat2":{"execution" : 1,"contig_size":1500},"ssa_unique_sample":False},
+    "binning":{"concoct":{"contig_size" : 1000,"execution" : 1,"max_bin_nb" : 2000},"metabat2":{"execution" : 1,"contig_size":1500},"ssa_unique_sample":False,"cobinning_samples":["*"]},
     "mag":["native"],
     "threads":8,
     "assembly":    {"assembler": "megahit","groups": {},"parameters":"" },
-    "annotation": {'diamond':{},"cat_db":"","kraken_db":"","kofamscan":{"profiles":"","ko_list":""},"virsorter":"","plasmidnet_install":""},
+    "annotation": {'diamond':{},"cat_db":"","cat_path":"","kraken_db":"","kofamscan":{"profiles":"","ko_list":""},"virsorter":"","plasmidnet_install":"","genomad_db":""},
     "graph":{"List_graphs":{}},
     "filtering":"",
     "Percent_memory":0.5,
     "task_memory":200,
     "maganalysis":0,
     "desman":{"execution":0, "nb_haplotypes": 10,"nb_repeat": 5,"min_cov": 1,"scripts":""},
-    "slurm_partitions":{"high_mem":""}
+    "slurm_partitions":{"":{"name":"","min_mem":"","max_mem":"","min_threads":"","max_threads":""}},
+    "nb_map":20
 }
 
 
@@ -119,10 +121,67 @@ class cd:
         os.chdir(self.savedPath)
 
 
+        
 # from doc: https://snakemake.readthedocs.io/en/stable/snakefiles/rules.html
 # from https://stackoverflow.com/questions/50891407/snakemake-how-to-dynamically-set-memory-resource-based-on-input-file-size
 
-def get_mem_mb(wildcards, input, attempt,mult=2,min_size=10000):
-    return max((input.size//1000000) * attempt * mult, attempt*min_size)
-# Where input.size//1000000 is used convert the cumulative size of input files in bytes to mb, and the tailing 2 could be any arbitrary number based on the specifics of your shell/script requirements.
+def get_resource_real(wildcards, input, threads, attempt, SLURM_PARTITIONS="", mode="", mult=2, min_size=10000):
+    # return either partition, mem or threads, theses need to be done together
+    # because if mem/cpu/threads is over partition definition, then mem/threads needs to change
+    # since there can be setting for minimum mem/threads in some partition definition
+    # also max threads needs 
+    def return_result(mem,partition,threads,mode):
+        if mode=="mem":
+#            print(int(mem), wildcards)
+            return int(mem)
+        if mode=="partition":
+#            print(partition,wildcards)
+            return partition
+        if mode=="threads":
+            return int(threads)
 
+    # change with each attempt
+    # Where input.size//1000000 is used convert the cumulative size of input files in bytes to mb, and the tailing 2 could be any arbitrary number based on the specifics of your shell/script requirements.
+    mem = max((input.size//1000000) * attempt * mult, attempt*min_size* mult) # this is mb
+
+    # handle case where we are not on a cluster, no partition is defined
+    if SLURM_PARTITIONS[0][0]=="":
+        partition = ""
+        return return_result(mem,partition,threads,mode)
+
+    # choose the best partition, priority to memory
+    # HIGH_MEM_PARTITIONS = [["name","min_memory","max_memory","min_threads","max_threads"]]
+
+    #### check memory, get all partition giving mem/1000 (Gb)
+    mem_selection = [part for part in SLURM_PARTITIONS if part[2]>=mem]
+
+    # if empty, get the partition with most mem
+    if not mem_selection:
+        mem_selection = [max(SLURM_PARTITIONS,key=lambda x:x[2])]
+
+    #### check threads, get all partitions giving at least threads
+    threads_selection = [part for part in mem_selection if part[4]>=threads]
+
+    # if empty, get partition with most threads
+    if not threads_selection:
+        threads_selection = [max(mem_selection,key=lambda x:x[4])]
+
+    #### if more than 1 partition remain, 
+    # choose the one with, in this order 
+    # least min_mem, min_threads, max_mem, max_threads
+    final_selection = min(threads_selection,key=lambda x:[x[1],x[3],x[2],x[4]])
+
+    #### decide on mem/threads to use
+    partition, min_memory, max_memory, min_threads ,max_threads = final_selection
+    mem_final = min(max(mem, min_memory), max_memory)
+    threads_final = min(max(threads, min_threads), max_threads)
+
+    # output
+    return return_result(mem_final,partition,threads_final,mode)
+
+
+
+
+
+
+    

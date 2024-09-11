@@ -15,7 +15,7 @@ def main(contig_file,bed_file,out_file,genome_file):
         contig_index[contig] = [index,len(seq)]
         index_contig[index] = contig
     bed_lines = [line.rstrip() for line in open(bed_file)]
-    new_lines =  sorted(bed_lines,key=lambda x:contig_index[x.split("\t")[0]][0])
+    new_lines =  sorted(bed_lines,key=lambda x:(contig_index[x.split("\t")[0]],int(x.split("\t")[1])))
     with open(out_file,"w") as handle:
         handle.writelines("%s\n"%line for line in new_lines)
     if genome_file:

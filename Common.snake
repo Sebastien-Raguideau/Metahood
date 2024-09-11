@@ -9,12 +9,13 @@ from collections import defaultdict
 from psutil import virtual_memory
 from subprocess import Popen, PIPE
 from snakemake.exceptions import WorkflowError
-from os.path import basename,dirname,abspath,realpath
-from scripts.common import detect_reads, fill_default_values, extended_glob, replace_extensions, get_extension, get_mem_mb
+from os.path import basename,dirname,abspath,realpath, getsize
+from scripts.common import detect_reads, fill_default_values, extended_glob, replace_extensions, get_extension, get_resource_real
 
 #--------------------------- Config parameters ---------------------------
-# config=yaml.load(open("./config_AD07.yaml"))
-# config["LOCAL_DIR"]="/mnt/gpfs/seb/Project/Metahood/" 
+# config_file = "/hpc-home/raguidea/seb/Projects/Myxomag/SR_ASM/fractionated/configs/config_frac_14.yaml"
+# config = yaml.load(open(config_file), Loader=yaml.FullLoader)
+# config["LOCAL_DIR"]="/ei/.project-scratch/0/0e51ef86-0156-4e79-ad12-c5411c0a5496/seb/repos/Metahood" 
 fill_default_values(config)
 METAHOOD=dirname(abspath(realpath(workflow.snakefile)))
 
@@ -29,11 +30,9 @@ IN = config["data"]
 ASSEMBLER_PARAMS = config["assembly"]["parameters"]
 
 # -------- Ressources --------
-MAX_MEM_PERCENT = config["Percent_memory"]
 THREADS = config["threads"]
 SCRIPTS = config["scripts"]
 Mem_tot = virtual_memory().total
-MAX_MEMG = int((MAX_MEM_PERCENT*Mem_tot)/10**9)
 TASK_MEMORY = config["task_memory"]
 CONDA_ENV = config["conda_env"]
 CONFIG_PATH = config["CONFIG_PATH"]
@@ -41,15 +40,25 @@ LOCAL_DIR = config["LOCAL_DIR"]
 EXEC_DIR = config["EXEC_DIR"]
 
 # ------- Cluster resources -------
-SLURM_PARTITIONS = config["slurm_partitions"]
-HIGH_MEM_PARTITION = SLURM_PARTITIONS["high_mem"]
+# config should be in G, but this will be compared with info in mb
+SLURM_PARTITIONS = [[specs["name"],1000*int(specs["min_mem"]),1000*int(specs["max_mem"]),int(specs["min_threads"]),int(specs["max_threads"])] for _,specs in config["slurm_partitions"].items() if _]
+
+# megahit wants a percent of max mem, so there is a need for calculations
+MAX_MEM_PERCENT = {"":config["Percent_memory"]}
+if SLURM_PARTITIONS[0][0]:
+    for name,_,max_mem,_,_ in SLURM_PARTITIONS:
+        MAX_MEM_PERCENT[name] = max_mem 
+
+# need to create a partial function because rules takes a function
+def get_resource(mode, **kwargs):
+    return partial(get_resource_real, SLURM_PARTITIONS=SLURM_PARTITIONS, mode=mode, **kwargs)
+
 
 # -------- Binning -----------
 # option related to which samples would we want to be mapping to the assembly
 # do we want all samples or just the sample used for ssa
 # default false, we want all samples
 COVERAGE_UNIQUE_SAMPLE = config["binning"]["ssa_unique_sample"]
-
 CONCOCT_EXECUTION = config["binning"]["concoct"]["execution"]
 BINNING_TASKS=lambda wildcards: [wildcards.group+""]
 MAX_BIN_NB=config["binning"]["concoct"]["max_bin_nb"]
@@ -66,17 +75,23 @@ CHECKM_DB = ANNOTATION["checkm"]
 SCG_DATA = config["scg_data"]
 SCG_HMM = "%s/hmms/checkm.hmm"%CHECKM_DB
 SCG = {line.rstrip().split("\t")[0] for line in open("%s/scg_hmm_selected.txt"%SCG_DATA) if line.rstrip().split("\t")[2]=="fine"}
+NB_SCG = float(len(SCG))
 
 DIAMOND = ANNOTATION["diamond"]
 CAT_DB = ANNOTATION["cat_db"]
+CAT_PATH = ANNOTATION["cat_path"]
 KRAKEN_DB = ANNOTATION["kraken_db"] 
 KOFAMSCAN = ANNOTATION['kofamscan']
 KO_HMM = KOFAMSCAN["profiles"]
 KO_HMM_CUTOFFS = KOFAMSCAN["ko_list"]
 VIRSORTER_DB = ANNOTATION["virsorter"]
 PLASMIDNET = ANNOTATION["plasmidnet_install"]
+GENOMAD_DB = ANNOTATION["genomad_db"]
 
 BEST_HITS = ["KEGG"]*(KO_HMM!="")+[annotation for annotation in DIAMOND]
+# mobilised card genes
+if (GENOMAD_DB!="")&("CARD" in DIAMOND):
+    BEST_HITS+=["mCARD"]
 assert len(BEST_HITS)==len(set(BEST_HITS)), "diamond annotation use KEGG as keyword, this is ambiguous as one of these is already done otherwise."
 
 # -------- MAG analysis ------
@@ -104,7 +119,7 @@ IS_FASTA = 0 # in case metahood is run on fasta files, change a few things
 
 #--------------------------- Read group and sample composition ---------------------------
 
-# -------- persample : create groups of one sample --------
+#-------- persample : create groups of one sample --------
 if "per_sample" in config["assembly"] :
     SAMPLES=config["assembly"]["per_sample"]
     for sample_regex in SAMPLES :
@@ -129,11 +144,18 @@ Empty_group=[group for group,value in GROUPS.items() if len(value)==0]
 if Empty_group :
     raise WorkflowError("Samples specified in groups "+"/".join(Empty_group)+" haven't been found at "+IN+ ", check your config file for potential errors")
 
-# -------- Files associated with each samples --------
-# Each sample should have its own folder with fasta/fastq files in it
+# ----- get samples used for cobinninb, may be different than samples set used for assemblies, but will be the same samples for all binnings
 SAMPLES= {basename(sample) for list_sample in GROUPS.values() for sample in list_sample}
 
-SAMPLE_READS = dict(map(lambda sample: (sample, detect_reads(os.path.join(IN, sample))), SAMPLES))
+if config["binning"]["cobinning_samples"] == ["*"]:
+    COBINNING_SAMPLES = SAMPLES
+else:
+    COBINNING_SAMPLES = [basename(sample) for sample_regex in config["binning"]["cobinning_samples"] for sample in extended_glob(IN+"/"+sample_regex)]
+
+# -------- Files associated with each samples --------
+# Each sample should have its own folder with fasta/fastq files in it
+
+SAMPLE_READS = dict(map(lambda sample: (sample, detect_reads(os.path.join(IN, sample))), SAMPLES|set(COBINNING_SAMPLES)))
 
 Files_nb = [sample for sample,list_file in SAMPLE_READS.items() if len(list_file)!=2]
 if Files_nb :
@@ -156,6 +178,22 @@ GROUP_R2={group:[R2[basename(sample)] for sample in list_sample] for group,list_
 # Add definition to global dict
 R1.update(GROUP_R1)
 R2.update(GROUP_R2)
+
+
+
+
+# need to reimplement getting the size of input for megahit, because it wants an estimation of percent usage relative to total mem installed... stupid.
+class megahit_file_size:
+    def __init__(self,group):
+        self.size = sum([getsize(f) for f in R1[group]+R2[group]])
+
+def get_percent_megahit(group,threads):
+    input_size = megahit_file_size(group)
+    mem = get_resource_real("", input_size, threads, 1,SLURM_PARTITIONS=SLURM_PARTITIONS,mode="mem",mult=2,min_size=10000)
+    partition = get_resource_real("", input_size, threads, 1,SLURM_PARTITIONS=SLURM_PARTITIONS,mode="partition", mult=2,min_size=10000)
+    
+    partition, min_memory, max_memory, min_threads ,max_threads = next(el for el in SLURM_PARTITIONS if el[0]==partition)
+    return mem/max_memory
 
 
 
