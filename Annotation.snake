@@ -1,6 +1,6 @@
 # in order to allow for multiple annotation process to coexist and produce similar names output, we just define rules priority
 # if parse_cogs_annotation does not work, it tries annotation_diamond
-ruleorder:  koannotation > parse_hmmsearch_annotation  > annotation_diamond
+ruleorder:  koannotation > parse_hmmsearch_annotation  > IP_best_hit >annotation_diamond
  
 # ---- prodigal annotation on splits ----------------------------------------------------------------
 rule prodigal:
@@ -194,39 +194,60 @@ rule parse_hmmsearch_annotation:
     shell: """cat {input}> {output.cat}
              {SCRIPTS}/Filter_scg_hmm.py {output.cat} --cog_hmm {SCG_DATA}/scg_hmm_selected.txt {output.cog}"""
 
-
+# ------------- genomad ------------
 rule IP_annotation_single_batch:
     input:
         faa="{group}/annotation/temp_splits/Batch_{nb}.faa"
     output:
-        tsv=temp("{group}/annotation/temp_splits/Batch_{nb}.tsv")
+        tsv=temp("{group}/annotation/temp_splits/Batch_ip_{nb}.tsv")
+    params: tmp = "{group}/annotation/temp_splits/ip_tmp/tmp_{nb}"
     conda: CONDA_ENV + "/ip.yaml"
     singularity: "docker://interpro/interproscan"
     resources: 
         slurm_partition = get_resource("partition"),
         mem_mb = get_resource("mem"),
-        cpus_per_task=32,
         runtime=5000,
     threads: 32
     shell: """
     sed 's/*//g' {input.faa} > {input.faa}.no_asterisks
-    {IP_DB}/interproscan.sh -T $TMPDIR -goterms --iprlookup -dp -dra --cpu 32 -i {input.faa}.no_asterisks -o {output.tsv} -f TSV
+    {IP_DB}/interproscan.sh -T {params.tmp} -goterms --iprlookup -dp -dra --cpu {threads} -i {input.faa}.no_asterisks -o {output.tsv} -f TSV
     rm {input.faa}.no_asterisks
     """
 
-rule IP_annotation_combine:
+rule IP_best_hit:
     input:
-        tsv=expand("{{group}}/annotation/temp_splits/Batch_{nb}.tsv", nb=range(100))
+        tsv = expand("{{group}}/annotation/temp_splits/Batch_ip_{nb}.tsv", nb=range(100))
     output:
-        TSV="{group}/annotation/ip_contigs.tsv"
-    shell: """
-    cat {input.tsv} > {output.TSV}
-    """
+        TSV = "{group}/annotation/contigs_IP_best_hits.tsv"
+    run:
+        with open(output["TSV"],"w") as handle:
+            # use the fact it sorted and annotation for the same orf are next to each over
+            orfs_done = set()
+            for file in input["tsv"]:
+                hits = []
+                orf_prev = next(open(file)).split("\t")[0]
+                for line in open(file):
+                    sline = line.rstrip().split("\t")
+                    if sline[8]=="-":
+                        continue
+                    orf = sline[0]
+                    assert (orf not in orfs_done), f"issue with orf {orf}"
+                    if orf_prev!=orf:
+                        best_hit = min(hits,key=lambda x:float(x.rstrip().split("\t")[8]))
+                        handle.write(f"{best_hit}")
+                        hits = [line]
+                        orfs_done.add(orf_prev)
+                        orf_prev = orf
+                    else:
+                        hits.append(line)
+
+
+
 
 # ------------- genomad ------------
 rule genomad:
     input: contigs = "{group}/contigs/contigs.fa", 
-           DB = "%s"%GENOMAD_DB
+           DB = f"{GENOMAD_DB}"
     output: "{group}/annotation/genomad/genomad.done"
     threads: 25
     resources:

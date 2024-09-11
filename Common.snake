@@ -89,7 +89,7 @@ VIRSORTER_DB = ANNOTATION["virsorter"]
 PLASMIDNET = ANNOTATION["plasmidnet_install"]
 GENOMAD_DB = ANNOTATION["genomad_db"]
 
-BEST_HITS = ["KEGG"]*(KO_HMM!="")+[annotation for annotation in DIAMOND]
+BEST_HITS = ["KEGG"]*(KO_HMM!="")+[annotation for annotation in DIAMOND]+["IP"]*(IP_DB!="")
 # mobilised card genes
 if (GENOMAD_DB!="")&("CARD" in DIAMOND):
     BEST_HITS+=["mCARD"]

@@ -21,7 +21,7 @@ default_values = {
     "mag":["native"],
     "threads":8,
     "assembly":    {"assembler": "megahit","groups": {},"parameters":"" },
-    "annotation": {'diamond':{},"cat_db":"","cat_path":"","kraken_db":"","kofamscan":{"profiles":"","ko_list":""},"virsorter":"","plasmidnet_install":"","genomad_db":""},
+    "annotation": {'diamond':{},"ip_db":"","cat_db":"","cat_path":"","kraken_db":"","kofamscan":{"profiles":"","ko_list":""},"virsorter":"","plasmidnet_install":"","genomad_db":""},
     "graph":{"List_graphs":{}},
     "filtering":"",
     "Percent_memory":0.5,

@@ -41,8 +41,6 @@ if VIRSORTER_DB:
     List_inputs += expand("{group}/virsorter2/final-viral-boundary.tsv",group=GROUPS)
 if PLASMIDNET:
     List_inputs += expand("{group}/plasmidnet/results.tsv",group=GROUPS)
-if IP_DB:
-    List_inputs += expand("{group}/annotation/ip_contigs.tsv",group=GROUPS)
 if GENOMAD_DB:
     List_inputs += expand("{group}/annotation/genomad/genomad.done", group=GROUPS)
 
