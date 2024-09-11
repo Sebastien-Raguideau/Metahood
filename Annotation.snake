@@ -220,6 +220,9 @@ rule IP_best_hit:
     output:
         TSV = "{group}/annotation/contigs_IP_best_hits.tsv"
     run:
+        def reorder_annotation(hit):
+            sline = hit.rstrip().split("\t")
+            return "%s\n"%"\t".join([sline[0]]+[sline[4]]+sline[1:4]+sline[5:])
         with open(output["TSV"],"w") as handle:
             # use the fact it sorted and annotation for the same orf are next to each over
             orfs_done = set()
@@ -233,7 +236,7 @@ rule IP_best_hit:
                     orf = sline[0]
                     assert (orf not in orfs_done), f"issue with orf {orf}"
                     if orf_prev!=orf:
-                        best_hit = min(hits,key=lambda x:float(x.rstrip().split("\t")[8]))
+                        best_hit = reorder_annotation(min(hits,key=lambda x:float(x.rstrip().split("\t")[8])))
                         handle.write(f"{best_hit}")
                         hits = [line]
                         orfs_done.add(orf_prev)
