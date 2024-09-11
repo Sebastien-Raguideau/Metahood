@@ -80,6 +80,7 @@ NB_SCG = float(len(SCG))
 DIAMOND = ANNOTATION["diamond"]
 CAT_DB = ANNOTATION["cat_db"]
 CAT_PATH = ANNOTATION["cat_path"]
+IP_DB = ANNOTATION["ip_db"]
 KRAKEN_DB = ANNOTATION["kraken_db"] 
 KOFAMSCAN = ANNOTATION['kofamscan']
 KO_HMM = KOFAMSCAN["profiles"]
