@@ -18,6 +18,10 @@ def split_fasta(fasta_file,Temp_location,nb_chunks):
         Dico_genome_len[header]=len(seq)
     Total_length = sum(Dico_genome_len.values())
     Chunk_size = Total_length/float(nb_chunks)
+
+    # rare long read issue
+    assert len(Sorted_Names)>=nb_chunks, "number of sequences is smaller than number of splits for prodigal, please change the parameter for number of splits for prodigal in the config, to less than %s"%len(Sorted_Names)
+
     os.system("mkdir -p "+Temp_location)
 
     # schedule using mean size reassessed as we define batchsize
