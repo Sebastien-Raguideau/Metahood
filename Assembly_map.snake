@@ -14,8 +14,8 @@ rule megahit:
              assembly = "../assembly/final.contigs.fa"
     threads: 32
     resources:
-        slurm_partition = get_resource("partition",mult=10),
-        mem_mb = get_resource("mem",mult=10),
+        slurm_partition = get_resource("partition",mult=5),
+        mem_mb = get_resource("mem",mult=5),
         # exclude = "n80546,n83030,n83032"
     log:     "{group}/assembly/assembly.log"
     conda : CONDA_ENV + "/megahit.yaml"

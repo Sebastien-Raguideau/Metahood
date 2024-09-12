@@ -254,7 +254,7 @@ rule picard_duplicate:
     singularity : "docker://biocontainers/picard-tools:v2.18.25dfsg-2-deb_cv1"
     shell: """
     mkdir -p {params.tmp}/
-    export JAVA_OPTIONS="-Xmx50G -Xms50G -Djava.io.tmpdir={params.tmp}"
+    export JAVA_OPTIONS="-Xmx{resources.mem_mb}m -Xms{resources.mem_mb}m -Djava.io.tmpdir={params.tmp}"
     PicardCommandLine MarkDuplicates I={input.bam} O={output.bam} M={output.stat} SORTING_COLLECTION_SIZE_RATIO=0.10 TMP_DIR={params.tmp}/
     """
 

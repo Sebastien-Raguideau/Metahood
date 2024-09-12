@@ -224,7 +224,7 @@ rule IP_best_hit:
             sline = hit.rstrip().split("\t")
             return "%s\n"%"\t".join([sline[0]]+[sline[4]]+sline[1:4]+sline[5:])
         with open(output["TSV"],"w") as handle:
-            # use the fact it sorted and annotation for the same orf are next to each over
+            # use the fact it is sorted, annotation for the same orf are following each over
             orfs_done = set()
             for file in input["tsv"]:
                 hits = []

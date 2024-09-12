@@ -72,7 +72,7 @@ rule fastqc :
         mem_mb = get_resource("mem")
     singularity : "docker://quay.io/annacprice/fastqc:0.11.9"
     shell :"""
-            fastqc -o {IN}/{wildcards.sample} {input}
+            fastqc -Xmx{resources.mem_mb}m -o {IN}/{wildcards.sample} {input}
             touch {output}
            """
 
