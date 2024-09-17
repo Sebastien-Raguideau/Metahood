@@ -187,7 +187,7 @@ rule get_consensus_binning :
             scg = "{group}/annotation/contigs_SCG.fna",
             contig_profiles = "{group}/binning/concoct/original_data_gt%s.csv"%MIN_CONTIG_SIZE,
             contig_bed = "{group}/annotation/contigs.bed"
-    output : "{group}/binning/consensus/clustering_consensus.csv"
+    output : "{group}/binning/consensus/concoct_vs_metabat2/clustering_consensus.csv"
     conda : CONDA_ENV + "/pythonenv.yaml"
     singularity : "docker://quay.io/annacprice/pythonenv:3.9"
     resources:

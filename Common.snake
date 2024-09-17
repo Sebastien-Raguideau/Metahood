@@ -14,6 +14,8 @@ from scripts.common import detect_reads, fill_default_values, extended_glob, rep
 
 #--------------------------- Config parameters ---------------------------
 # config_file = "/hpc-home/raguidea/seb/Projects/Myxomag/SR_ASM/fractionated/configs/config_frac_14.yaml"
+# config_file = "/ei/projects/3/30009c04-8542-443e-ab96-af4df0a43d03/assemblies/config_soil_FFT.yaml"
+# config["CONFIG_PATH"]
 # config = yaml.load(open(config_file), Loader=yaml.FullLoader)
 # config["LOCAL_DIR"]="/ei/.project-scratch/0/0e51ef86-0156-4e79-ad12-c5411c0a5496/seb/repos/Metahood" 
 fill_default_values(config)

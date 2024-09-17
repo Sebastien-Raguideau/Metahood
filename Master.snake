@@ -5,6 +5,7 @@ include: 'Concoct.snake'
 include: 'Assembly_map.snake'
 include: 'megahit_graph.snake'
 include: 'Metabat.snake'
+include: 'semibin2.smk'
 include: 'Profiles.snake'
 # include: 'Maganalysis.snake'
 
