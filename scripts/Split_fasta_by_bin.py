@@ -123,7 +123,7 @@ if __name__ == "__main__":
 
     # renaming: if using different names than expected
     if args.scheme:
-        current_asm = dirname(dirname(args.annotation[0]))
+        current_asm = dirname(dirname(args.annotation[0].replace("/metamdbg","")))
         mag_path = {line.rstrip().split("\t")[0]:line.rstrip().split("\t")[2] for index,line in enumerate(open(args.scheme)) if index>0 if line.rstrip().split("\t")[1]==current_asm}
         assert len(mag_path)!=0, "no mag dectected for this assemble: %s"%current_asm
         rename_template = {basename(path).replace(".fa",""):mag for mag,path in mag_path.items()}

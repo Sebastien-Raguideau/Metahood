@@ -6,7 +6,7 @@ try:
 except:
     pass
 
-from os.path import basename, dirname, realpath, isfile
+from os.path import basename, dirname, realpath, isfile, isdir
 from collections import defaultdict, Counter
 from subprocess import Popen, PIPE
 from functools import partial
@@ -17,11 +17,12 @@ import os
 
 
 default_values = {
+    "IGNORE_FOLDER":["multiqc_data"],
     "binning":{"concoct":{"contig_size" : 1000,"execution" : 1,"max_bin_nb" : 2000},"metabat2":{"execution" : 1,"contig_size":1500},"ssa_unique_sample":False,"cobinning_samples":["*"]},
     "mag":["native"],
     "threads":8,
     "assembly":    {"assembler": "megahit","groups": {},"parameters":"" },
-    "annotation": {'diamond':{},"ip_db":"","cat_db":"","cat_path":"","kraken_db":"","kofamscan":{"profiles":"","ko_list":""},"virsorter":"","plasmidnet_install":"","genomad_db":""},
+    "annotation": {'diamond':dict(),"ip_db":"","cat_db":"","cat_path":"","kraken_db":"","kofamscan":{"profiles":"","ko_list":""},"virsorter":"","plasmidnet_install":"","genomad_db":""},
     "graph":{"List_graphs":{}},
     "filtering":"",
     "Percent_memory":0.5,
@@ -29,16 +30,19 @@ default_values = {
     "maganalysis":0,
     "desman":{"execution":0, "nb_haplotypes": 10,"nb_repeat": 5,"min_cov": 1,"scripts":""},
     "slurm_partitions":{"":{"name":"","min_mem":"","max_mem":"","min_threads":"","max_threads":""}},
-    "nb_map":20
+    "nb_map":200,
+    "profile_duplicate":False,
+    "metaspades_ssa":False
 }
 
 
 
 # ---- neat regex matching of files --------
-def extended_glob(pattern):
+def extended_glob(pattern,ignore=[]):
     process = Popen(['bash -O extglob -c " ls -d '+pattern+'/ "'], stdout=PIPE, stderr=PIPE,shell=True)
     List_path=[element[:-1] for element in process.communicate()[0].decode("utf-8").split("\n") if element]
-    return [path for path in List_path if basename(path)!="multiqc_data"]
+    return [path for path in List_path if basename(path) not in set(ignore)]
+
 
 
 # Taken from http://stackoverflow.com/questions/36831998/how-to-fill-default-parameters-in-yaml-file-using-python

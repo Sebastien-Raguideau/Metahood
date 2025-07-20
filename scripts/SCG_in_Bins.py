@@ -78,7 +78,7 @@ def main(Bin_file, Fasta_file, C10K_bed, orf_bed, path, Table, LIST, cluster_def
         # add exception for consensus 
         def sort_bin_name(x) :
             if x[0].isalpha() :
-                return int(x[1:])
+                return sort_bin_name(x[1:])
             else :
                 return int(x) 
         List_bins = sorted(Dico_bins_nbcontigs.keys(), key=sort_bin_name)

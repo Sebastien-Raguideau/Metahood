@@ -1,27 +1,30 @@
 #!/usr/bin/env python
 # -*- coding: latin-1 -*-
-from Bio.SeqIO.FastaIO import *
+from Bio.SeqIO.FastaIO import SimpleFastaParser as sfp
 from collections import defaultdict,Counter
 import numpy as np
 import argparse
 import os 
 
-def split_fasta(fasta_file,nb_chunks,output) :
+def split_fasta(fasta_file,Temp_location,nb_chunks):
     Sorted_Names=[]
     Dico_genome_seq={}
     Dico_genome_len={}
-    for header,seq in SimpleFastaParser(open(fasta_file)) :
+    for header,seq in sfp(open(fasta_file)) :
         Sorted_Names.append(header)
         Dico_genome_seq[header]=seq
         Dico_genome_len[header]=len(seq)
-    Total_length=sum(Dico_genome_len.values())
-    Chunk_size=Total_length/float(nb_chunks)
-    os.system("mkdir -p "+output)
+    Total_length = sum(Dico_genome_len.values())
+    Chunk_size = Total_length/float(nb_chunks)
+
+    # rare long read issue
+    assert len(Sorted_Names)>=nb_chunks, "number of sequences is smaller than number of splits for prodigal, please change the parameter for number of splits for prodigal in the config, to less than %s"%len(Sorted_Names)
+
+    os.system("mkdir -p "+Temp_location)
 
     # schedule using mean size reassessed as we define batchsize
-    extension="."+fasta_file.split(".")[-1]
-    fasta_path=output+"/Batch"
-    Current_filename=lambda x:fasta_path+"_"+str(x)+extension
+    fasta_path = "%s/Batch"%Temp_location
+    Current_filename=lambda x:"%s_%s"%(fasta_path,str(x))
     Temp_length=0
     num=0
     fname = Current_filename(num)
@@ -66,13 +69,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("Fasta_file", help="fasta file you want to split in chuncks")
     parser.add_argument("nb_chunks", help="nb of Chunks")
-    parser.add_argument("-o", help="Name of the folder where you want to store the chunks",default="Split_")
+    parser.add_argument("-T", help="Temp file location ",default="./temp_splits")
     args = parser.parse_args()
     fasta_file=args.Fasta_file
-    n=int(args.nb_chunks)
-    output=args.o
-    if output[-1]=="/" :
-        output=output[:-1]
-    if output=="Split_" :
-        output+=".".join(fasta_file.split(".")[:-1])
-    split_fasta(fasta_file,n,output)
+    nb_chunks = int(args.nb_chunks)
+    Temp_location = args.T
+    split_fasta(fasta_file,Temp_location,nb_chunks)        

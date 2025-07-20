@@ -79,9 +79,11 @@ with cd(METAHOOD_DIR):
     def call_snake(extra_params=[]):
         call_snake.nb+=1
         if args.dag:
+            filename = args.dag.replace(".pdf","")
+            nb = call_snake.nb
             p1=Popen(base_params + extra_params, stdout=PIPE, stderr=sys.stderr)
-            p2=Popen(["dot","-Tpng"],stdin=p1.stdout, stdout=PIPE, stderr=sys.stderr)
-            with open(args.dag.replace(".png",str(call_snake.nb)+".png"),"bw") as f :
+            p2=Popen(["dot","-Tpdf"],stdin=p1.stdout, stdout=PIPE, stderr=sys.stderr)
+            with open(f"{EXEC_DIR}/{filename}_{nb}.pdf","bw") as f :
                 f.write(p2.communicate()[0])
         else :
             subprocess.check_call(base_params + extra_params, stdout=sys.stdout, stderr=sys.stderr)

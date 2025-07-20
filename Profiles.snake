@@ -40,10 +40,10 @@ rule sort_bed:
 
 # ---- use bedtool to compute coverage  ----------------------------------------------------
 rule bedtools:
-    input:   bam = "{group}/map/{sample}_mapped_sorted.bam",
-             bed = "{group}/annotation/{type}.bed",
-             genome = "{group}/annotation/{type}_bedtools_target_definition.tsv"
-    output:  "{group}/map/{sample}.{type}.cov"
+    input:  bam = "{group}/map/{sample}_mapped_sorted.bam",
+            bed = "{group}/annotation/{type}.bed",
+            genome = "{group}/annotation/{type}_bedtools_target_definition.tsv",
+    output:  temp("{group}/map/{sample}.{type}.cov")
     log:      "{group}/map/{sample}_{type}.log"
     priority: 50
     resources:
@@ -55,30 +55,20 @@ rule bedtools:
 
 # ---- collate all files  -----------------------
 
-if COVERAGE_UNIQUE_SAMPLE:
-    rule coverage:
-        input:   lambda w : ["%s/map/%s.{type}.cov"%(w.group,sample.split('/')[-1]) for sample in  GROUPS[w.group]]
-        output:  "{group}/profile/coverage_{type}.tsv"
-        conda : CONDA_ENV + "/pythonenv.yaml"
-        resources:
-            slurm_partition = get_resource("partition"),
-            mem_mb = get_resource("mem")
-        singularity : "docker://quay.io/annacprice/pythonenv:3.9"
-        shell : "{SCRIPTS}/collate_coverage.py -o {output} -l {input} "
-else:
-    rule coverage:
-        input:   expand("{{group}}/map/{sample}.{{type}}.cov",sample=SAMPLE_READS)
-        output:  "{group}/profile/coverage_{type}.tsv"
-        conda : CONDA_ENV + "/pythonenv.yaml"
-        resources:
-            slurm_partition = get_resource("partition"),
-            mem_mb = get_resource("mem")
-        singularity : "docker://quay.io/annacprice/pythonenv:3.9"
-        shell : "{SCRIPTS}/collate_coverage.py -o {output} -l {input} "
+rule coverage:
+    input:   lambda w : ["%s/map/%s.{type}.cov"%(w.group,sample) for sample in  COBINNING_SAMPLES[w.group]]
+    output:  "{group}/profile/coverage_{type}.tsv"
+    conda : CONDA_ENV + "/pythonenv.yaml"
+    resources:
+        slurm_partition = get_resource("partition"),
+        mem_mb = get_resource("mem")
+    singularity : "docker://quay.io/annacprice/pythonenv:3.9"
+    shell : "{SCRIPTS}/collate_coverage.py -o {output} -l {input} "
 
 # ---- generate a mapping of annotation to orfs  -----------------------
 rule map_annotation_to_orfs:
-    input:   "{path}/contigs_{annotation}_best_hits.tsv"
+    input:   "{path}/contigs_{annotation}_best_hits.tsv",
+             "{path}/orf.bed"
     output:  "{path}/map_{annotation}_to_orfs.tsv"
     conda : CONDA_ENV + "/pythonenv.yaml"
     resources:
@@ -123,9 +113,9 @@ def filtered(file,FILTER):
 
 
 # ---- generate nb nucleotides by sample  -----------------------
-if IS_FASTA : 
+if IS_FASTA :
     rule nb_bases_fasta:
-        input: lambda w : [fastq_file for sample in  GROUPS[w.group] for fastq_file in SAMPLE_READS[basename(sample)]]
+        input: lambda w : [fastq_file for sample in  COBINNING_SAMPLES[w.group] for fastq_file in SAMPLE_READS[sample]]
         output: temp("{group}/profile/nucleotides.tsv")
         conda : CONDA_ENV + "/pythonenv.yaml"
         resources:
@@ -136,7 +126,7 @@ if IS_FASTA :
             
 else :
     rule nb_bases:
-        input: lambda w : [filtered(fastq_file,FILTER)+"_trimming_report.txt" for sample in  GROUPS[w.group] for fastq_file in SAMPLE_READS[basename(sample)]]
+        input: lambda w : [filtered(fastq_file,FILTER)+"_trimming_report.txt" for sample in  COBINNING_SAMPLES[w.group] for fastq_file in SAMPLE_READS[sample]]
         output: temp("{group}/profile/nucleotides.tsv")
         resources:
             slurm_partition = get_resource("partition"),
@@ -192,17 +182,17 @@ rule mapped_reads:
 if IS_FASTA :
     rule reads_qty:
         input:  R1=lambda w:R1[w["sample"]]
-        output: IN+"/{sample}/{sample}_readsnb.txt"
+        output: "{path}/{sample}/{sample}_readsnb.txt"
         shell: "echo $(( $(zgrep -c '>' {input.R1})*2 )) > {output}"
 else : 
     rule reads_qty:
         input:  R1=lambda w:R1[w["sample"]]
-        output: IN+"/{sample}/{sample}_readsnb.txt"
+        output: "{path}/{sample}/{sample}_readsnb.txt"
         shell: "echo $(($(zcat {input.R1} | wc -l)/2)) > {output}"
 
 rule get_percent:
-    input: mapped=lambda w:[w.group+"/map/"+sample.split('/')[-1]+"_mapped_read.txt" for sample in  GROUPS[w.group]],
-           total=lambda w:[IN+"/"+sample.split('/')[-1]+"/"+sample.split('/')[-1]+"_readsnb.txt" for sample in  GROUPS[w.group]]
+    input: mapped=lambda w:[w.group+"/map/"+sample.split('/')[-1]+"_mapped_read.txt" for sample in  COBINNING_SAMPLES[w.group]],
+           total=lambda w:[SAMPLE_PATH[sample]+"/"+sample.split('/')[-1]+"/"+sample.split('/')[-1]+"_readsnb.txt" for sample in  COBINNING_SAMPLES[w.group]]
     output:  "{group}/profile/mapping_percent.tsv"
     conda : CONDA_ENV + "/pythonenv.yaml"
     singularity : "docker://quay.io/annacprice/pythonenv:3.9"
@@ -239,9 +229,8 @@ rule mag_coverage:
 
 # ---------------------- look at duplicates ----------------------
 # (PICARD)
-
 rule picard_duplicate:
-    input: bam = "{group}/map/{sample}_mapped_sorted.bam",
+    input: bam = "{group}/map/{sample}_mapped_sorted.bam"
            # index = "{group}/map/{sample}_mapped_sorted.bam.bai",
     output: bam = "{group}/map/{sample}_mapped_sorted_dup.bam",
             stat = "{group}/map/{sample}_marked_dup_metrics.txt"
@@ -258,9 +247,30 @@ rule picard_duplicate:
     PicardCommandLine MarkDuplicates I={input.bam} O={output.bam} M={output.stat} SORTING_COLLECTION_SIZE_RATIO=0.10 TMP_DIR={params.tmp}/
     """
 
+# more recent version, may ask for RG?
+# rule picard_duplicate:
+#     input: bam = "{group}/map/{sample}_mapped_sorted.bam",
+#            # index = "{group}/map/{sample}_mapped_sorted.bam.bai",
+#     output: bam = "{group}/map/{sample}_mapped_sorted_dup.bam",
+#             stat = "{group}/map/{sample}_marked_dup_metrics.txt"
+#     priority: 50            
+#     params: tmp = "{group}/tmp/{sample}"
+#     resources:
+#         slurm_partition = get_resource("partition", mult=1),
+#         mem_mb = 60000,
+# #        exclude= "e4096n[1-3],e512n[25-64]"
+#     singularity : "docker://quay.io/biocontainers/picard:3.2.0--hdfd78af_0"
+#     shell: """
+#     mkdir -p {params.tmp}/
+#     export JAVA_OPTIONS="-Xmx{resources.mem_mb}m -Xms{resources.mem_mb}m -Djava.io.tmpdir={params.tmp}"
+#     picard MarkDuplicates I={input.bam} O={output.bam} M={output.stat} SORTING_COLLECTION_SIZE_RATIO=0.10 TMP_DIR={params.tmp}/
+#     """
+
+
+
 # samtools
 rule samtools_check_duplicate:
-    input: bam = "{group}/map/{sample}_mapped_sorted.bam",
+    input: bam = "{group}/map/{sample}_mapped_sorted.bam"
            # index = "{group}/map/{sample}_mapped_sorted.bam.bai",
     output: bam = "{group}/map/{sample}_mapped_sorted_dup_samtools.bam",
             stat = "{group}/map/{sample}_marked_dup_metrics_samtools.txt"
@@ -271,6 +281,19 @@ rule samtools_check_duplicate:
     singularity : "docker://quay.io/annacprice/bwasamtools:1.10"
     shell: """
     samtools sort -n {input.bam} | samtools fixmate -m - - | samtools sort - | samtools markdup -r -f {output.stat} - {output.bam}
+    """
+
+# stats
+rule get_stats:
+    input: bam = "{bam}.bam"
+    output: stats = "{bam}.stats"
+    priority: 50
+    resources:
+        slurm_partition = get_resource("partition"),
+        mem_mb = get_resource("mem")
+    singularity : "docker://quay.io/annacprice/bwasamtools:1.10"
+    shell: """
+    samtools stats {input.bam} > {output.stats}
     """
 
 # aggregate info on duplicates
@@ -302,23 +325,22 @@ rule check_duplicates:
 
 # ---------------------- get cov hist and cov variation ----------------------
 rule index:
-    input: "{path}.bam"
-    output: "{path}.bam.bai"
+    input: bam = "{group}/map/{sample}_mapped_sorted.bam"
+    output: "{group}/map/{sample}_mapped_sorted.bam.bai"
     resources:
         slurm_partition = get_resource("partition"),
         mem_mb = get_resource("mem")
     singularity : "docker://quay.io/annacprice/bwasamtools:1.10"
-    shell: "samtools index {input}"
+    shell: "samtools index {input.bam}"
 
 rule get_cov_stats:
     input: bam = "{group}/map/{sample}_mapped_sorted.bam",
            bai = "{group}/map/{sample}_mapped_sorted.bam.bai"
     output: cov_stat = "{group}/map/{sample}_cov.stats",
             cov_hists = "{group}/map/{sample}_cov.hists"
-    priority: 50
     resources:
-        slurm_partition = get_resource("partition"),
-        mem_mb = get_resource("mem")
+        slurm_partition = get_resource("partition", mult=10),
+        mem_mb = get_resource("mem", mult=10)
     singularity : "%s/../singularity_container/pythonenv_pysam.sif"%SCRIPTS
     shell: "{SCRIPTS}/CovEvaluate.py {input.bam} {output.cov_stat} {output.cov_hists} -l 10000"
 

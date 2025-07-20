@@ -3,7 +3,7 @@
 
 if COVERAGE_UNIQUE_SAMPLE:
     rule generate_depth :
-        input:  lambda w : [w.group+"/map/"+sample.split('/')[-1]+"_mapped_sorted.bam" for sample in  GROUPS[w.group]]
+        input:  bam =lambda w : [w.group+"/map/"+sample.split('/')[-1]+"_mapped_sorted.bam" for sample in  GROUPS[w.group]]
         output: "{group}/map/depth.txt"
         log : "{group}/map/depth.log"
         conda : CONDA_ENV + "/metabat2.yaml"
@@ -11,18 +11,18 @@ if COVERAGE_UNIQUE_SAMPLE:
             slurm_partition = get_resource("partition"),
             mem_mb = get_resource("mem")
         singularity : "docker://quay.io/annacprice/metabat2:2.15"
-        shell: "jgi_summarize_bam_contig_depths --outputDepth {output} {input} &>{log}" 
+        shell: "jgi_summarize_bam_contig_depths --outputDepth {output} {input.bam} &>{log}" 
 else:
     rule generate_depth :
-        input:  lambda w : ["%s/map/%s_mapped_sorted.bam"%(w.group,basename(sample)) for sample in  SAMPLES]
+        input:  bam = lambda w : ["%s/map/%s_mapped_sorted.bam"%(w.group,basename(sample)) for sample in  SAMPLES]
         output: "{group}/map/depth.txt"
         log : "{group}/map/depth.log"
         conda : CONDA_ENV + "/metabat2.yaml"
         resources:
-            slurm_partition = get_resource("partition"),
-            mem_mb = get_resource("mem")
+            slurm_partition = get_resource("partition",mult=5/len(SAMPLES)),
+            mem_mb = get_resource("mem",mult=5/len(SAMPLES))
         singularity : "docker://quay.io/annacprice/metabat2:2.15"
-        shell: "jgi_summarize_bam_contig_depths --outputDepth {output} {input} &>{log}" 
+        shell: "jgi_summarize_bam_contig_depths --outputDepth {output} {input.bam} &>{log}" 
 
 
 

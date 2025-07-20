@@ -9,14 +9,21 @@ from collections import defaultdict
 from psutil import virtual_memory
 from subprocess import Popen, PIPE
 from snakemake.exceptions import WorkflowError
-from os.path import basename,dirname,abspath,realpath, getsize
-from scripts.common import detect_reads, fill_default_values, extended_glob, replace_extensions, get_extension, get_resource_real
+from os.path import basename,dirname,abspath,realpath, getsize, isdir
+from scripts.common import detect_reads, fill_default_values, extended_glob, replace_extensions, get_extension, get_resource_real,default_values
 
 #--------------------------- Config parameters ---------------------------
 # config_file = "/hpc-home/raguidea/seb/Projects/Myxomag/SR_ASM/fractionated/configs/config_frac_14.yaml"
-# config_file = "/ei/projects/3/30009c04-8542-443e-ab96-af4df0a43d03/assemblies/config_soil_FFT.yaml"
-# config["CONFIG_PATH"]
+# config_file = "/ei/projects/5/542de014-1e71-4955-945a-5d2ab09567a7/Soil_Sheffield/assemblies/COAs.yaml"
+# config_file = "/ei/.project-scratch/3/30009c04-8542-443e-ab96-af4df0a43d03/assemblies/config_soil_FFT.yaml"
+# config_file = "/ei/projects/5/542de014-1e71-4955-945a-5d2ab09567a7/Soil_Sheffield/assemblies/config_soil_sheff.yaml"
+# config_file = "/ei/.project-scratch/7/7a8b76af-019e-4731-8856-2ddea6f071a9/CDTREAT_2024/config_CDTREAT_patient.yaml"
+# config_file = "/ei/.project-scratch/4/429e8fc5-090b-4f2d-8066-864a4fc96ae2/SR_ASM/config_frac.yaml"
+# config_file = "/ei/.project-scratch/3/30009c04-8542-443e-ab96-af4df0a43d03/assemblies/config_SSA_plate_sweep.yaml"
+# config_file = "/ei/.project-scratch/3/30009c04-8542-443e-ab96-af4df0a43d03/assemblies/config_fecal_spk.yaml"
 # config = yaml.load(open(config_file), Loader=yaml.FullLoader)
+# config["CONFIG_PATH"]=config_file
+# config["EXEC_DIR"] = abspath(realpath(config["execution_directory"]))
 # config["LOCAL_DIR"]="/ei/.project-scratch/0/0e51ef86-0156-4e79-ad12-c5411c0a5496/seb/repos/Metahood" 
 fill_default_values(config)
 METAHOOD=dirname(abspath(realpath(workflow.snakefile)))
@@ -29,6 +36,9 @@ FILTER = config["filtering"]
 
 # -------- Assembly --------
 IN = config["data"]
+IGNORE_FOLDER = config["IGNORE_FOLDER"]+default_values["IGNORE_FOLDER"]
+IGNORE_FOLDER = [basename(folder) if isdir(realpath(folder)) else folder for folder_regex in  IGNORE_FOLDER for path in IN for folder in extended_glob(path+"/"+folder_regex)]
+# print("\n".join(IGNORE_FOLDER))
 ASSEMBLER_PARAMS = config["assembly"]["parameters"]
 
 # -------- Ressources --------
@@ -69,14 +79,20 @@ METABAT2_EXECUTION = config["binning"]["metabat2"]["execution"]
 MIN_CONTIG_SIZE_METABAT2=config["binning"]["metabat2"]["contig_size"]
 BINNER=CONCOCT_EXECUTION*["concoct"]+METABAT2_EXECUTION*["metabat2"]
 BINNER+=(len(BINNER)-1)*["consensus"]
+
 # -------- Annotation --------
 ANNOTATION = config["annotation"]
 CHECKM_DB = ANNOTATION["checkm"]
 
 # SCG 
 SCG_DATA = config["scg_data"]
-SCG_HMM = "%s/hmms/checkm.hmm"%CHECKM_DB
-SCG = {line.rstrip().split("\t")[0] for line in open("%s/scg_hmm_selected.txt"%SCG_DATA) if line.rstrip().split("\t")[2]=="fine"}
+if "cog_db" not in ANNOTATION:
+    SCG_HMM = "%s/hmms/checkm.hmm"%CHECKM_DB
+    SCG = {line.rstrip().split("\t")[0] for line in open("%s/scg_hmm_selected.txt"%SCG_DATA) if line.rstrip().split("\t")[2]=="fine"}
+else:
+    COG_DB = ANNOTATION["cog_db"]
+    SCG = {line.rstrip().split("\t")[0] for line in open(f"{SCG_DATA}/scg_cogs_min0.97_max1.03_unique_genera.txt")}
+
 NB_SCG = float(len(SCG))
 
 DIAMOND = ANNOTATION["diamond"]
@@ -91,7 +107,8 @@ VIRSORTER_DB = ANNOTATION["virsorter"]
 PLASMIDNET = ANNOTATION["plasmidnet_install"]
 GENOMAD_DB = ANNOTATION["genomad_db"]
 
-BEST_HITS = ["KEGG"]*(KO_HMM!="")+[annotation for annotation in DIAMOND]+["IP"]*(IP_DB!="")
+BEST_HITS = ["KEGG"]*(KO_HMM!="")+[annotation for annotation in DIAMOND if annotation]+["IP"]*(IP_DB!="")
+
 # mobilised card genes
 if (GENOMAD_DB!="")&("CARD" in DIAMOND):
     BEST_HITS+=["mCARD"]
@@ -110,6 +127,10 @@ DESMAN_REPEAT = config["desman"]["nb_repeat"]
 MIN_COV_DESMAN = config["desman"]["min_cov"]
 
 
+# ----- Other ------
+DUPLICATE = config["profile_duplicate"]
+METASPADES = config["metaspades_ssa"]
+
 # # -------- graph --------
 if config["graph"] :
     GRAPH_TASKS=["contigs."+".".join(List_annotation)+"_contiguous_ORF_annotation.csv" for dict_annotation in config["graph"].values() for List_annotation in dict_annotation.values()]
@@ -121,44 +142,75 @@ else :
 IS_FASTA = 0 # in case metahood is run on fasta files, change a few things
 
 #--------------------------- Read group and sample composition ---------------------------
-
 #-------- persample : create groups of one sample --------
+SAMPLE_PATH = {} # case the sample is not directly in IN
 if "per_sample" in config["assembly"] :
     SAMPLES=config["assembly"]["per_sample"]
     for sample_regex in SAMPLES :
         prefix=""
         if "|" in sample_regex :
-            prefix,sample_regex=sample_regex.split("|")
+            prefix = sample_regex.split("|")[0]
+            sample_regex = "|".join(sample_regex.split("|")[1:])
             prefix+="/"
-        for sample in extended_glob(IN+"/"+sample_regex) :
-            sample_name=sample.split("/")[-1]
-            config["assembly"]["groups"][prefix+sample_name]=[sample_name]
+        for path in IN:
+            for sample in extended_glob(f"{path}/{sample_regex}",ignore=IGNORE_FOLDER) :
+                sample_name=basename(sample)
+                SAMPLE_PATH[sample_name] = dirname(sample)
+                config["assembly"]["groups"][prefix+sample_name]=[sample_name]
 
 # -------- Groups --------
 # define the groups as a dictionary mapping to the path of samples folder
 GROUPS_DEF=config["assembly"]["groups"]
 GROUPS=defaultdict(list)
-for group,list_sample in GROUPS_DEF.items() :
+for group,list_regex in GROUPS_DEF.items() :
     # get the samples paths corresponding to the group
-    GROUPS[group]=[path for sample in list_sample for path in extended_glob(IN+"/"+sample)]
+    for path in IN:
+        for regex in list_regex:
+            samples = extended_glob(f"{path}/{regex}",ignore=IGNORE_FOLDER)
+            for sample in samples:
+                SAMPLE_PATH[basename(sample)] = path
+            GROUPS[group]+=samples
+
 
 # check that group definition allow us to find samples
 Empty_group=[group for group,value in GROUPS.items() if len(value)==0]
 if Empty_group :
     raise WorkflowError("Samples specified in groups "+"/".join(Empty_group)+" haven't been found at "+IN+ ", check your config file for potential errors")
 
-# ----- get samples used for cobinninb, may be different than samples set used for assemblies, but will be the same samples for all binnings
-SAMPLES= {basename(sample) for list_sample in GROUPS.values() for sample in list_sample}
+# --------- Assembler change---------
+GROUP_ASM = {}
+for g in GROUPS:
+    GROUP_ASM[g] = f"{g}/assembly/final.contigs.fa"
+if METASPADES=="True":
+    for g,samples in GROUPS.items():
+        if len(samples)==1:
+            GROUP_ASM[g] = f"{g}/assembly/contigs.fa"
 
-if config["binning"]["cobinning_samples"] == ["*"]:
-    COBINNING_SAMPLES = SAMPLES
+
+# ------- COBINNING ---------
+# ----- get samples used for cobinninb, may be different than samples set used for assemblies, but will be the same samples for all binnings
+SAMPLES = {basename(sample) for list_sample in GROUPS.values() for sample in list_sample}
+
+
+if COVERAGE_UNIQUE_SAMPLE:
+    COBINNING_SAMPLES = {g:[basename(sample) for sample in list_sample] for g,list_sample in GROUPS.items()}
 else:
-    COBINNING_SAMPLES = [basename(sample) for sample_regex in config["binning"]["cobinning_samples"] for sample in extended_glob(IN+"/"+sample_regex)]
+    # if default, all samples, even the one not used for assembly will be used
+    # currently throw error when there is a sample not used for assembly. can be fixed easily by storing SAMPLE_PATH
+    ALL_SAMPLES = []
+    for path in IN:
+        for sample_regex in config["binning"]["cobinning_samples"]:
+            for sample_file in extended_glob(f"{path}/{sample_regex}",ignore=IGNORE_FOLDER):
+                sample = basename(sample_file)
+                ALL_SAMPLES.append(sample)
+                SAMPLE_PATH[sample] = path
+    COBINNING_SAMPLES={g:ALL_SAMPLES for g in GROUPS}
+
 
 # -------- Files associated with each samples --------
 # Each sample should have its own folder with fasta/fastq files in it
 
-SAMPLE_READS = dict(map(lambda sample: (sample, detect_reads(os.path.join(IN, sample))), SAMPLES|set(COBINNING_SAMPLES)))
+SAMPLE_READS = dict(map(lambda sample: (sample, detect_reads(os.path.join(SAMPLE_PATH[sample],sample))), SAMPLES|{s for smpl in COBINNING_SAMPLES.values() for s in smpl}))
 
 Files_nb = [sample for sample,list_file in SAMPLE_READS.items() if len(list_file)!=2]
 if Files_nb :
@@ -171,8 +223,9 @@ R2={sample:replace_extensions(list_reads[1],FILTER) for sample,list_reads in SAM
 # in case all reads are fasta files, skip trimming/fastqc
 if len([read for read in [value for value in R1.values()] if get_extension(read) in {".fastq.gz",".fastq",".fq.gz",".fq"}])==0 :
     IS_FASTA=1
-    if not os.path.exists("%s/quality_done"%IN) :
-        os.system("touch %s/quality_done"%IN)
+    for path in IN:
+        if not os.path.exists("%s/quality_done"%path) :
+            os.system("touch %s/quality_done"%path)
 
 # Define reads by groups
 GROUP_R1={group:[R1[basename(sample)] for sample in list_sample] for group,list_sample in GROUPS.items()}
@@ -182,7 +235,23 @@ GROUP_R2={group:[R2[basename(sample)] for sample in list_sample] for group,list_
 R1.update(GROUP_R1)
 R2.update(GROUP_R2)
 
+# get sample sizes approximately
+GROUP_SIZE = {group:sum([os.path.getsize(SAMPLE_READS[basename(sample)][0])/(1024**3) for sample in samples]) for group,samples in GROUPS.items()}
 
+# -------- scheduling mapping ------------
+# this needs to be in common, otherwise not seen in time to schedule task for rule all:
+
+# check assembly is done:
+GROUP_ASM_DONE = {group:os.path.isfile(f"{EXEC_DIR}/{group}/contigs/contigs.fa") for group in GROUPS}
+
+# order is, first assembly which are finished, then total size of reads used for assembly
+# help to predict which assembly migth be done first: issue with dealing with 1 assembly at a time is that we don't know beforehand which one is going to be finished first.
+ASM_ORDER = sorted(GROUPS,key=lambda x:(-GROUP_ASM_DONE[x],GROUP_SIZE[x]))
+ASM_CURENT_TO_PREV = {ASM_ORDER[index+1]:"%s/map/.bam_map.done"%group for index,group in enumerate(ASM_ORDER[:-1])}
+ASM_CURENT_TO_PREV[ASM_ORDER[0]] = "%s/contigs/contigs.fa"%ASM_ORDER[0]
+
+def schedule_mapping(wc):
+    return ASM_CURENT_TO_PREV[wc.group]
 
 
 # need to reimplement getting the size of input for megahit, because it wants an estimation of percent usage relative to total mem installed... stupid.

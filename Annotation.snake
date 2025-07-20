@@ -1,6 +1,6 @@
 # in order to allow for multiple annotation process to coexist and produce similar names output, we just define rules priority
 # if parse_cogs_annotation does not work, it tries annotation_diamond
-ruleorder:  koannotation > parse_hmmsearch_annotation  > IP_best_hit >annotation_diamond
+ruleorder:  koannotation > parse_cogs_annotation  > IP_best_hit >annotation_diamond
  
 # ---- prodigal annotation on splits ----------------------------------------------------------------
 rule prodigal:
@@ -62,7 +62,7 @@ rule koannotation:
     output : out = "{path}/contigs_KEGG_best_hits.tsv"
     params: root = realpath("{path}")
     conda: "%s/ko_annotation.yaml"%CONDA_ENV
-    threads: 1000
+    threads: 32
     resources:
         slurm_partition = get_resource("partition"),
         mem_mb = get_resource("mem")
@@ -121,10 +121,10 @@ rule CAT_annotation:
     params : Dir="{group}/annotation/CAT/contigs"
     conda : CONDA_ENV + "/cat.yaml"
     # singularity : "docker://quay.io/annacprice/cat:5.2.2"
-    threads: 32
+    threads: 8
     resources:
-        slurm_partition = get_resource("partition"),
-        mem_mb = get_resource("mem")
+        slurm_partition = get_resource("partition",mult=1),
+        mem_mb = get_resource("mem",mult=1)
     shell : """
     {CAT_PATH}/CAT_pack contigs -c {input.contigs}  -d {CAT_DB}/db -t {CAT_DB}/tax -p {input.faa} -n {threads} --out_prefix {params.Dir} --top 11 --I_know_what_Im_doing --force
     """
@@ -160,39 +160,69 @@ rule kraken_uniq:
 
 
 # ------------------------------------------ COG Annotation -------------------------------
-# use hmmsearch to annotate pfam markers
-rule hmmsearch:
-    input: faa = "{path}.faa",
-           db = "%s"%SCG_HMM
-    output:"{path}_hmm.out"
-    conda : "%s/checkm.yaml"%CONDA_ENV
-    resources:
-        slurm_partition = get_resource("partition"),
-        mem_mb = get_resource("mem")
-    singularity: "docker://quay.io/annacprice/gtdbtk:1.4.0"
-    log: "{path}_hmm.log"
-    shell: """
-    if [ ! -s {input.faa} ]
-    then
-        touch {output}
-    else
-        hmmsearch --cut_tc --cpu 1 -o /dev/null --noali --domtblout {output} {input.db} {input.faa} >{log} 2>&1 
-    fi
-    """
 
-#------- select best hit --------------
-# TODO add a criterion on al length
-rule parse_hmmsearch_annotation:
-    input: Batch=expand("{{path}}/temp_splits/Batch_{nb}_hmm.out",nb=range(100))
-    output: cat=temp("{path}/contigs_hmm.out"),
-            cog="{path}/contigs_cogs_best_hits.tsv"
-    conda : "%s/pythonenv.yaml"%CONDA_ENV
-    resources:
-        slurm_partition = get_resource("partition"),
-        mem_mb = get_resource("mem")
-    singularity : "docker://quay.io/annacprice/pythonenv:3.9"
-    shell: """cat {input}> {output.cat}
-             {SCRIPTS}/Filter_scg_hmm.py {output.cat} --cog_hmm {SCG_DATA}/scg_hmm_selected.txt {output.cog}"""
+if "cog_db" in ANNOTATION:
+    rule Batch_rpsblast:
+        input:   "{group}/{path}.faa"
+        output:  "{group}/{path,a.*/Batch.*}.cogs.tsv"
+        params:  db = COG_DB
+        log:     "{group}/{path}_cog.log"
+        resources:
+            slurm_partition = get_resource("partition"),
+            mem_mb = get_resource("mem")
+        conda : CONDA_ENV+"/blast.yaml"
+        singularity: "docker://quay.io/biocontainers/blast:2.16.0--hc155240_2"
+        shell:   """
+                 rpsblast -outfmt '6 qseqid sseqid evalue pident length slen qlen' -evalue 0.00001 -query {input} -db {params.db} -out {output} &>log
+                 """
+
+    #------- select best hit and use criterion : min 5% coverage, min 1e-10 evalue--------------
+    rule parse_cogs_annotation:
+        input:   Batch=expand("{{group}}/annotation/temp_splits/Batch_{nb}.cogs.tsv",nb=range(100))
+        output:  cog="{group}/annotation/contigs_cogs_best_hits.tsv",
+                 cat=temp("{group}/annotation/contigs_Cog.out")
+        resources:
+            slurm_partition = get_resource("partition"),
+            mem_mb = get_resource("mem")                 
+        singularity : "docker://quay.io/annacprice/pythonenv:3.9"
+        shell:   """
+                 cat {input} > {output.cat}   
+                 {SCRIPTS}/Filter_Cogs.py {output.cat} --cdd_cog_file {SCG_DATA}/cdd_to_cog.tsv  > {output.cog}
+                 """
+else:
+    # use hmmsearch to annotate pfam markers
+    rule hmmsearch:
+        input: faa = "{path}.faa",
+               db = "%s"%SCG_HMM
+        output:"{path}_hmm.out"
+        conda : "%s/checkm.yaml"%CONDA_ENV
+        resources:
+            slurm_partition = get_resource("partition"),
+            mem_mb = get_resource("mem")
+        singularity: "docker://quay.io/annacprice/gtdbtk:1.4.0"
+        log: "{path}_hmm.log"
+        shell: """
+        if [ ! -s {input.faa} ]
+        then
+            touch {output}
+        else
+            hmmsearch --cut_tc --cpu 1 -o /dev/null --noali --domtblout {output} {input.db} {input.faa} >{log} 2>&1 
+        fi
+        """
+
+    #------- select best hit --------------
+    # TODO add a criterion on al length
+    rule parse_cogs_annotation:
+        input: Batch=expand("{{path}}/temp_splits/Batch_{nb}_hmm.out",nb=range(100))
+        output: cat=temp("{path}/contigs_hmm.out"),
+                cog="{path}/contigs_cogs_best_hits.tsv"
+        conda : "%s/pythonenv.yaml"%CONDA_ENV
+        resources:
+            slurm_partition = get_resource("partition"),
+            mem_mb = get_resource("mem")
+        singularity : "docker://quay.io/annacprice/pythonenv:3.9"
+        shell: """cat {input}> {output.cat}
+                 {SCRIPTS}/Filter_scg_hmm.py {output.cat} --cog_hmm {SCG_DATA}/scg_hmm_selected.txt {output.cog}"""
 
 # ------------- genomad ------------
 rule IP_annotation_single_batch:
@@ -204,14 +234,17 @@ rule IP_annotation_single_batch:
     conda: CONDA_ENV + "/ip.yaml"
     singularity: "docker://interpro/interproscan"
     resources: 
-        slurm_partition = get_resource("partition"),
-        mem_mb = get_resource("mem"),
-        runtime=5000,
+        slurm_partition = get_resource("partition",mult=5),
+        mem_mb = get_resource("mem",mult=5),
     threads: 32
     shell: """
     sed 's/*//g' {input.faa} > {input.faa}.no_asterisks
-    {IP_DB}/interproscan.sh -T {params.tmp} -goterms --iprlookup -dp -dra --cpu {threads} -i {input.faa}.no_asterisks -o {output.tsv} -f TSV
+    cd {IP_DB}
+    export EMBOSS_ACDROOT=bin/nucleotide
+    export EMBOSS_DATA=bin/nucleotide
+    java -jar -Xmx{resources.mem_mb}M -jar interproscan-5.jar -T {params.tmp} -goterms --iprlookup -dp -dra --cpu {threads} -i {input.faa}.no_asterisks -o {output.tsv} -f TSV -u {EXEC_DIR}
     rm {input.faa}.no_asterisks
+    rm -rf {params.tmp}
     """
 
 rule IP_best_hit:
@@ -236,8 +269,9 @@ rule IP_best_hit:
                     orf = sline[0]
                     assert (orf not in orfs_done), f"issue with orf {orf}"
                     if orf_prev!=orf:
-                        best_hit = reorder_annotation(min(hits,key=lambda x:float(x.rstrip().split("\t")[8])))
-                        handle.write(f"{best_hit}")
+                        if hits!=[]:
+                            best_hit = reorder_annotation(min(hits,key=lambda x:float(x.rstrip().split("\t")[8])))
+                            handle.write(f"{best_hit}")
                         hits = [line]
                         orfs_done.add(orf_prev)
                         orf_prev = orf
@@ -254,8 +288,8 @@ rule genomad:
     output: "{group}/annotation/genomad/genomad.done"
     threads: 25
     resources:
-        slurm_partition = get_resource("partition"),
-        mem_mb = get_resource("mem")
+        slurm_partition = get_resource("partition",mult=4),
+        mem_mb = get_resource("mem",mult=4)
     params: output = "{group}/annotation/genomad"
     singularity: "docker://quay.io/biocontainers/genomad:1.8.0--pyhdfd78af_0"
     shell: """genomad end-to-end --cleanup --splits {threads} {input.contigs} {params.output} {GENOMAD_DB}&& touch {output}"""

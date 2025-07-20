@@ -1,17 +1,33 @@
 
 # ---- Assembly ----------------------------------------------------------------
+rule spades:
+    input:   left=lambda w:R1[w["group"]],
+             right=lambda w:R2[w["group"]],
+             sample_processing = expand("{path}/quality_done",path=IN)
+    output:  assembly = "{group}/assembly/contigs.fa", 
+    params:  left = lambda w:" ".join([f"-1 {l}" for l in R1[w["group"]]]),
+             right = lambda w:" ".join([f"-2 {l}" for l in R2[w["group"]]]),
+             fold = "{group}/assembly"
+    threads: 32
+    resources:
+        slurm_partition = get_resource("partition",mult=5),
+        mem_mb = get_resource("mem",mult=5),
+    log:     "{group}/assembly/spades.log"
+    singularity: "docker://quay.io/biocontainers/spades:4.0.0--haf24da9_4"
+    shell: """
+        metaspades.py --meta --only-assembler -t {threads} {params.left} {params.right} -o {params.fold} &> {log}
+        """
 
 # Assemble with MegaHIT
 rule megahit:
     input:   left=lambda w:R1[w["group"]],
              right=lambda w:R2[w["group"]],
-             sample_processing= IN+"/quality_done"
-    output:  "{group}/contigs/contigs.fa"
+             sample_processing= expand("{path}/quality_done",path=IN)
+    output:  "{group}/assembly/final.contigs.fa"
     params:  left=lambda w: ",".join(R1[w["group"]]),
              right=lambda w: ",".join(R2[w["group"]]),
-             dir="{group}/assembly",
+             fold ="{group}/assembly",
              Additional_params = ASSEMBLER_PARAMS,
-             assembly = "../assembly/final.contigs.fa"
     threads: 32
     resources:
         slurm_partition = get_resource("partition",mult=5),
@@ -19,17 +35,22 @@ rule megahit:
         # exclude = "n80546,n83030,n83032"
     log:     "{group}/assembly/assembly.log"
     conda : CONDA_ENV + "/megahit.yaml"
-    # singularity : "docker://quay.io/annacprice/megahit:1.2.9"
+    singularity : "docker://quay.io/annacprice/megahit:1.2.9"
     shell:   """
              phymem=$(awk '/MemTotal/{{print $2}}' /proc/meminfo)
-             mem=$(echo   "{resources.mem_mb} * 1024 / $phymem " | bc -l )
-             megahit -1 {params.left} -2 {params.right} {params.Additional_params} -t {threads} -m $mem --continue -o {params.dir} -f &> {log}
-             ln -s {params.assembly} {output}
+             mem=$(awk -v x={resources.mem_mb} -v y=$phymem 'BEGIN {{print (x * 1024) / y}}')
+             megahit -1 {params.left} -2 {params.right} {params.Additional_params} -t {threads} -m $mem --continue -o {params.fold} -f &> {log}
+             rm -rf {params.fold}/intermediate_contigs
              """
 
+rule symlink_asm:
+    input: lambda w:GROUP_ASM[w.group]
+    output: "{group}/contigs/contigs.fa"
+    shell: """
+    ln -s $(realpath {input}) $(realpath {output})
+    """
 
 # ---- bwa index file  -------------------------------------------
-
 rule bwa_index:
     input:   "{path}/contigs.fa"
     output:  touch("{path}/index.done")
@@ -47,15 +68,16 @@ rule bwa_index:
 rule bwa_mem_to_bam:
     input:   index="{group}/contigs/index.done",
              contigs="{group}/contigs/contigs.fa",
-             left=lambda w:replace_extensions(SAMPLE_READS[w.sample][0],FILTER), right=lambda w:replace_extensions(SAMPLE_READS[w.sample][1],FILTER)
+             shedule = schedule_mapping # makes read mapping happens with only 1 asm at a time
+    params: left=lambda w:replace_extensions(SAMPLE_READS[w.sample][0],FILTER), # read in params to better control partition/mem
+            right=lambda w:replace_extensions(SAMPLE_READS[w.sample][1],FILTER)
     output:  temp("{group}/map/{sample}_mapped_sorted.bam")
     threads: 10
     resources:
         slurm_partition = get_resource("partition", mult=10),
         mem_mb = get_resource("mem", mult=10),
-        nb_map = 1
     log:     "{group}/map/{sample}_map.log"
     message: "bwa mem mapping followed by samtool sorting for {input}"
     conda : CONDA_ENV + "/bwasamtools.yaml"
     singularity: "docker://quay.io/annacprice/bwasamtools:1.10"
-    shell:   "bwa mem -t {threads} {input.contigs} {input.left} {input.right} 2>{log} | samtools view  -b -F 4 -@{threads} - | samtools sort -@{threads} - > {output}"
+    shell:   "bwa mem -t {threads} {input.contigs} {params.left} {params.right} 2>{log} | samtools view  -b -F 4 -@{threads} - | samtools sort -@{threads} - > {output}"

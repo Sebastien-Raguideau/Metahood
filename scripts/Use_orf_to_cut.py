@@ -48,6 +48,7 @@ def get_gff_dico(Chunk_size,Gff_file):
 	generator = prodigal_gff_parser(open(Gff_file))
 	for Seq_data,Model,ORF_list in generator :
 		Seq_len=int(Seq_data.split(";")[1].split("=")[1])
+		seqid = Seq_data.split(";")[2].split("=")[1].split(" ")[0].replace('"',"") #needed here, otherwise weirds bleeds may happens between loops
 		for ORF in ORF_list :
 			(seqid,source,type,start,end,score,strand,phase,attributes)=ORF.split("\t")
 			Dico_contigs[seqid]=Seq_len

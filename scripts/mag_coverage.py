@@ -84,8 +84,8 @@ if __name__ == "__main__":
                 continue
             tot_len+=contig_len[contig]
             tot_nuc+=contig_cov[contig]*contig_len[contig]
-        handle_cov.write("Bin_%s\t"%cluster+"\t".join(list(map(str,tot_nuc/tot_len)))+"\n")
-        handle_map.write("Bin_%s\t"%cluster+"\t".join(list(map(str,tot_nuc/nuc_nb)))+"\n")
+        handle_cov.write("Bin_%s\t%s\n"%(cluster,"\t".join(["{:.4g}".format(el) for el in tot_nuc/tot_len])))
+        handle_map.write("Bin_%s\t%s\n"%(cluster,"\t".join(["{:.4g}".format(el) for el in tot_nuc/nuc_nb])))
         count+=1
     handle_cov.close()
     handle_map.close()

@@ -219,7 +219,7 @@ if __name__ == "__main__":
         sys.exit(0)
 
     # get cluster definition : 
-    cluster_def_m2 = {line.rstrip().split(",")[0]:line.rstrip().split(",")[1] for line in open(args.m_bin_def) if line.rstrip().split(",")[1] in mags_m2}
+    cluster_def_m2 = {line.rstrip().split(",")[0]:line.rstrip().split(",")[1] for line in open(args.m_bin_def) if (line.rstrip().split(",")[1] in mags_m2)&(line.rstrip().split(",")[0]!="contig_id")}
     cluster_def_c = {line.rstrip().split(",")[0]:line.rstrip().split(",")[1] for line in open(args.c_bin_def) if (line.rstrip().split(",")[1] in mags_c)&(line.rstrip().split(",")[0]!="contig_id")}
     # contig info :
     profile_file = args.contig_profiles 

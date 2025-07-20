@@ -26,9 +26,14 @@ List_inputs += expand("{group}/profile/coverage_orf.tsv", group=GROUPS)
 List_inputs += expand("{group}/profile/mapping_percent.tsv", group=GROUPS)
 List_inputs += expand("{group}/profile/mag_{binner}_percent_mapped.tsv",group=GROUPS,binner=BINNER)
 
-# get duplicate/cov information
-List_inputs += expand("{group}/profile/percent_duplicate.tsv", group=GROUPS)
-List_inputs += ["%s/map/%s_cov.stats"%(group,basename(sample)) for group,samples in GROUPS.items() for sample in samples]
+# Percent duplicate profiling
+if DUPLICATE==True:
+    List_inputs += expand("{group}/profile/percent_duplicate.tsv", group=GROUPS)
+    List_inputs += ["%s/map/%s_cov.stats"%(group,basename(sample)) for group,samples in GROUPS.items() for sample in samples]
+
+# generate samtools stats
+List_inputs += ["%s/map/%s_mapped_sorted.stats"%(group,basename(sample)) for group,samples in COBINNING_SAMPLES.items() for sample in samples]
+
 
 # ------------ optional outputs ------------
 # annotation and annotation profiles
@@ -54,15 +59,66 @@ if GRAPH_TASKS:
     # orfs subgraphs with annotation as well as taxonomy
     List_inputs += expand("{group}/graph/{tasks}", group=GROUPS, tasks=GRAPH_TASKS)
 
+
+
+
 # # MagAnalysis
 # if MAG_ANALYSIS == 1:
 #     List_inputs += expand("{group}/MagAnalysis/concoct/Tree/Mag_refseq_assign.tsv",group=list(GROUPS.keys()))
 #     List_inputs += expand("{group}/MagAnalysis/concoct/mags/done",group=list(GROUPS.keys()))
 
 
+
+
 # ------------ snakemake start ------------
 rule all:
     input: List_inputs
+
+# ---------------------------------------------
+# --- deal with temporary bam accumulation ----
+# ---------------------------------------------
+
+# do mapping one group at a time
+# I could just get a random order, but that would block some assembly alredy finished to be processed while waiting for randomly selected assemblies
+#   -> first idea, compute nb nuc per asm, order things using that
+#   -> second idea, use checkpoint to be able to change realtime that order to start on group for which assembly has been done already.
+# After long reflexion, the second idea is not doable: a checkpoint only help if to add new objective to a rule, the rule still depend on the checkpoint completion and I can't change which checkpoint I want to depend on.
+# This means that it is all going to be a bit annoying. But I suppose I can do a few things: reevaluate the order each time I restart the pipeline, have an heuristic for how much space a bam file is going to take as a function of sample size. And from the number of bam file generated, maybe have more than one assembly folder running at the same time?  
+# 
+def bam_dependant_output(wc):
+    group = wc.group
+    OUT = []
+
+    # generate_depth metabat
+    OUT += [f"{group}/map/depth.txt"]
+
+    for sample in COBINNING_SAMPLES[group]:
+        for case in ["contigs","orf","contigs_C10K","split_semibin2"]:
+            # bedtools (include: concoct/semibin2/orfs)
+            OUT += [f"{group}/map/{sample}.{case}.cov"]
+
+        # get_stats
+        OUT += [f"{group}/map/{sample}_mapped_sorted.stats"]
+        
+        # mapped_reads
+        OUT += [f"{group}/map/{sample}_mapped_read.txt"]
+
+        if DUPLICATE==True:
+            # get_cov_stats
+            OUT += [f"{group}/map/{sample}_cov.stats"]
+            
+            # picard_duplicate
+            OUT += [f"{group}/map/{sample}_mapped_sorted_dup.bam"]
+
+    return OUT
+
+
+# control_bam_order needs to be a checkpoint, otherwise snakemake will not do it sequentially
+rule control_bam_order:
+    input: prev_group = schedule_mapping,
+           bam_processed =  bam_dependant_output
+    output: "{group}/map/.bam_map.done"
+    shell: "touch {output}"
 
 # ---------------------------------------
 # ------------ Subworkflows  ------------
