@@ -109,6 +109,12 @@ def consensus(cluster_def_m2, cluster_def_c, profile_file, contig_to_len, contig
 
     # dispatch contigs to the most correlated mag, let's assign a contig to the best correlated mag
     for contig,[mag1,mag2] in  contig_to_mags.items() :
+        # skip contigs without profile data
+        if contig not in contig_profile:
+            if contig in cluster_to_contigs[mag1]:
+                cluster_to_contigs[mag1].remove(contig)
+            if contig in cluster_to_contigs[mag2]:
+                cluster_to_contigs[mag2].remove(contig)
         # it may happen that everything is ambiguous
         issue = [m for m in [mag1,mag2] if np.isnan(mag_profile[m]).sum()]
         if issue:
