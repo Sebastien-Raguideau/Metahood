@@ -1,0 +1,14 @@
+#### 05-04-2025 ####
+
+# Megahit
+	- (FIX) singularity env has awk but not bc, replaced bc with awk
+	- (FIX) add double bracket for bash command within snakemake, fix previous fix
+# Bwa mem:
+	- (FIX) all bwa mem are scheduled on through at frist try ei-largemem, few example show a consumption of 25G from a requested 500G. The mult is 10, that sounds too much but it was necessary on other dataset. 25G with 20G sample and 5G assembly. In all likelihood mem usage scales with assembly size. Kept the mult=10 and removed samples from input: so samples are not used when calculating required meme.
+
+# Prodigal:
+	- (NEW) use prodigal_gv, had to 
+
+
+
+

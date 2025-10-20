@@ -18,6 +18,7 @@ import os
 
 default_values = {
     "IGNORE_FOLDER":["multiqc_data"],
+    "nb_concurent_map":1,
     "binning":{"concoct":{"contig_size" : 1000,"execution" : 1,"max_bin_nb" : 2000},"metabat2":{"execution" : 1,"contig_size":1500},"ssa_unique_sample":False,"cobinning_samples":["*"]},
     "mag":["native"],
     "threads":8,

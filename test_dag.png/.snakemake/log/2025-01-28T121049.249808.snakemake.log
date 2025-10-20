@@ -1,0 +1,29 @@
+Building DAG of jobs...
+Full Traceback (most recent call last):
+  File "/ei/.project-scratch/0/0e51ef86-0156-4e79-ad12-c5411c0a5496/seb/repos/miniconda3/lib/python3.10/site-packages/snakemake/__init__.py", line 757, in snakemake
+    success = workflow.execute(
+  File "/ei/.project-scratch/0/0e51ef86-0156-4e79-ad12-c5411c0a5496/seb/repos/miniconda3/lib/python3.10/site-packages/snakemake/workflow.py", line 745, in execute
+    dag.init()
+  File "/ei/.project-scratch/0/0e51ef86-0156-4e79-ad12-c5411c0a5496/seb/repos/miniconda3/lib/python3.10/site-packages/snakemake/dag.py", line 238, in init
+    self.update_conda_envs()
+  File "/ei/.project-scratch/0/0e51ef86-0156-4e79-ad12-c5411c0a5496/seb/repos/miniconda3/lib/python3.10/site-packages/snakemake/dag.py", line 325, in update_conda_envs
+    env_set = {
+  File "/ei/.project-scratch/0/0e51ef86-0156-4e79-ad12-c5411c0a5496/seb/repos/miniconda3/lib/python3.10/site-packages/snakemake/dag.py", line 328, in <setcomp>
+    if job.conda_env_spec and (self.workflow.assume_shared_fs or job.is_local)
+  File "/ei/.project-scratch/0/0e51ef86-0156-4e79-ad12-c5411c0a5496/seb/repos/miniconda3/lib/python3.10/site-packages/snakemake/jobs.py", line 423, in conda_env_spec
+    self.wildcards_dict, self.params, self.input
+  File "/ei/.project-scratch/0/0e51ef86-0156-4e79-ad12-c5411c0a5496/seb/repos/miniconda3/lib/python3.10/site-packages/snakemake/jobs.py", line 352, in params
+    self.wildcards_dict, self.input, self.output, self.resources
+  File "/ei/.project-scratch/0/0e51ef86-0156-4e79-ad12-c5411c0a5496/seb/repos/miniconda3/lib/python3.10/site-packages/snakemake/jobs.py", line 401, in resources
+    self._resources = self.rule.expand_resources(
+  File "/ei/.project-scratch/0/0e51ef86-0156-4e79-ad12-c5411c0a5496/seb/repos/miniconda3/lib/python3.10/site-packages/snakemake/rules.py", line 1135, in expand_resources
+    infer_resources(name, value, resources)
+  File "/ei/.project-scratch/0/0e51ef86-0156-4e79-ad12-c5411c0a5496/seb/repos/miniconda3/lib/python3.10/site-packages/snakemake/resources.py", line 579, in infer_resources
+    from humanfriendly import parse_size, parse_timespan, InvalidTimespan, InvalidSize
+  File "/ei/.project-scratch/0/0e51ef86-0156-4e79-ad12-c5411c0a5496/seb/repos/miniconda3/lib/python3.10/site-packages/humanfriendly/deprecation.py", line 217, in __getattr__
+    def __getattr__(self, name):
+KeyboardInterrupt
+
+Cancelling snakemake on user request.
+unlocking
+removed all locks

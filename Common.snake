@@ -21,6 +21,8 @@ from scripts.common import detect_reads, fill_default_values, extended_glob, rep
 # config_file = "/ei/.project-scratch/4/429e8fc5-090b-4f2d-8066-864a4fc96ae2/SR_ASM/config_frac.yaml"
 # config_file = "/ei/.project-scratch/3/30009c04-8542-443e-ab96-af4df0a43d03/assemblies/config_SSA_plate_sweep.yaml"
 # config_file = "/ei/.project-scratch/3/30009c04-8542-443e-ab96-af4df0a43d03/assemblies/config_fecal_spk.yaml"
+# config plankton
+#config_file = "/ei/.project-scratch/5/542de014-1e71-4955-945a-5d2ab09567a7/plankton/WGS/config_SSA.yaml"
 # config = yaml.load(open(config_file), Loader=yaml.FullLoader)
 # config["CONFIG_PATH"]=config_file
 # config["EXEC_DIR"] = abspath(realpath(config["execution_directory"]))
@@ -50,6 +52,7 @@ CONDA_ENV = config["conda_env"]
 CONFIG_PATH = config["CONFIG_PATH"]
 LOCAL_DIR = config["LOCAL_DIR"]
 EXEC_DIR = config["EXEC_DIR"]
+NB_CONCURENT_MAP = config["nb_concurent_map"]
 
 # ------- Cluster resources -------
 # config should be in G, but this will be compared with info in mb
@@ -243,15 +246,23 @@ GROUP_SIZE = {group:sum([os.path.getsize(SAMPLE_READS[basename(sample)][0])/(102
 
 # check assembly is done:
 GROUP_ASM_DONE = {group:os.path.isfile(f"{EXEC_DIR}/{group}/contigs/contigs.fa") for group in GROUPS}
-
-# order is, first assembly which are finished, then total size of reads used for assembly
+# check mapping is done:
+GROUP_BAM_DONE = {group:os.path.isfile(f"{EXEC_DIR}/{group}/map/.bam_map.done") for group in GROUPS}
+# order is, first map is done, then assembly which are finished, then total size of reads used for assembly
 # help to predict which assembly migth be done first: issue with dealing with 1 assembly at a time is that we don't know beforehand which one is going to be finished first.
-ASM_ORDER = sorted(GROUPS,key=lambda x:(-GROUP_ASM_DONE[x],GROUP_SIZE[x]))
-ASM_CURENT_TO_PREV = {ASM_ORDER[index+1]:"%s/map/.bam_map.done"%group for index,group in enumerate(ASM_ORDER[:-1])}
-ASM_CURENT_TO_PREV[ASM_ORDER[0]] = "%s/contigs/contigs.fa"%ASM_ORDER[0]
+ASM_ORDER = sorted(GROUPS,key=lambda x:(-GROUP_BAM_DONE[x],-GROUP_ASM_DONE[x],GROUP_SIZE[x]))
+# 
+BATCH_ASM = [ASM_ORDER[batch:batch+NB_CONCURENT_MAP] for batch in range(0,len(ASM_ORDER),NB_CONCURENT_MAP)]
+
+BATCH_ASM_TO_PREV = {asm:[f"{group}/map/.bam_map.done" for group in groups] for index,groups in enumerate(BATCH_ASM[:-1]) for asm in BATCH_ASM[index+1]}
+BATCH_ASM_TO_PREV.update({asm:f"{asm}/contigs/contigs.fa" for asm in BATCH_ASM[0]})
+
+
+# ASM_CURENT_TO_PREV = {ASM_ORDER[index+1]:"%s/map/.bam_map.done"%group for index,group in enumerate(ASM_ORDER[:-1])}
+# ASM_CURENT_TO_PREV[ASM_ORDER[0]] = "%s/contigs/contigs.fa"%ASM_ORDER[0]
 
 def schedule_mapping(wc):
-    return ASM_CURENT_TO_PREV[wc.group]
+    return BATCH_ASM_TO_PREV[wc.group]
 
 
 # need to reimplement getting the size of input for megahit, because it wants an estimation of percent usage relative to total mem installed... stupid.
