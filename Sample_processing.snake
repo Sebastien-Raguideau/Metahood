@@ -140,3 +140,19 @@ rule multiqc :
     """
 
 
+if IS_FASTA :
+    rule reads_qty_0:
+        input:  R1=lambda w:R1[w["sample"]]
+        output: "{path}/{sample}/{sample}_readsnb.txt"
+        shell: "echo $(( $(zgrep -c '>' {input.R1})*2 )) > {output}"
+else : 
+    rule reads_qty_0:
+        input:  R1=lambda w:R1[w["sample"]]
+        output: "{path}/{sample}/{sample}_readsnb.txt"
+        shell: "echo $(($(zcat {input.R1} | wc -l)/2)) > {output}"
+
+rule read_nb_0:
+    input: total= [f"{path}/{sample}/{sample}_readsnb.txt" for sample,path in  SAMPLE_PATH.items()]
+    output: expand("{path}/.read_nb.done",path=IN)
+    shell: "touch {output}"
+

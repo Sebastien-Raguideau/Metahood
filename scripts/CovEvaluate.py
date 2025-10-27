@@ -11,7 +11,7 @@ from collections import Counter
 
 
 def main(bam_file,out_stats,out_hists,maxlen):
-    samfile = pysam.AlignmentFile(bam_file, "r")
+    samfile = pysam.AlignmentFile(bam_file, "rc")
     contigs_10K = {dicct["SN"]:dicct["LN"] for dicct in samfile.header.as_dict()["SQ"] if dicct["LN"]>=maxlen}
 
     #  open(out_hists,"w") as handle_hists
@@ -22,7 +22,7 @@ def main(bam_file,out_stats,out_hists,maxlen):
         for contig,length in contigs_10K.items():
             # hist
             pos_to_cnt = defaultdict(int)
-            pos_to_cnt.update({col.reference_pos:col.nsegments for col in samfile.pileup(contig)})
+            pos_to_cnt.update({col.reference_pos:col.nsegments for col in samfile.pileup(contig,stepper="all")})
             # handle_hists.writelines("%s\t%s\t%s\n"%(contig,pos,pos_to_cnt[pos]) for pos in range(length))
             # stats
             depthArray = np.array(list(pos_to_cnt.values()))

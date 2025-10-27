@@ -81,6 +81,8 @@ def gather_paths(path):
                 continue
             if "Filtered" in name :
                 continue
+            if "_val_" in name:
+                continue
             yield os.path.join(path, filename)
 
 def detect_reads(dir):

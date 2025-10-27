@@ -10,7 +10,8 @@ rule prodigal:
         faa="{group}/annotation/contigs.faa",
         fna="{group}/annotation/contigs.fna",
         gff="{group}/annotation/contigs.gff",
-        cut_faa=expand("{{group}}/annotation/temp_splits/Batch_{nb}.faa",nb=range(100))
+        cut_faa=expand("{{group}}/annotation/temp_splits/Batch_{nb}.faa",nb=range(100)),
+        cut_fa=expand("{{group}}/annotation/temp_splits/Batch_{nb}",nb=range(100))
     params:
         dir='{group}/annotation'
     threads: 32
@@ -113,14 +114,14 @@ if CAT_DB:
     CAT_DB_DMND = glob.glob("%s/db/*.dmnd"%CAT_DB)[0] # for size purpose
 else:
     CAT_DB_DMND =""
+
 rule CAT_annotation:
-    input: contigs="{group}/contigs/contigs.fa",
-           faa="{group}/annotation/contigs.faa",
+    input: contigs="{path}/annotation/temp_splits/Batch_{nb}",
+           faa="{path}/annotation/temp_splits/Batch_{nb}.faa",
            db = CAT_DB_DMND
-    output: ORF2LCA="{group}/annotation/CAT/contigs.contig2classification.txt"
-    params : Dir="{group}/annotation/CAT/contigs"
-    conda : CONDA_ENV + "/cat.yaml"
-    # singularity : "docker://quay.io/annacprice/cat:5.2.2"
+    output: ORF2LCA="{path}/annotation/temp_splits/Batch_{nb}_contigs.contig2classification.txt",
+            diamond = temp("{path}/annotation/temp_splits/Batch_{nb}_contigs.alignment.diamond")
+    params : Dir="{path}/annotation/temp_splits/Batch_{nb}_contigs"
     threads: 8
     resources:
         slurm_partition = get_resource("partition",mult=1),
@@ -129,18 +130,18 @@ rule CAT_annotation:
     {CAT_PATH}/CAT_pack contigs -c {input.contigs}  -d {CAT_DB}/db -t {CAT_DB}/tax -p {input.faa} -n {threads} --out_prefix {params.Dir} --top 11 --I_know_what_Im_doing --force
     """
 
-rule CAT_ORF_annotation:
-    input: ORF2LCA="{group}/annotation/CAT/contigs.contig2classification.txt"
-    output: annotation="{group}/annotation/CAT_contigs_taxonomy.tsv"
-    conda : CONDA_ENV + "/cat.yaml"
+rule CAT_add_name:
+    input: expand("{{path}}/annotation/temp_splits/Batch_{nb}_contigs.contig2classification.txt",nb=range(100))
+    output: annotation="{path}/annotation/CAT_contigs_taxonomy.tsv"
+    params: tmp="{path}/annotation/CAT_contig_raw.tsv"
     resources:
         slurm_partition = get_resource("partition"),
         mem_mb = get_resource("mem")
-    shell: "cp {input} {output}" # add name not needed anymore, will be supported in the futur
-    # singularity : "docker://quay.io/annacprice/cat:5.2.2"
-    # shell : """
-    # {CAT_PATH}/CAT_pack add_names -i {input.ORF2LCA} -o {output.annotation} -t {CAT_DB} --only_official
-    # """
+    shell: """cat {input} > {params.tmp}
+    {CAT_PATH}/CAT_pack add_names -i {params.tmp} -o {output.annotation} -t {CAT_DB}/tax
+    rm {params.tmp}
+    """
+
 
 # ------- kraken annotation -----------------------
 rule kraken_uniq:

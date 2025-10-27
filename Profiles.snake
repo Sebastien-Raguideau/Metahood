@@ -33,25 +33,27 @@ rule sort_bed:
     resources:
         slurm_partition = get_resource("partition"),
         mem_mb = get_resource("mem")
-    conda : "%s/pythonenv.yaml"%CONDA_ENV
     singularity : "docker://quay.io/annacprice/pythonenv:3.9"
     shell: "{SCRIPTS}/sort_bed.py {input.bed} {input.cont} {output.bed} -g {output.gfile}"
 
 
 # ---- use bedtool to compute coverage  ----------------------------------------------------
 rule bedtools:
-    input:  bam = "{group}/map/{sample}_mapped_sorted.bam",
+    input:  cram = "{group}/map/{sample}_mapped_sorted.cram",
             bed = "{group}/annotation/{type}.bed",
-            genome = "{group}/annotation/{type}_bedtools_target_definition.tsv",
+            genome = "{group}/annotation/{type}_bedtools_target_definition.tsv"
+    params: "{group}/contigs/contigs.fa"
     output:  temp("{group}/map/{sample}.{type}.cov")
     log:      "{group}/map/{sample}_{type}.log"
     priority: 50
     resources:
         slurm_partition = get_resource("partition"),
         mem_mb = get_resource("mem")
-    conda : CONDA_ENV + "/bedtools.yaml"
-    singularity : "docker://quay.io/annacprice/bedtools:2.29.2"
-    shell:   "bedtools coverage -a {input.bed} -b {input.bam} -g {input.genome} -mean -sorted> {output} 2>{log} "
+    singularity : "docker://quay.io/biocontainers/bedtools:2.31.1--h13024bc_3"
+    shell:"""
+    export CRAM_REFERENCE="{params}"
+    bedtools coverage -a {input.bed} -b {input.cram} -g {input.genome} -mean -sorted> {output} 2>{log}
+    """
 
 # ---- collate all files  -----------------------
 
@@ -168,7 +170,7 @@ rule median_SCG_cov:
 # ---- percent maped info  -----------------------
 
 rule mapped_reads:
-    input:  bam="{group}/map/{sample}_mapped_sorted.bam"
+    input:  cram="{group}/map/{sample}_mapped_sorted.cram"
     output: readnb="{group}/map/{sample}_mapped_read.txt"
     threads: 8
     priority: 50
@@ -177,18 +179,18 @@ rule mapped_reads:
         slurm_partition = get_resource("partition"),
         mem_mb = get_resource("mem")
     singularity : "docker://quay.io/annacprice/bwasamtools:1.10"
-    shell: """samtools flagstat {input.bam} -@ {threads} | grep 'paired in sequencing' | cut -f1 -d " " > {output.readnb}""" 
+    shell: """samtools flagstat {input.cram} -@ {threads} | grep 'paired in sequencing' | cut -f1 -d " " > {output.readnb}""" 
 
-if IS_FASTA :
-    rule reads_qty:
-        input:  R1=lambda w:R1[w["sample"]]
-        output: "{path}/{sample}/{sample}_readsnb.txt"
-        shell: "echo $(( $(zgrep -c '>' {input.R1})*2 )) > {output}"
-else : 
-    rule reads_qty:
-        input:  R1=lambda w:R1[w["sample"]]
-        output: "{path}/{sample}/{sample}_readsnb.txt"
-        shell: "echo $(($(zcat {input.R1} | wc -l)/2)) > {output}"
+#if IS_FASTA :
+#    rule reads_qty:
+#        input:  R1=lambda w:R1[w["sample"]]
+#        output: "{path}/{sample}/{sample}_readsnb.txt"
+#        shell: "echo $(( $(zgrep -c '>' {input.R1})*2 )) > {output}"
+#else : 
+#    rule reads_qty:
+#        input:  R1=lambda w:R1[w["sample"]]
+#        output: "{path}/{sample}/{sample}_readsnb.txt"
+#        shell: "echo $(($(zcat {input.R1} | wc -l)/2)) > {output}"
 
 rule get_percent:
     input: mapped=lambda w:[w.group+"/map/"+sample.split('/')[-1]+"_mapped_read.txt" for sample in  COBINNING_SAMPLES[w.group]],
@@ -230,9 +232,13 @@ rule mag_coverage:
 # ---------------------- look at duplicates ----------------------
 # (PICARD)
 rule picard_duplicate:
+<<<<<<< HEAD
     input: bam = "{group}/map/{sample}_mapped_sorted.bam"
+=======
+    input: cram = "{group}/map/{sample}_mapped_sorted.cram"
+>>>>>>> fd72107 (yearly change + remove singularity tracking)
            # index = "{group}/map/{sample}_mapped_sorted.bam.bai",
-    output: bam = "{group}/map/{sample}_mapped_sorted_dup.bam",
+    output: cram = "{group}/map/{sample}_mapped_sorted_dup.cram",
             stat = "{group}/map/{sample}_marked_dup_metrics.txt"
     priority: 50            
     params: tmp = "{group}/tmp/{sample}"
@@ -244,7 +250,7 @@ rule picard_duplicate:
     shell: """
     mkdir -p {params.tmp}/
     export JAVA_OPTIONS="-Xmx{resources.mem_mb}m -Xms{resources.mem_mb}m -Djava.io.tmpdir={params.tmp}"
-    PicardCommandLine MarkDuplicates I={input.bam} O={output.bam} M={output.stat} SORTING_COLLECTION_SIZE_RATIO=0.10 TMP_DIR={params.tmp}/
+    PicardCommandLine MarkDuplicates I={input.cram} O={output.cram} M={output.stat} SORTING_COLLECTION_SIZE_RATIO=0.10 TMP_DIR={params.tmp}/
     """
 
 # more recent version, may ask for RG?
@@ -268,33 +274,34 @@ rule picard_duplicate:
 
 
 
-# samtools
-rule samtools_check_duplicate:
-    input: bam = "{group}/map/{sample}_mapped_sorted.bam"
-           # index = "{group}/map/{sample}_mapped_sorted.bam.bai",
-    output: bam = "{group}/map/{sample}_mapped_sorted_dup_samtools.bam",
-            stat = "{group}/map/{sample}_marked_dup_metrics_samtools.txt"
-    priority: 50
-    resources:
-        slurm_partition = get_resource("partition", mult=10),
-        mem_mb = get_resource("mem", mult=10)
-    singularity : "docker://quay.io/annacprice/bwasamtools:1.10"
-    shell: """
-    samtools sort -n {input.bam} | samtools fixmate -m - - | samtools sort - | samtools markdup -r -f {output.stat} - {output.bam}
-    """
+# # samtools
+# rule samtools_check_duplicate:
+#     input: bam = "{group}/map/{sample}_mapped_sorted.bam"
+#            # index = "{group}/map/{sample}_mapped_sorted.bam.bai",
+#     output: bam = "{group}/map/{sample}_mapped_sorted_dup_samtools.bam",
+#             stat = "{group}/map/{sample}_marked_dup_metrics_samtools.txt"
+#     priority: 50
+#     resources:
+#         slurm_partition = get_resource("partition", mult=10),
+#         mem_mb = get_resource("mem", mult=10)
+#     singularity : "docker://quay.io/annacprice/bwasamtools:1.10"
+#     shell: """
+#     samtools sort -n {input.bam} | samtools fixmate -m - - | samtools sort - | samtools markdup -r -f {output.stat} - {output.bam}
+#     """
 
 # stats
 rule get_stats:
-    input: bam = "{bam}.bam"
-    output: stats = "{bam}.stats"
+    input: cram = "{cram}.cram"
+    output: stats = "{cram}.stats"
     priority: 50
     resources:
         slurm_partition = get_resource("partition"),
         mem_mb = get_resource("mem")
     singularity : "docker://quay.io/annacprice/bwasamtools:1.10"
     shell: """
-    samtools stats {input.bam} > {output.stats}
+    samtools stats {input.cram} > {output.stats}
     """
+
 
 # aggregate info on duplicates
 rule check_duplicates:
@@ -325,23 +332,23 @@ rule check_duplicates:
 
 # ---------------------- get cov hist and cov variation ----------------------
 rule index:
-    input: bam = "{group}/map/{sample}_mapped_sorted.bam"
-    output: "{group}/map/{sample}_mapped_sorted.bam.bai"
+    input: cram = "{group}/map/{sample}_mapped_sorted.cram"
+    output: "{group}/map/{sample}_mapped_sorted.cram.bai"
     resources:
         slurm_partition = get_resource("partition"),
         mem_mb = get_resource("mem")
     singularity : "docker://quay.io/annacprice/bwasamtools:1.10"
-    shell: "samtools index {input.bam}"
+    shell: "samtools index {input.cram}"
 
 rule get_cov_stats:
-    input: bam = "{group}/map/{sample}_mapped_sorted.bam",
-           bai = "{group}/map/{sample}_mapped_sorted.bam.bai"
+    input: cram = "{group}/map/{sample}_mapped_sorted.cram",
+           bai = "{group}/map/{sample}_mapped_sorted.cram.bai"
     output: cov_stat = "{group}/map/{sample}_cov.stats",
             cov_hists = "{group}/map/{sample}_cov.hists"
     resources:
         slurm_partition = get_resource("partition", mult=10),
         mem_mb = get_resource("mem", mult=10)
     singularity : "%s/../singularity_container/pythonenv_pysam.sif"%SCRIPTS
-    shell: "{SCRIPTS}/CovEvaluate.py {input.bam} {output.cov_stat} {output.cov_hists} -l 10000"
+    shell: "{SCRIPTS}/CovEvaluate.py {input.cram} {output.cov_stat} {output.cov_hists} -l 10000"
 
 

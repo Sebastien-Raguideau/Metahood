@@ -2,4 +2,4 @@ include: "Common.snake"
 include: 'Sample_processing.snake'
 
 rule sample_qc:
-	input: IN+"/quality_done"
+	input: expand("{path}/quality_done",path=IN)
