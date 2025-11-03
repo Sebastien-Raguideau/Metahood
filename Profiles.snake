@@ -232,11 +232,7 @@ rule mag_coverage:
 # ---------------------- look at duplicates ----------------------
 # (PICARD)
 rule picard_duplicate:
-<<<<<<< HEAD
-    input: bam = "{group}/map/{sample}_mapped_sorted.bam"
-=======
     input: cram = "{group}/map/{sample}_mapped_sorted.cram"
->>>>>>> fd72107 (yearly change + remove singularity tracking)
            # index = "{group}/map/{sample}_mapped_sorted.bam.bai",
     output: cram = "{group}/map/{sample}_mapped_sorted_dup.cram",
             stat = "{group}/map/{sample}_marked_dup_metrics.txt"
