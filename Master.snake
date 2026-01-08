@@ -108,7 +108,7 @@ def bam_dependant_output(wc):
             OUT += [f"{group}/map/{sample}_cov.stats"]
             
             # picard_duplicate
-            OUT += [f"{group}/map/{sample}_mapped_sorted_dup.cram"]
+            OUT += [f"{group}/map/{sample}_mapped_sorted_dup.bam"]
 
     return OUT
 

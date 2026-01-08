@@ -3,7 +3,7 @@
 
 if COVERAGE_UNIQUE_SAMPLE:
     rule generate_depth :
-        input:  bam =lambda w : [w.group+"/map/"+sample.split('/')[-1]+"_mapped_sorted.cram" for sample in  GROUPS[w.group]]
+        input:  bam =lambda w : [w.group+"/map/"+sample.split('/')[-1]+"_mapped_sorted.bam" for sample in  GROUPS[w.group]]
         output: "{group}/map/depth.txt"
         log : "{group}/map/depth.log"
         conda : CONDA_ENV + "/metabat2.yaml"
@@ -14,7 +14,7 @@ if COVERAGE_UNIQUE_SAMPLE:
         shell: "jgi_summarize_bam_contig_depths --outputDepth {output} {input.bam} &>{log}" 
 else:
     rule generate_depth :
-        input:  bam = lambda w : ["%s/map/%s_mapped_sorted.cram"%(w.group,basename(sample)) for sample in  SAMPLES]
+        input:  bam = lambda w : ["%s/map/%s_mapped_sorted.bam"%(w.group,basename(sample)) for sample in  SAMPLES]
         output: "{group}/map/depth.txt"
         log : "{group}/map/depth.log"
         conda : CONDA_ENV + "/metabat2.yaml"
