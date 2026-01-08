@@ -38,8 +38,20 @@ rule sort_bed:
 
 
 # ---- use bedtool to compute coverage  ----------------------------------------------------
+rule samtool_translate:
+    input : cram = "{group}/map/{sample}_mapped_sorted.cram",
+            ctg = "{group}/contigs/contigs.fa",
+    output: pipe("{group}/map/{sample}_mapped_sorted.{destination}.decoded")
+    resources:
+        slurm_partition = get_resource("partition"),
+        mem_mb = get_resource("mem")
+    singularity : "docker://quay.io/annacprice/bwasamtools:1.10"
+    shell: "samtools view -u -T {input.ctg} {input.cram} > {output}"
+
+
+# unclear why but cram cannot be used directly. Works fine on a 10 contigs long file, but not on production, so we use samtool view to translate cram to bam instead
 rule bedtools:
-    input:  cram = "{group}/map/{sample}_mapped_sorted.cram",
+    input:  bam = "{group}/map/{sample}_mapped_sorted.{type}.decoded",
             bed = "{group}/annotation/{type}.bed",
             genome = "{group}/annotation/{type}_bedtools_target_definition.tsv"
     params: "{group}/contigs/contigs.fa"
@@ -52,7 +64,7 @@ rule bedtools:
     singularity : "docker://quay.io/biocontainers/bedtools:2.31.1--h13024bc_3"
     shell:"""
     export CRAM_REFERENCE="{params}"
-    bedtools coverage -a {input.bed} -b {input.cram} -g {input.genome} -mean -sorted> {output} 2>{log}
+    bedtools coverage -a {input.bed} -b {input.bam} -g {input.genome} -mean -sorted> {output} 2>{log}
     """
 
 # ---- collate all files  -----------------------
@@ -285,17 +297,20 @@ rule picard_duplicate:
 #     samtools sort -n {input.bam} | samtools fixmate -m - - | samtools sort - | samtools markdup -r -f {output.stat} - {output.bam}
 #     """
 
+
+# again, weird bug with cram decoding
 # stats
 rule get_stats:
-    input: cram = "{cram}.cram"
-    output: stats = "{cram}.stats"
+    input: cram = "{group}/map/{sample}_mapped_sorted.cram",
+           ctg = "{group}/contigs/contigs.fa"
+    output: stats = "{group}/map/{sample}_mapped_sorted.stats"
     priority: 50
     resources:
         slurm_partition = get_resource("partition"),
         mem_mb = get_resource("mem")
     singularity : "docker://quay.io/annacprice/bwasamtools:1.10"
     shell: """
-    samtools stats {input.cram} > {output.stats}
+    samtools stats <(samtools view -u -T {input.ctg} {input.cram}) > {output.stats}
     """
 
 
@@ -329,7 +344,7 @@ rule check_duplicates:
 # ---------------------- get cov hist and cov variation ----------------------
 rule index:
     input: cram = "{group}/map/{sample}_mapped_sorted.cram"
-    output: "{group}/map/{sample}_mapped_sorted.cram.bai"
+    output: "{group}/map/{sample}_mapped_sorted.cram.crai"
     resources:
         slurm_partition = get_resource("partition"),
         mem_mb = get_resource("mem")
@@ -338,7 +353,7 @@ rule index:
 
 rule get_cov_stats:
     input: cram = "{group}/map/{sample}_mapped_sorted.cram",
-           bai = "{group}/map/{sample}_mapped_sorted.cram.bai"
+           bai = "{group}/map/{sample}_mapped_sorted.cram.crai"
     output: cov_stat = "{group}/map/{sample}_cov.stats",
             cov_hists = "{group}/map/{sample}_cov.hists"
     resources:

@@ -176,7 +176,7 @@ for group,list_regex in GROUPS_DEF.items() :
 # check that group definition allow us to find samples
 Empty_group=[group for group,value in GROUPS.items() if len(value)==0]
 if Empty_group :
-    raise WorkflowError("Samples specified in groups "+"/".join(Empty_group)+" haven't been found at "+IN+ ", check your config file for potential errors")
+    raise WorkflowError("Samples specified in groups "+"/".join(Empty_group)+" haven't been found in any of the following location, check your config file for potential errors:\n"+"\n".join(IN)+"\n")
 
 # --------- Assembler change---------
 GROUP_ASM = {}

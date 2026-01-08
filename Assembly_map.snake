@@ -105,6 +105,6 @@ rule sam_to_cram:
     singularity: "docker://quay.io/biocontainers/samtools:1.22.1--h96c455f_0"
     shell:   """
     export REF_PATH="{input.contigs}"
-    samtools view -T {input.contigs} -C -F 4 -@{threads} {input.sam} | samtools sort -@{threads} - > {output}
+    samtools view -T {input.contigs} -C -F 4 -@{threads} {input.sam} | samtools sort -O CRAM -@{threads} - > {output}
     """
 
