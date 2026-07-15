@@ -10,14 +10,14 @@ rule spades:
              fold = "{group}/assembly"
     threads: 32
     resources:
-        slurm_partition = get_resource("partition",mult=5),
-        mem_mb = get_resource("mem",mult=5),
+        slurm_partition = get_resource("partition",mult=10),
+        mem_mb = get_resource("mem",mult=10),
     log:     "{group}/assembly/spades.log"
     singularity: "docker://quay.io/biocontainers/spades:4.0.0--haf24da9_4"
     shell: """
-        metaspades.py --meta --only-assembler -t {threads} {params.left} {params.right} -o {params.fold} &> {log}
-        """
-
+        mem_gb=$(( {resources.mem_mb} / 1000 ))
+        metaspades.py --meta --only-assembler -m "$mem_gb" -t {threads} {params.left} {params.right} -o {params.fold} &> {log}
+    """
 # Assemble with MegaHIT
 rule megahit:
     input:   left=lambda w:R1[w["group"]],
@@ -43,12 +43,58 @@ rule megahit:
              rm -rf {params.fold}/intermediate_contigs
              """
 
-rule symlink_asm:
+# HARD filter on max nb of contigs, I won't consider more than 70 000 000 by default due to bam max header size.
+checkpoint contig_nb:
     input: lambda w:GROUP_ASM[w.group]
-    output: "{group}/contigs/contigs.fa"
-    shell: """
-    ln -s $(realpath {input}) $(realpath {output})
-    """
+    output: "{group}/contigs/nb_contigs_init.tsv"
+    run:
+        with open(output[0],"w") as handle:
+            handle.write("%s\n"%str(sum([1 for _,__ in sfp(open(input[0]))])))
+
+
+def filter_contig_nb_or_not(w):
+    nb_contig = int(open(checkpoints.contig_nb.get(group=w.group).output[0]).read().rstrip())
+    if nb_contig>MAX_CONTIG_NB:
+        return "%s/contigs/contigs_filtered.fa"%w.group
+    else:
+        return GROUP_ASM[w.group]
+
+rule keep_biggest_contigs:
+    input: lambda w:GROUP_ASM[w.group]
+    output: "{group}/contigs/contigs_filtered.fa"
+    resources:
+        slurm_partition = get_resource("partition",min_size=20000),
+        mem_mb=get_resource("mem")
+    run:
+        contig_len = {header:len(seq) for header,seq in sfp(open(input[0]))}
+        sorted_lengths = sorted(contig_len.values())
+        Length_min = next(el for el in sorted_lengths[-MAX_CONTIG_NB:] if el>sorted_lengths[MAX_CONTIG_NB])
+        filered_contig = {contig for contig,l in contig_len.items() if l>Length_min}
+        with open(output[0],"w") as handle:
+            for header,seq in sfp(open(input[0])):
+                if header in filered_contig:
+                    handle.write(f">{header}\n{seq}\n")
+
+
+if MIN_ASM_CONTIG_SIZE==0:
+    rule symlink_asm:
+        input: filter_contig_nb_or_not
+        output: "{group}/contigs/contigs.fa"
+        shell: """
+        ln -sfn $(realpath {input}) $(realpath {output})
+        touch -h "{output}"
+        """
+else:
+    rule filter_contigs:
+        input: filter_contig_nb_or_not
+        output: "{group}/contigs/contigs.fa"
+        run:
+            with open(output[0],"w") as handle:
+                for header,seq in sfp(open(input[0])):
+                    if len(seq)>=MIN_ASM_CONTIG_SIZE:
+                        handle.write(f">{header}\n{seq}\n")
+
+
 
 # ---- bwa index file  -------------------------------------------
 rule bwa_index:

@@ -77,20 +77,3 @@ rule semibin2_post_processing:
                         continue
                     handle_w.write(f"{contig},{bin_nb}\n")
 
-
-rule get_consensus_binning2 :
-    # only support 2 binner as of now
-    input : c_bin_def = "{path}/binning/consensus/concoct_vs_metabat2/clustering_consensus.csv",
-            s_bin_def = "{path}/binning/semibin2/clustering_semibin2.csv",
-            c_mag_list = "{path}/binning/consensus/concoct_vs_metabat2/consensus_MAG_list.txt",
-            s_mag_list = "{path}/binning/semibin2/semibin2_MAG_list.txt",
-            scg = "{path}/annotation/contigs_SCG.fna",
-            contig_profiles = "{path}/binning/concoct/original_data_gt%s.csv"%MIN_CONTIG_SIZE,
-            contig_bed = "{path}/annotation/contigs.bed"
-    output : "{path}/binning/consensus/clustering_consensus.csv"
-    resources:
-        slurm_partition = get_resource("partition"),
-        mem_mb = get_resource("mem")
-    shell :"""
-    {SCRIPTS}/consensus_binning.py -c_bin_def {input.c_bin_def} -m_bin_def {input.s_bin_def} -c_mag_list {input.c_mag_list} -m_mag_list {input.s_mag_list} -scg {input.scg} -contig_profiles {input.contig_profiles} -contig_bed {input.contig_bed} -o {output}
-    """

@@ -68,7 +68,9 @@ if GRAPH_TASKS:
 #     List_inputs += expand("{group}/MagAnalysis/concoct/mags/done",group=list(GROUPS.keys()))
 
 
-
+# missing = [f for f in List_inputs if not os.path.isfile(f)]
+# for f in missing:
+#     print(f"{f}")
 
 # ------------ snakemake start ------------
 rule all:
@@ -92,8 +94,9 @@ def bam_dependant_output(wc):
     # generate_depth metabat
     OUT += [f"{group}/map/depth.txt"]
 
+    CASES = ["contigs","orf"]+ ("concoct" in BINNER)*["contigs_C10K"] + ("semibin2" in BINNER)*["split_semibin2"]
     for sample in COBINNING_SAMPLES[group]:
-        for case in ["contigs","orf","contigs_C10K","split_semibin2"]:
+        for case in CASES:
             # bedtools (include: concoct/semibin2/orfs)
             OUT += [f"{group}/map/{sample}.{case}.cov"]
 

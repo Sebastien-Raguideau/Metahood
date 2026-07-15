@@ -19,10 +19,10 @@ import os
 default_values = {
     "IGNORE_FOLDER":["multiqc_data"],
     "nb_concurent_map":1,
-    "binning":{"concoct":{"contig_size" : 1000,"execution" : 1,"max_bin_nb" : 2000},"metabat2":{"execution" : 1,"contig_size":1500},"ssa_unique_sample":False,"cobinning_samples":["*"]},
+    "binning":{"binner":["concoct","metabat2","semibin2"],"concoct":{"contig_size" : 1000,"max_bin_nb" : 2000},"metabat2":{"contig_size":1500},"ssa_unique_sample":False,"cobinning_samples":["*"]},
     "mag":["native"],
     "threads":8,
-    "assembly":    {"assembler": "megahit","groups": {},"parameters":"" },
+    "assembly":    {"assembler": "megahit","groups": {},"parameters":"","min_contig_size":"0","max_contig_nb":"70000000" },
     "annotation": {'diamond':dict(),"ip_db":"","cat_db":"","cat_path":"","kraken_db":"","kofamscan":{"profiles":"","ko_list":""},"virsorter":"","plasmidnet_install":"","genomad_db":""},
     "graph":{"List_graphs":{}},
     "filtering":"",

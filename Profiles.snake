@@ -40,7 +40,7 @@ rule sort_bed:
 # ---- use bedtool to compute coverage  ----------------------------------------------------
 
 rule bedtools:
-    input:  bam = "{group}/map/{sample}_mapped_sorted.{type}.bam",
+    input:  bam = "{group}/map/{sample}_mapped_sorted.bam",
             bed = "{group}/annotation/{type}.bed",
             genome = "{group}/annotation/{type}_bedtools_target_definition.tsv"
     output:  temp("{group}/map/{sample}.{type}.cov")
@@ -231,7 +231,7 @@ rule mag_coverage:
 # ---------------------- look at duplicates ----------------------
 # (PICARD)
 rule picard_duplicate:
-    input: bam = "{group}/map/{sample}_mapped_sorted.bam"
+    input: bam = "{group}/map/{sample}_mapped_sorted.bam",
            index = "{group}/map/{sample}_mapped_sorted.bam.bai",
     output: bam = "{group}/map/{sample}_mapped_sorted_dup.bam",
             stat = "{group}/map/{sample}_marked_dup_metrics.txt"
