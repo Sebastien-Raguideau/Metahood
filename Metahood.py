@@ -46,7 +46,9 @@ MEMG=str(int((Percent_mem*Mem_tot)/10**9))
 
 # ------- load  ---------------
 config["LOCAL_DIR"] = METAHOOD_DIR
+
 fill_default_values(config)
+
 NB_MAP = config["nb_map"]
 
 

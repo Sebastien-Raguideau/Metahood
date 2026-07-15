@@ -1,28 +1,57 @@
 
 
+def depth_input(w):
+    group = w["group"]
+    if COVERAGE_UNIQUE_SAMPLE:
+        bam_list = [f"{group}/map/{basename(sample)}_mapped_sorted.depth" for sample in GROUPS[group]]
+    else:
+        bam_list = [f"{group}/map/{basename(sample)}_mapped_sorted.depth" for sample in SAMPLES]
+    return bam_list
 
-if COVERAGE_UNIQUE_SAMPLE:
-    rule generate_depth :
-        input:  bam =lambda w : [w.group+"/map/"+sample.split('/')[-1]+"_mapped_sorted.bam" for sample in  GROUPS[w.group]]
-        output: "{group}/map/depth.txt"
-        log : "{group}/map/depth.log"
-        conda : CONDA_ENV + "/metabat2.yaml"
-        resources:
-            slurm_partition = get_resource("partition"),
-            mem_mb = get_resource("mem")
-        singularity : "docker://quay.io/annacprice/metabat2:2.15"
-        shell: "jgi_summarize_bam_contig_depths --outputDepth {output} {input.bam} &>{log}" 
-else:
-    rule generate_depth :
-        input:  bam = lambda w : ["%s/map/%s_mapped_sorted.bam"%(w.group,basename(sample)) for sample in  SAMPLES]
-        output: "{group}/map/depth.txt"
-        log : "{group}/map/depth.log"
-        conda : CONDA_ENV + "/metabat2.yaml"
-        resources:
-            slurm_partition = get_resource("partition",mult=5/len(SAMPLES)),
-            mem_mb = get_resource("mem",mult=5/len(SAMPLES))
-        singularity : "docker://quay.io/annacprice/metabat2:2.15"
-        shell: "jgi_summarize_bam_contig_depths --outputDepth {output} {input.bam} &>{log}" 
+# speed up depth generation which sometimes takes a full day.....
+rule generate_depth :
+    input:  "{path}/{sample}_mapped_sorted.bam"
+    output: "{path}/{sample}_mapped_sorted.depth"
+    resources:
+        slurm_partition = get_resource("partition"),
+        mem_mb = get_resource("mem")
+    singularity : "docker://quay.io/annacprice/metabat2:2.15"
+    shell: "jgi_summarize_bam_contig_depths --outputDepth {output} {input}" 
+
+rule aggregate_deph :
+    input:  depths = depth_input
+    output: "{group}/map/depth.txt"
+    resources:
+        slurm_partition = get_resource("partition"),
+        mem_mb = get_resource("mem")
+    run:
+        sample_file = {basename(file).split("_mapped")[0]:file for file in input["depths"]}
+        sorted_samples = sorted(sample_file)
+        # open all files
+        handles_r = [open(sample_file[sample]) for sample in sorted_samples]
+        # remove first line
+        for h in handles_r:
+            _ = next(h)
+        # usefull functions
+        def get_cov(handle):
+            sline = next(handle).rstrip().split("\t")
+            return list(map(float,sline[-2:]))
+        def unlist_couple(list_couple):
+            return [el for couple in list_couple for el in couple]
+        # headers
+        header = ["contigName", "contigLen", "totalAvgDepth"]+unlist_couple([[f"{sample}.bam",f"{sample}.bam-var"] for sample in sorted_samples])
+        header = "\t".join(header)
+        # main loop
+        with open(output[0],"w") as handle_w:
+            handle_w.write(f"{header}\n")
+            for line in handles_r[0]:
+                sline = line.rstrip().split("\t")
+                contig, cont_len = sline[:2]
+                # get coverage from all files
+                covs = list(map(float,sline[-2:]))+unlist_couple([get_cov(handle) for handle in handles_r[1:]])
+                totalAvgDepth = sum(covs[::2])
+                coverages = "\t".join(list(map(str,covs)))
+                handle_w.write(f"{contig}\t{cont_len}\t{totalAvgDepth}\t{coverages}\n")
 
 
 
@@ -63,6 +92,4 @@ rule post_processing :
         slurm_partition = get_resource("partition"),
         mem_mb = get_resource("mem")
     singularity : "docker://quay.io/annacprice/pythonenv:3.9"
-    shell: """
-           {SCRIPTS}/post_processing.py -o {output} -w {wildcards.group}
-    """
+    shell: "{SCRIPTS}/post_processing.py -o {output} -w {wildcards.group}"

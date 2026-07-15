@@ -3,6 +3,8 @@ import os.path
 from collections import Counter
 #from Bio.SeqIO.FastaIO import SimpleFastaParser as sfp
 
+wildcard_constraints:
+    binner_combi = "|".join(CONSENSUS_SCHEME.keys())
 
 # ---- get the bed file for the cut up contigs-------------------------------------------
 rule cut_contigs:
@@ -178,24 +180,40 @@ rule output_bins:
 
 #--------- create a consensus binning between concoct and metabat2 ----------------
 
+
+def consensus_inputs(w):
+    group = w["group"]
+    binner_combi = w["binner_combi"]
+    fold1, output1, fold2, output2 = CONSENSUS_SCHEME[binner_combi](group)
+    dico_input = {"bin_def_1":f"{fold1}/clustering_{output1}.csv","bin_def_2":f"{fold2}/clustering_{output2}.csv","mag_list_1":f"{fold1}/{output1}_MAG_list.txt","mag_list_2":f"{fold2}/{output2}_MAG_list.txt","scg":f"{group}/annotation/contigs_SCG.fna","contig_profiles":f"{group}/binning/concoct/original_data_gt{MIN_CONTIG_SIZE}.csv","contig_bed":f"{group}/annotation/contigs.bed"}
+    return dico_input
+
+
+
 rule get_consensus_binning :
     # only support 2 binner as of now
-    input : c_bin_def = "{group}/binning/concoct/clustering_concoct.csv",
-            m_bin_def = "{group}/binning/metabat2/clustering_metabat2.csv",
-            c_mag_list = "{group}/binning/concoct/concoct_MAG_list.txt",
-            m_mag_list = "{group}/binning/metabat2/metabat2_MAG_list.txt",
-            scg = "{group}/annotation/contigs_SCG.fna",
-            contig_profiles = "{group}/binning/concoct/original_data_gt%s.csv"%MIN_CONTIG_SIZE,
-            contig_bed = "{group}/annotation/contigs.bed"
-    output : "{group}/binning/consensus/concoct_vs_metabat2/clustering_consensus.csv"
+    input : unpack(consensus_inputs)
+    output : "{group}/binning/consensus/{binner_combi}/clustering_consensus.csv"
     conda : CONDA_ENV + "/pythonenv.yaml"
     singularity : "docker://quay.io/annacprice/pythonenv:3.9"
     resources:
         slurm_partition = get_resource("partition"),
         mem_mb = get_resource("mem")
     shell :"""
-    {SCRIPTS}/consensus_binning.py -c_bin_def {input.c_bin_def} -m_bin_def {input.m_bin_def} -c_mag_list {input.c_mag_list} -m_mag_list {input.m_mag_list} -scg {input.scg} -contig_profiles {input.contig_profiles} -contig_bed {input.contig_bed} -o {output}
+    {SCRIPTS}/consensus_binning.py -c_bin_def {input.bin_def_1} -m_bin_def {input.bin_def_2} -c_mag_list {input.mag_list_1} -m_mag_list {input.mag_list_2} -scg {input.scg} -contig_profiles {input.contig_profiles} -contig_bed {input.contig_bed} -o {output}
     """
+
+rule get_consensus_binning2 :
+    # only support 2 binner as of now
+    input : unpack(consensus_inputs)
+    output : "{group}/binning/{binner_combi}/clustering_consensus.csv"
+    resources:
+        slurm_partition = get_resource("partition"),
+        mem_mb = get_resource("mem")
+    shell :"""
+    {SCRIPTS}/consensus_binning.py -c_bin_def {input.bin_def_1} -m_bin_def {input.bin_def_2} -c_mag_list {input.mag_list_1} -m_mag_list {input.mag_list_2} -scg {input.scg} -contig_profiles {input.contig_profiles} -contig_bed {input.contig_bed} -o {output}
+    """
+
 
 #--------- run checkm as an other mag assessment option ----------------
 rule output_bins_faa:
